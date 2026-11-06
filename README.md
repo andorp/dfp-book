@@ -9,6 +9,18 @@ the PDF built from it. It is a work in progress and is updated as chapters are w
 
 - [`dfp-book.pdf`](dfp-book.pdf) — the book (6×9 in print layout)
 - [`dfp-book.tex`](dfp-book.tex) — its LaTeX source
+- `chapterNN/Code/`, `epilogue/Code/` — the companion Python code, chapter by chapter
+
+## Companion code
+
+Every challenge in a chapter's dialogue has a Python file in `chapterNN/Code/ChN/`
+that checks its claim in both strands: the algebra with NumPy, the picture with
+[PyZX](https://github.com/zxcalc/pyzx) (0.10.6), the two compared as tensors. Each
+chapter's `Code/README.md` walks through its files in order.
+
+The files are published to be read alongside the book. They import shared helpers
+(`tools/dfp.py` and the prop-picture checkers) and read the chapter's dialogue
+sources, none of which are part of this repository, so they do not run on their own.
 
 ## Building the PDF
 
@@ -29,5 +41,6 @@ include `unicode-math`, `luatexja`, `tikz` (with the `zx-calculus` library), `ti
 
 © Andor Penzes. Licensed under
 [Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International](https://creativecommons.org/licenses/by-nc-nd/4.0/)
-(CC BY-NC-ND 4.0); see [`LICENSE`](LICENSE). You may read and share the book with
-attribution, but not use it commercially or distribute modified versions.
+(CC BY-NC-ND 4.0); see [`LICENSE`](LICENSE). The license covers the companion code
+too. You may read and share the book and its code with attribution, but not use them
+commercially or distribute modified versions.
