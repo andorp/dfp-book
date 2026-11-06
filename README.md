@@ -9,14 +9,14 @@ the PDF built from it. It is a work in progress and is updated as chapters are w
 
 - [`dfp-book.pdf`](dfp-book.pdf) — the book (6×9 in print layout)
 - [`dfp-book.tex`](dfp-book.tex) — its LaTeX source
-- `chapterNN/Code/`, `epilogue/Code/` — the companion Python code, chapter by chapter
+- [`Code/`](Code) — the companion Python code, one folder per chapter (`Code/Ch0` … `Code/Ch19`, `Code/Epilogue`)
 
 ## Companion code
 
-Every challenge in a chapter's dialogue has a Python file in `chapterNN/Code/ChN/`
+Every challenge in a chapter's dialogue has a Python file in `Code/ChN/`
 that checks its claim in both strands: the algebra with NumPy, the picture with
 [PyZX](https://github.com/zxcalc/pyzx) (0.10.6), the two compared as tensors. Each
-chapter's `Code/README.md` walks through its files in order.
+folder's `README.md` walks through its files in order.
 
 The files are published to be read alongside the book. They import shared helpers
 (`tools/dfp.py` and the prop-picture checkers) and read the chapter's dialogue
