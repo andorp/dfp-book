@@ -117,16 +117,22 @@ def blackboard():
 # lay all morning (keyed: the keepsake under its small cloth, the message stone,
 # Alice's, and far off Bob's, each with its reflection, the drawing-cloth along
 # the front), the glass chimed with its trays tipped and both tokens up in the
-# dish, and the table read (the message stone and Alice's gone into the glass);
-# then the table after the letter is obeyed -- flip, spin, the tokens tipped out
-# before Bob's stone -- which looks exactly as before,
-#   \mirrortable[operations]{scene}{caption}, \pairingglass{state}{caption}
-#                                                         (pdf/props/ch10.tex)
-# tools/props_ch10.py transcribes the Lua (with L1 and L2); the calls are read
-# out of dialog.md, never copied.  This file also checks the whole dialogue: the
-# seventeen pictures, the keyed rule, the frames, the places, the Lua's
-# forty-seven faults, that nothing is pictured after the letter is obeyed, and
-# that the six "Let Bob draw" hooks still spell C-O-E-C-K-E.
+# dish, and the table read (the message stone and Alice's gone into the glass)
+# -- round 4: the glass and the table each computed as a step, marks off (the
+# block holds the ten, and a counted frame carries no mark); then the letter
+# obeyed as a strip of three -- flip and spin (an arc each; the stone looks
+# exactly as before), the tokens tipped out before Bob's stone (the envelope's
+# ghost) --
+#   \mirrortable[operations; step=...; marks=off]{scene}{caption},
+#   \pairingglass[step=...; marks=off]{state}{caption},
+#   \tablesteps[after=...; from=off]{scene}{steps}{captions}   (pdf/props/ch10.tex)
+# tools/props_ch10.py transcribes the Lua (with L1 and L2; proved against
+# texlua); the calls are read out of dialog.md, never copied.  This file also
+# checks the whole dialogue: the nineteen calls and twenty-three frames, the
+# keyed rule (true frames only), the predictions, the marks, the log, the
+# frames, the places, the Lua's seventy-three faults, that nothing is pictured
+# after the letter is obeyed, and that the six "Let Bob draw" hooks still spell
+# C-O-E-C-K-E.
 #
 # The state model (identity card, section 3, state model 3): every stone on the
 # table is half of a pair, so its state alone is 1/2 I and its reflection is
@@ -139,8 +145,15 @@ def blackboard():
 # --------------------------------------------------------------------------
 DIALOGUE = Dialogue(__file__, macros=PC.MACROS)
 QUOTE = "Nothing crossed the room but a letter."
-SIZES = {"First": [1, 1, 1, 1], "Second": [1, 1], "Third": [1, 1, 2], "Fourth": [1, 1, 1],
-         "Fifth": [3, 1]}
+SIZES = {"First": [1, 1, 1, 1], "Second": [1, 2], "Third": [1, 1, 3], "Fourth": [1, 1, 1],
+         "Fifth": [3, 1]}                                        # calls per block (card section 4)
+FRAMES = {"First": [1, 1, 1, 1], "Second": [1, 3], "Third": [1, 1, 4], "Fourth": [1, 1, 1],
+          "Fifth": [3, 3]}                                       # frames per block (a strip: one per step)
+# round 4, T2 and T3: the turned stone's sides, named (card section 3e.3)
+EDITS = [("what lay uppermost goes down against the black, and what lay",
+          "what lay uppermost goes down against the black, its crown tipping over towards the far end, and what lay"),
+         ("the side that faced the window now faces the room, and its top",
+          "the side that faced the window now faces the room, coming round on the company's side, and its top")]
 LUA = pathlib.Path(__file__).resolve().parents[3] / "pdf" / "props" / "ch10.lua"
 W, WC = "the last two pairs", "the last two pairs, with the cloth"
 
@@ -156,20 +169,39 @@ def halves(state, n):
 
 
 def check_faults():
-    """Every one of the Lua's forty-seven fault sites, each raised by a call of its own
+    """Every one of the Lua's seventy-three fault sites, each raised by a call of its own
     and by nothing else."""
-    R, T, G, K = PC.ringstring, PC.mirrortable, PC.pairingglass, PC.twotokens
+    R, T, G, K, S = PC.ringstring, PC.mirrortable, PC.pairingglass, PC.twotokens, PC.steps
+    TL = "the tale, both up"
     bad = [
+        # the bracket (round 4)
+        ("opt-unknown", R, "colour=red", TL),
+        ("opt-twice", R, "step=pull; step=pull", TL),
+        ("opt-bare", R, "pull; corrections", TL),
+        ("onoff", R, "step=pull; marks=maybe", TL),
+        ("marks-step", R, "marks=on", TL),
+        ("expects-keyed", R, "step=pull; expects=apart", TL, True),
+        ("expects-marks", R, "step=pull; expects=apart; marks=on", TL),
+        # the token pattern
         ("pattern-word", K, "", "brass up, copper sideways"),
         ("pattern-twice", K, "", "brass up, brass down"),
         ("pattern-none", K, "", ""),
+        # the glass, and its step
         ("glass-cups-twice", G, "", "cups empty, stones in the cups, both up"),
+        ("glass-left-twice", G, "", "cups empty, message stone in the left cup"),
         ("glass-tokens-twice", G, "", "tokens in the trays, tokens away"),
         ("glass-word", G, "", "cups full"),
         ("glass-pattern-twice", G, "", "tokens away, brass up"),
         ("glass-wrapped", G, "", "wrapped, cups empty"),
         ("glass-full", G, "", "stones in the cups"),
+        ("chime-word", G, "step=ring both up", "message stone in the left cup"),
+        ("chime-early", G, "step=chime both up", "tokens in the trays"),
+        ("glass-bare", G, "dish", "tokens in the trays"),
+        # the tokens, and their step
         ("tokens-place", K, "envelope", "both up"),
+        ("pin-step", K, "pin=off", "both up"),
+        ("turn-word", K, "step=flip brass", "both up"),
+        # the table
         ("table-scene", T, "", "the slab"),
         ("glass-again", T, "into the glass, into the glass", WC),
         ("letter-early", T, "letter both up", WC),
@@ -187,6 +219,7 @@ def check_faults():
         ("tip-twice", T, "into the glass, letter both down, tip out, tip out", WC),
         ("tip-unobeyed", T, "into the glass, letter both up, flip, tip out", WC),
         ("table-op", T, "look at bob's stone", WC),
+        # the string
         ("scene-words", R, "", "the four bends, both up"),
         ("loop-twice", R, "", "the loop, writing both up, writing both down, answer both up"),
         ("loop-stray", R, "", "the loop, brass up, writing both up, answer both up"),
@@ -194,23 +227,43 @@ def check_faults():
         ("string-scene", R, "", "the knot"),
         ("bends-op", R, "pull", "the four bends"),
         ("bends-round", R, "slide the flip round, slide the flip round", "the four bends"),
-        ("pull-twice", R, "pull, pull", "the tale, both up"),
-        ("corrections-early", R, "corrections", "the tale, both up"),
-        ("corrections-twice", R, "pull, corrections, corrections", "the tale, both up"),
-        ("meet-early", R, "kin to kin", "the tale, both up"),
-        ("tale-op", R, "slide round", "the tale, both up"),
+        ("pull-twice", R, "pull, pull", TL),
+        ("halfway-again", R, "pull; step=pull halfway", TL),
+        ("corrections-early", R, "corrections", TL),
+        ("corrections-twice", R, "pull, corrections, corrections", TL),
+        ("meet-early", R, "kin to kin", TL),
+        ("tale-op", R, "slide round", TL),
         ("slid-twice", R, "slide round, slide round", "the loop, writing copper up, answer brass up"),
         ("slide-count", R, "slide round", "the loop, writing copper up, answer both up"),
         ("slide-room", R, "slide round", "the loop, writing brass up, answer copper up"),
+        ("slide-rest", R, "green meets green; step=slide round", "the loop, writing copper up, answer both up"),
         ("loop-op", R, "pull", "the loop, writing copper up, answer copper up"),
         ("end-op", R, "pull", "end to end"),
+        ("lift-none", R, "pull; step=lift off", TL),
+        ("meet-rest", R, "pull, corrections, red meets red; step=green meets green", TL),
         ("kin-none", R, "pull, kin to kin", "the tale, both down"),
         ("meet-few", R, "pull, corrections, red to red", "the tale, copper up"),
-        ("meet-blocked", R, "pull, corrections spin first, red to red", "the tale, both up"),
+        ("meet-blocked", R, "pull, corrections spin first, red to red", TL),
+        # the wrong rules
+        ("wrong-apart", R, "step=pull halfway; expects=apart", TL),
+        ("wrong-more-turned", R, "pull; step=corrections; expects=more turned", TL),
+        ("wrong-either-way", R, "pull, corrections; step=kin to kin; expects=either way", TL),
+        ("string-rule", R, "step=pull; expects=less turned", TL),
+        ("rule-step", R, "expects=apart", TL),
+        # the strips: (macro, keyed, scene, options, steps, captions)
+        ("strip-bare", S, "ringstring", False, TL, "pull", "pull halfway", "a; b"),
+        ("strip-none", S, "ringstring", False, TL, "", "", "a"),
+        ("strip-four", S, "ringstring", False, TL, "", "pull halfway; pull; corrections; red meets red",
+         "a; b; c; d; e"),
+        ("strip-captions", S, "ringstring", False, TL, "", "pull", "a"),
     ]
     for site, fn, *args in bad:
         assert PC.faults(fn, *args) == [site], (site, PC.faults(fn, *args))
-    assert [b[0] for b in bad] == list(PC.ERROR_SITES) and len(set(PC.ERROR_SITES)) == 47
+    assert [b[0] for b in bad] == list(PC.ERROR_SITES) and len(set(PC.ERROR_SITES)) == 73
+    assert set(PC.ROUND3_SITES) < set(PC.ERROR_SITES) and len(PC.ROUND3_SITES) == 47   # round 3's keys kept
+    # the two "given twice" messages are one text at two sites, told apart by their keys
+    assert PC.messages(G, "", "cups empty, stones in the cups")[:1] == PC.messages(
+        G, "", "cups empty, message stone in the left cup") == ["pairingglass: the cups are given twice"]
     # the cascades: a bad token word and no good one leaves nothing said; both cups words
     # leave the later one, full, with the tokens still in the trays
     assert PC.faults(G, "", "brass sideways") == ["pattern-word", "pattern-none"]
@@ -219,61 +272,182 @@ def check_faults():
     # the Lua's quirks, transcribed: 'neither' lays both down; 'bobs stone' is Bob's
     assert PC.pattern("neither up", "x") == PC.pattern("neither down", "x") == PC.Pattern(False, False)
     assert PC.faults(T, "into the glass, letter both up, flip bobs stone, spin bob's stone, tip out", WC) == []
+    # the bracket is order-free: any order of its items draws one picture (and a key's
+    # case and the white space round '=' do not matter)
+    import itertools
+    for items, scene, fn in (
+            (["pull, corrections", "step=kin to kin", "expects=more turned"], TL, R),
+            (["pull", "step=corrections", "marks=off"], TL, R),
+            (["step=turn brass", "marks=off", "pin=off"], "both down", K),
+            (["into the glass, letter both up", "step=flip", "marks=off"], WC, T),
+            (["step=chime both up", "marks=off"], "message stone in the left cup", G)):
+        frames = {PC.frame_of(fn("; ".join(o), scene)) for o in itertools.permutations(items)}
+        assert len(frames) == 1, items
+    assert PC.frame_of(R(" Step = PULL ;Marks= Off", TL)) == PC.frame_of(R("step=pull; marks=off", TL))
+    for opts in itertools.permutations(["after=pull, corrections", "from=off", "marks=off"]):
+        assert PC.strip_frames("ringstring", "; ".join(opts), TL, "red meets red; lift off")[0] == [
+            ("pull, corrections; step=red meets red; marks=off", TL),
+            ("pull, corrections, red meets red; step=lift off; marks=off", TL)]
 
 
 def check_lua():
     """The transcription's constants are the Lua's (a drift guard: the places after L2,
-    the frames, the reflection geometry), and the Lua has as many fault sites as
-    ERROR_SITES -- its direct tex.error calls and its serr calls, the definition aside."""
+    the frames, the reflection geometry, round 4's marks); the Lua and the .tex are the
+    ones the transcription was proved on (PC.check_lua: every chunk pinned); and the Lua
+    has as many fault sites as ERROR_SITES -- its direct tex.error calls and its serr
+    calls, the definition aside."""
+    PC.check_lua()
+    PC.check_sites()
     lua = LUA.read_text(encoding="utf-8")
     nums = lambda pat: tuple(float(x) for x in re.search(pat, lua).groups())
     assert nums(r"local XKEEP, XMSG, XALICE, XBOB = (\S+), (\S+), (\S+), (\S+)\n") == \
-        (PC.XKEEP, PC.XMSG, PC.XALICE, PC.XBOB)
+        (PC.XKEEP, PC.XMSG, PC.XALICE, PC.XBOB) == (-1.0, -0.6, -0.11, 0.88)
     assert nums(r"local FTOP, FBOT = (\S+), (\S+)\n") == (PC.FTOP, PC.FBOT)
     assert nums(r"local TTOP, TBOT = (\S+), (\S+)\n") == (PC.TTOP, PC.TBOT)
-    assert nums(r"local SX0, SX1, STOP, SBOT = (\S+), (\S+), \S+, \S+\n") == PC.SLAB_ENDS
-    assert nums(r"local SRX, SRY = (\S+), \S+\n") == (PC.SRX,)
+    assert nums(r"local SX0, SX1, STOP, SBOT = (\S+), (\S+), \S+, \S+\n") == PC.SLAB_ENDS == (-1.22, 1.22)
+    assert nums(r"local SRX, SRY = (\S+), (\S+)\n") == (PC.SRX, PC.SRY)
     assert nums(r"local K = (\S+) ") == (PC.K,)
     assert nums(r"local SLACKDX = \{ (\S+), (\S+) \}") == PC.SLACKDX
+    assert nums(r"local GHOST = (\S+)\n") == (PC.GHOST,) == (0.35,)          # a ghost's opacity
+    assert nums(r"local PALE = (\S+)\n") == (PC.PALE,) == (0.5,)             # a prediction's
+    assert nums(r"local CUPX = (\S+)\n") == (PC.CUPX,) and nums(r"local TRAYY = (\S+)\n") == (PC.TRAYY,)
+    tex = LUA.with_name("ch10.tex").read_text(encoding="utf-8")
+    styles = dict(re.findall(r"(propchten(?:ghost|swing|slide|pinmark))/\.style=\{([^}]*)\}", tex))
+    assert styles == {"propchtenghost": "densely dotted, black!55, line width=0.45pt",
+                      "propchtenswing": "densely dotted, black!50, line width=0.6pt",
+                      "propchtenslide": "dotted, black!60, line width=0.5pt",           # Q8: finer than a swing
+                      "propchtenpinmark": "densely dotted, black!55, line width=0.6pt"}
+    # the in-frame reading widens each mark by its style's own line width, and its head by TIP's
+    assert {k: float(re.search(r"line width=([\d.]+)pt", v).group(1)) for k, v in styles.items()} == PC.MARK_WIDTH
+    assert PC.TIP == "-{Stealth[length=%spt,width=%spt]}" % (PC.TIP_LENGTH, PC.TIP_WIDTH)
     code = re.sub(r"--[^\n]*", "", lua)                           # comments aside
     direct = len(re.findall(r"tex\.error\(", code)) - 1           # the one inside serr
     via = len(re.findall(r"\bserr\(", code)) - 1                  # serr's own definition
-    assert (direct, via) == (27, 20) and direct + via == len(PC.ERROR_SITES) == 47
+    assert (direct, via) == (44, 29) and direct + via == len(PC.ERROR_SITES) == 73
+    # the wrong rules' prose, as the card copies it verbatim (section 3e.1)
+    card = (pathlib.Path(__file__).resolve().parents[2] / "identity.md").read_text(encoding="utf-8")
+    block = re.search(r"The wrong rules, copied verbatim.*?```\n(.*?)\n```", card, re.S).group(1)
+    assert block + "\n" == PC.rule_comment("THE STRING'S WRONG RULES")
 
 
 def check_whole_dialogue():
-    """All seventeen pictures: their number and places, the keyed rule, the captions,
-    the frames, no fault anywhere, nothing after the letter is obeyed; and the hooks."""
-    assert DIALOGUE.check_whole(PC.ORDER) == 17                  # 4 + 2 + 4 + 3 + 4
+    """All nineteen calls and twenty-three frames: their number and places, the keyed
+    rule (true frames only), the captions, the frames, the marks, the predictions, the
+    log, no fault anywhere, nothing after the letter is obeyed; and the hooks."""
+    assert DIALOGUE.check_whole(PC.ORDER) == 19                  # 4 + 3 + 5 + 3 + 4
     text = DIALOGUE.read(DIALOGUE.dialog)
-    assert len(DIALOGUE.call_re.findall(DIALOGUE.read(DIALOGUE.raw))) == 17   # dialog.raw.md too
+    assert len(DIALOGUE.call_re.findall(DIALOGUE.read(DIALOGUE.raw))) == 19   # dialog.raw.md too
     assert not DIALOGUE.call_re.findall(text[:text.index("## First Challenge")])   # none before
-    DIALOGUE.keyed_first(PC.ORDER, kind=PC.keyed_kind)
+    DIALOGUE.keyed_first(PC.ORDER, kind=PC.keyed_kind, select=PC.judged)
     placed = [(o, i, c) for o in PC.ORDER
               for i, c in enumerate(c for b in DIALOGUE.blocks(o) for c in b)]
     assert [(o, i) for o, i, c in placed if c.keyed] == [
         ("First", 0), ("First", 1), ("First", 2), ("Fifth", 0)]  # P1.1 P1.2 P1.3 P5.1
+    frames = []
     for o in PC.ORDER:
-        assert [len(b) for b in DIALOGUE.blocks(o)] == SIZES[o], o
-        for b in DIALOGUE.blocks(o):
-            assert len({PC.height(c) for c in b}) == 1, (o, [c.text for c in b])
+        found = PC.check_section(DIALOGUE, o, SIZES[o], FRAMES[o])    # frames, heights, captions, places
+        frames += [(o, c, p, cap) for b in found for c, fr in b for p, cap in fr]
+        for b in found:
+            assert len(b) <= 4
+    assert len(frames) == 23 and sum(PC.is_strip(c) for o, i, c in placed) == 3
+    assert [(o, cap) for o, c, p, cap in frames if getattr(p, "pale", False)] == [
+        ("Second", "as Achilles expects"), ("Third", "as Achilles expects")]     # apart, more turned
+    assert [p.expects for o, c, p, cap in frames if getattr(p, "pale", False)] == ["apart", "more turned"]
+    assert sum(PC.is_prediction(c) for o, i, c in placed) == 2
+    for o, c, p, cap in frames:                                    # a prediction: pale, unkeyed, unmarked
+        if getattr(p, "pale", False):
+            assert p.marks == () and p.labels == () and not c.keyed
+    marked = [(o, cap) for o, c, p, cap in frames if p.marks]
+    assert [len([m for m in marked if m[0] == o]) for o in PC.ORDER] == [2, 2, 3, 1, 3] and len(marked) == 11
+    # every marked frame's marks-off twin draws the same picture; the marks are its only addition
+    for o, c, p, cap in frames:
+        if p.marks:
+            fc = [f for f in PC.frame_calls(c) if f.caption == cap]
+            assert len(fc) == 1
+            t = PC.twin(fc[0])
+            assert t.marks == () and t.mark_tikz == () and PC.frame_of(t)[:3] == PC.frame_of(p)[:3]
+            assert all(PC.MARK_LINE.search(l) for l in p.mark_tikz)          # every mark line is a mark
+            # every ghost has a named destination: the place it went to, the ring it ran
+            # into, her pouch, or Achilles's hand
+            notes = [l for l in p.log if ": + ghost " in l]
+            assert len(notes) == len(p.mark("ghost"))
+            assert all(re.search(r": (it went to grid \d,\d|run together into the ring at rest|lifted off, "
+                                 r"into her pouch|handed up to Achilles)$", l) for l in notes), notes
+    # every mark lies inside its picture (drawn `overlay`, nothing else keeps it there): each
+    # mark's extent -- its path, half its line width, its arrow's head -- clear of the linen's
+    # edge on the cloth and of the frame's box elsewhere, by a positive gap
+    clear = [PC.mark_clearance(p) for o, c, p, cap in frames if p.marks]
+    assert len(clear) == 11 and min(clear) > 0.01, clear
+    assert [PC.mark_clearance(p) for o, c, p, cap in frames if not p.marks] == [None] * 12
+    # ... and on every step the Lua draws marks for, from the states round 4 draws and their
+    # neighbours (the lower pair round its bend, the loop's short and long meetings, the tale
+    # drawn in on every pattern)
+    T, LP, swept, kinds = "the tale, ", "the loop, writing ", [], set()
+    for fn, bracket, scene in (
+            [(PC.ringstring, "step=" + st, "the four bends") for st in
+             ("slide the flip round", "slide the spin round", "slide both round")] +
+            [(PC.ringstring, "slide the flip round; step=slide both round", "the four bends")] +
+            [(PC.ringstring, br, T + pat) for pat in ("both up", "brass up", "copper up")
+             for br in ("step=pull halfway", "pull halfway; step=pull", "step=pull", "pull; step=corrections")] +
+            [(PC.ringstring, "pull, corrections" + br, T + "both up") for br in
+             ("; step=red to red", "; step=kin to kin", "; step=red meets red", ", red meets red; step=lift off",
+              ", red to red; step=green to green", ", red meets red, lift off; step=green meets green")] +
+            [(PC.ringstring, "step=" + st, LP + w + ", answer " + a_) for st in
+             ("kin to kin", "green meets green", "red meets red", "red to red", "slide round")
+             for w in ("copper up", "brass up", "both up") for a_ in ("copper up", "brass up", "both up")
+             if PC.messages(PC.ringstring, "step=" + st, LP + w + ", answer " + a_) == []] +
+            [(PC.mirrortable, "into the glass, letter both up" + br, "the last two pairs, with the cloth") for br in
+             ("; step=flip", ", flip; step=spin", ", flip, spin; step=tip out")] +
+            [(PC.mirrortable, "step=into the glass", sc) for sc in ("the last two pairs", W + ", with the cloth")] +
+            [(PC.twotokens, br, pat) for br, pat in (("step=turn brass", "both down"), ("step=turn both", "both down"),
+                                                     ("letter; step=turn both", "both down"),
+                                                     ("cloth; step=turn copper", "brass up"))] +
+            [(PC.pairingglass, "step=chime " + pat, "message stone in the left cup") for pat in
+             ("both up", "brass up", "copper up", "both down")]):
+        pic = fn(bracket, scene, False)
+        swept.append(PC.mark_clearance(pic))                       # None: the step moved nothing
+        assert swept[-1] is None or swept[-1] > 0.01, (bracket, scene, swept[-1])
+        if "inside of the" in " ".join(pic.log):
+            kinds.add("lower pair, inside its bend")
+        if "the long way round" in " ".join(pic.log) and "slid to" in " ".join(pic.log):
+            kinds.add("short and long meetings on the loop")
+            assert "about (0.000,-0.695)" in " ".join(pic.log)        # the long arc kept lower
+    assert len(swept) == 58 and len([c for c in swept if c is not None]) == 56
+    assert kinds == {"lower pair, inside its bend", "short and long meetings on the loop"}
+    # the log, as the card's dump list has it: 23 heads, 39 entries, 3 strip lines, 65 in
+    # all, the same for both files
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        log = [l for o in PC.ORDER for b in DIALOGUE.blocks(o, path) for c in b for l in PC.describe(c)]
+        assert len(log) == 65 and sum(": + " in l for l in log) == 39
+        assert sum(l.endswith(" frames") and ": strip of " in l for l in log) == 3
+        assert log == [l for o in PC.ORDER for b in DIALOGUE.blocks(o) for c in b for l in PC.describe(c)]
+    # the Lua's round-4 comments quote the dialogue: 25 phrases, each in one challenge
+    places = PC.quote_places(DIALOGUE)
+    assert places == PC.quote_places(DIALOGUE, DIALOGUE.raw) and len(places) == 25
+    assert [len([q for q in places if q[2] == o]) for o in PC.ORDER] == [4, 4, 9, 1, 7]
+    # the header's PLACES paragraph quotes the opening direction for the keepsake's hidden
+    # reflection: once in each dialogue file, before the First Challenge
+    header = " ".join(LUA.read_text(encoding="utf-8").split("\n-- round 4")[0].replace("--", " ").split())
+    hidden = "it stays there, hidden, its reflection hidden with it under the cloth's edge"
+    assert 'is hidden with it under the cloth\'s edge ("' + hidden + '");' in header
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        whole = " ".join(path.read_text(encoding="utf-8").split())
+        assert whole.count(hidden) == 1 and whole.index(hidden) < whole.index("## First Challenge")
     for o, i, c in placed:
         PC.picture(c)                                            # the macro never faults
-        assert words_only(c.caption, forbidden=PC.CAPTION_FORBIDDEN), c.caption
-        if c.macro == "ringstring":
-            assert CLOTH.caption_ok(c.caption), c.caption        # no word for the string's lengths
         assert PC.place_ok(o, c), (o, c.text)
-        assert len(c.args) == 1 and c.args[0]                    # one state/scene argument
+        assert len(c.args) == (2 if PC.is_strip(c) else 1) and c.args[0]   # one scene (and a strip's steps)
     # the forbidden places, as the card lists them, nowhere in the dialogue
-    assert {c.macro for o, i, c in placed if o != "Fifth"} == {"pairingglass", "twotokens", "ringstring"}
-    assert [o for o, i, c in placed if c.macro == "mirrortable"] == ["Fifth", "Fifth", "Fifth"]
+    assert {c.macro for o, i, c in placed if o != "Fifth"} == {"pairingglass", "twotokens", "ringstring",
+                                                                "stringsteps"}
+    assert [o for o, i, c in placed if c.macro in ("mirrortable", "tablesteps")] == ["Fifth"] * 3
     assert {o for o, i, c in placed if c.macro == "pairingglass"} == {"First", "Fifth"}
     for bad in ("end to end", "slide both round", "corrections spin first",
                 "\\twotokens[cloth]", "\\twotokens*[cloth]"):
         assert all(bad not in c.text for o, i, c in placed), bad
     assert all(not {"wrapped", "under its chamois"} & set(PC.split(PC.lower(c.args[0]), ","))
                for o, i, c in placed if c.macro == "pairingglass")        # never wrapped
-    # nothing pictured after the letter is obeyed: P5.4 is the last call of the dialogue
+    # nothing pictured after the letter is obeyed: B5.4 is the last call of the dialogue
     p54 = DIALOGUE.blocks("Fifth")[-1][-1]
     paras = [q.strip() for q in re.split(r"\n[ \t]*\n", text) if q.strip()]
     pics = [i for i, q in enumerate(paras) if DIALOGUE.call_re.search(q)]
@@ -287,30 +461,100 @@ def check_whole_dialogue():
     assert re.findall(r"Let Bob draw (\w+)", DIALOGUE.read(DIALOGUE.raw)) == hooks
 
 
+def head(c):
+    """A call's bracket as its log line writes it (the Lua's trim of what TeX hands it):
+    the items in the order the dialogue writes them, which the picture never depends on."""
+    return PC.trim(PC.bracket(c) or "")
+
+
+def r3(x):
+    """A mark's numbers to the Lua's three places (its log's)."""
+    if isinstance(x, tuple):
+        return tuple(r3(y) for y in x)
+    return round(x, 3) if isinstance(x, float) else x
+
+
 def pictures():
     assert f'"{QUOTE}"' in __doc__                               # quoted byte for byte
     check_faults()
     check_lua()
     check_whole_dialogue()
-    calls = DIALOGUE.check_layout("Fifth", sizes=[3, 1])
-    p51, p52, p53, p54 = calls
-    for c in calls:
-        assert words_only(c.caption, forbidden=PC.CAPTION_FORBIDDEN), c.caption
-        assert PC.place_ok("Fifth", c), c.text
+    found = PC.check_section(DIALOGUE, "Fifth", sizes=[3, 1], frames=[3, 3])
+    PC.check_edits(DIALOGUE, "Fifth", EDITS)
+    calls = [c for b in found for c, _ in b]
+    p51, p52, p53, st54 = calls
     first, second = DIALOGUE.blocks("Fifth")
-    assert {PC.height(c) for c in first} == {PC.GLASS_FRAME} == {1.58}   # glass and table level
-    assert [c.macro for c in calls] == ["mirrortable", "pairingglass", "mirrortable", "mirrortable"]
+    assert {PC.height(c) for c in first + second} == {PC.GLASS_FRAME} == {1.58}   # glass and table level
+    assert [c.macro for c in calls] == ["mirrortable", "pairingglass", "mirrortable", "tablesteps"]
     assert [c.keyed for c in calls] == [True, False, False, False]
-    assert [(c.opt, c.args[0]) for c in calls] == [
-        ("", WC), ("", "stones in the cups, both up"), ("into the glass", WC),
-        ("into the glass, letter both up, flip, spin, tip out", WC)]
-    assert [c.caption for c in calls] == [
+    assert not any(PC.is_prediction(c) for c in calls)
+    assert [(PC.options(c), c.args[0]) for c in calls] == [
+        ({"bare": ""}, WC), ({"step": "chime both up", "marks": "off", "bare": ""}, "message stone in the left cup"),
+        ({"step": "into the glass", "marks": "off", "bare": ""}, WC),
+        ({"after": "into the glass, letter both up", "from": "off", "bare": ""}, WC)]
+    assert st54.args[1] == "flip; spin; tip out"
+    assert [cap for b in found for _, fr in b for _, cap in fr] == [
         "as they lay all morning", "chimed, and tipped", "read, and Bob's untouched",
-        "turned by feel, and unread"]
-    b51, g52, b53, b54 = (PC.picture(c) for c in calls)
+        "flipped, by feel", "spun, by feel", "tokens out, and unread"]
+    b51, g52, b53 = (PC.picture(c) for c in calls[:3])
+    strip = PC.picture(st54)
+    (f21, _), (f22, _), (f23, _) = strip.pictures
+    b54 = f23
     a1, a2 = DIALOGUE.anchors("Fifth")
     f1, f2 = DIALOGUE.following("Fifth")
     assert QUOTE in DIALOGUE.section("Fifth")                     # the docstring's line
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        here = [(n, q) for n, q, o in PC.quote_places(DIALOGUE, path) if o == "Fifth"]
+        assert sorted({n for n, _ in here}) == ["THE GLASS'S STEP", "THE TABLE'S STEPS"] and len(here) == 7
+        # the flip's and the spin's sides, as the arcs draw them, are the round's direction edits
+        for _, new in EDITS:
+            side = new.split(", ")[-2]
+            assert ("THE TABLE'S STEPS", side) in here, side
+    WCB = "{the last two pairs, with the cloth} | "
+    assert [l for c in calls for l in PC.describe(c)] == [
+        "mirrortable: [] " + WCB + PC.table_words(b51.state),
+        "pairingglass: [" + head(p52) + "] {message stone in the left cup} | "
+        "stones in the cups; in the dish both up; trays tipped",
+        "pairingglass: + step chime both up -> stones in the cups; in the dish both up; trays tipped",
+        "mirrortable: [" + head(p53) + "] " + WCB + PC.table_words(b53.state),
+        "mirrortable: + step into the glass -> " + PC.table_words(b53.state),
+        "tablesteps: strip of 3 frames",
+        "mirrortable: [into the glass, letter both up; step=flip] " + WCB + PC.table_words(f21.state),
+        "mirrortable: + step flip -> " + PC.table_words(f21.state),
+        "mirrortable: + swing arc round Bob's stone, over its crown and down its right side, radius 0.25 about "
+        "(0.880,0.086) (100 -> -8 degrees): flipped, top to bottom",
+        "mirrortable: [into the glass, letter both up, flip; step=spin] " + WCB + PC.table_words(f22.state),
+        "mirrortable: + step spin -> " + PC.table_words(f22.state),
+        "mirrortable: + swing arc half round and more above Bob's stone, about (0.880,0.273) (160 -> 380 "
+        "degrees, its front from the window side to the room's): spun about its upright",
+        "mirrortable: [into the glass, letter both up, flip, spin; step=tip out] " + WCB + PC.table_words(f23.state),
+        "mirrortable: + step tip out -> " + PC.table_words(f23.state),
+        "mirrortable: + ghost envelope, open, in dotted outline at (0.880,-0.865): handed up to Achilles"]
+    assert PC.table_words(b51.state) == (
+        "on the black: keepsake under its cloth at -1.000 (its reflection hidden), message stone at -0.600 "
+        "slack, Alice's stone at -0.110 slack, Bob's stone at 0.880 slack; drawing-cloth bare")
+
+    # B5.1, the counted block (it holds the ten): no mark on any of its three frames, and
+    # the lines each draws, counted as CLAUDE.md counts them -- 8 (four things on the
+    # black, each with its reflection), 2 (the two tokens in the dish, classical, no
+    # reflection; the spent stones' lines end at the glass), 4 (the keepsake and Bob's
+    # stone, each with its reflection).  P5.1 and P5.2 together: the ten.
+    assert [PC.lines_drawn(p) for p in (b51, g52, b53)] == [8, 2, 4]
+    assert PC.lines_drawn(b51) + PC.lines_drawn(g52) == 10
+    for p in (b51, g52, b53):
+        assert p.marks == () and p.mark_tikz == ()                # no ghost, no arc, no pin
+        assert len(p.log) == (1 if p is b51 else 2)               # the head, and the step: no mark entry
+    # with its marks on, the same step would draw them: marks=off is what keeps them off
+    assert [m.kind for m in PC.pairingglass("step=chime both up", "message stone in the left cup").marks] == \
+        ["ghost", "ghost", "swing", "swing"]
+    assert [m.kind for m in PC.mirrortable("step=into the glass", WC).marks] == \
+        ["ghost", "ghost", "swing", "swing"]
+    # the computed P5.2 and P5.3 are round 3's calls to the byte
+    assert PC.frame_of(g52)[:3] == PC.frame_of(PC.pairingglass(None, "stones in the cups, both up"))[:3]
+    assert PC.frame_of(b53) == PC.frame_of(PC.mirrortable("into the glass", WC))
+    assert g52.before["cups"] == "left" and g52.before["tokens"] == "trays"   # the glass waiting
+    assert PC.glass_words(g52.before) == "message stone in the left cup; tokens in the trays; trays level"
+    assert b53.before.glass is False and b53.moved == "lift"
 
     # P5.1: the table as it lay all morning, keyed -- the keepsake under its small cloth
     # (its own reflection hidden; the cloth's, an object, tight), the message stone,
@@ -340,12 +584,14 @@ def pictures():
     assert PC.SLAB_ENDS[0] < refl[0][0] and refl[-1][1] < PC.SLAB_ENDS[1]
     assert "one stone he leaves at the near end, by the others" in DIALOGUE.read(DIALOGUE.dialog)
 
-    # P5.2: the glass chimed -- the stones in its cups (spent), the trays tipped, both
-    # tokens face-up in the dish; the very tokens the letter then carries (P5.4)
+    # P5.2: the glass chimed -- the second stone in, the stones in its cups (spent), the
+    # trays tipped, both tokens face-up in the dish; the very tokens the letter then
+    # carries (B5.4)
     assert (g52.wrapped, g52.cups, g52.tokens, g52.pattern, g52.tipped, g52.labels) == \
         (False, "stones", "dish", PC.Pattern(True, True), True, ())
     assert g52.pattern == b54.state.letter
     assert "sets it in the left cup" in a1 and "the brass face-up, the copper face-up" in a1
+    assert "The glass waits. He lifts Alice's stone into the right cup" in a1
     # the glass reads: its trays are tipped exactly when both cups are full
     for cups in ("cups empty", "stones in the cups"):
         for tokens in ("tokens in the trays", "both up", "brass up", "tokens away"):
@@ -354,6 +600,9 @@ def pictures():
                 assert PC.faults(PC.pairingglass, "", spec) == ["glass-full"]
                 continue
             assert PC.pairingglass("", spec).tipped == (cups == "stones in the cups")
+    assert PC.pairingglass("", "message stone in the left cup").tipped is False   # one stone: it waits
+    # the chime happens as the second stone settles: from the glass waiting only
+    assert PC.faults(PC.pairingglass, "step=chime both up", "cups empty") == ["chime-early"]
 
     # P5.3: read -- the message stone and Alice's gone with their reflections; the
     # keepsake and Bob's stone left exactly where and as they were (fixed parts)
@@ -361,18 +610,62 @@ def pictures():
     assert v53.stones == (keep, bob) and v53.cloth and v53.letter is None
     assert (v53.frame, v53.ends) == (v51.frame, v51.ends)
 
-    # P5.4: the letter obeyed -- flip, then spin (the state), the tokens tipped out before
-    # Bob's stone, both up, no envelope; the stones EXACTLY P5.3's: the turn shows nothing
+    # B5.4: the letter obeyed, a strip of three -- flip, then spin (the state; nothing
+    # shows), then the tokens tipped out before Bob's stone.  Frame k is the single call
+    # [<after and the steps before>; step=<k>]; no before-frame: frame 1 without its arc is
+    # that before-state to the byte (a stone carries no mark)
+    fc = PC.frame_calls(st54)
+    assert [c.opt for c in fc] == ["into the glass, letter both up; step=flip",
+                                   "into the glass, letter both up, flip; step=spin",
+                                   "into the glass, letter both up, flip, spin; step=tip out"]
+    for c, (fr, _) in zip(fc, strip.pictures):
+        assert PC.frame_of(PC.picture(c)) == PC.frame_of(fr)
+    opened = PC.mirrortable("into the glass, letter both up", WC)
+    for c in fc[:2]:
+        assert PC.twin(c).shown == opened.shown and PC.twin(c).marks == ()    # flip and spin: nothing seen
+    assert PC.frame_of(PC.twin(fc[2])) == PC.frame_of(
+        PC.mirrortable("into the glass, letter both up, flip, spin, tip out", WC))   # round 3's P5.4
+    assert f21.shown == f22.shown == opened.shown and f21.shown.letter == PC.Pattern(True, True)
+    assert (f21.state.flip, f21.state.spin, f22.state.flip, f22.state.spin) == (True, False, True, True)
+    assert [p.moved for p in (f21, f22, f23)] == ["flip", "spin", "tip"]
+    # F21's mark: one swing arc round Bob's stone, over its crown and down its right side
+    # -- the far end (T2) -- radius 0.25 about (0.88, 0.086), 100 -> -8 degrees
+    arc, = f21.marks
+    (cx, cy), (rx, ry, a0, a1_, b1) = arc.pts
+    assert (arc.kind, arc.name) == ("swing", "flip")
+    assert r3((cx, cy, rx, ry, a0, a1_)) == (0.88, 0.086, 0.25, 0.25, 100, -8)
+    assert np.isclose(cy, PC.SRY * PC.K) and cx == PC.XBOB
+    assert a0 > 90 > 0 > a1_ and b1 > a1_                         # over the crown, down the right (far) side
+    paras = DIALOGUE.paragraphs("Fifth")
+    flip_para = paras[paras.index(a2) - 1]                        # the flip's direction, before the spin's
+    assert "its crown tipping over towards the far end" in flip_para and flip_para.startswith("*[Bob's stone sits")
+    # F22's: half round and more above Bob's stone, about (0.88, 0.273), 160 -> 380
+    # degrees, passing below its centre -- the near, company's side (T3)
+    arc, = f22.marks
+    (cx, cy), (rx, ry, a0, a1_, b1) = arc.pts
+    assert (arc.kind, arc.name) == ("swing", "spin")
+    assert r3((cx, cy, rx, ry, a0, a1_)) == (0.88, 0.273, 0.21, 0.055, 160, 380)
+    assert a0 < 270 < b1 < a1_                                    # through 270: the company's side
+    assert "coming round on the company's side" in a2
+    # F23's: the envelope's ghost in outline (the tokens cover its place), no arc; its
+    # destination, Achilles's hand, is the direction's
+    ghost, = f23.marks
+    assert (ghost.kind, ghost.name, ghost.how, r3(ghost.at)) == ("ghost", "envelope", "outline", (0.88, -0.865))
+    assert np.isclose(ghost.at[1], (PC.BANDY0 + PC.BANDY1) / 2) and f23.mark("swing") == []
+    assert "hands the empty envelope up to Achilles" in a2
+
+    # P5.4's end state: flip, then spin (the state), the tokens tipped out before Bob's
+    # stone, both up, no envelope; the stones EXACTLY P5.3's: the turn shows nothing
     T54 = b54.state
     assert (T54.glass, T54.letter, T54.flip, T54.spin, T54.tipped) == \
         (True, PC.Pattern(True, True), True, True, True)
     v54 = b54.shown
     assert v54.letter is None and v54.tokens_out == PC.Pattern(True, True)
     assert replace(v54, tokens_out=None) == v53                   # nothing else changed
-    assert "hands the empty envelope up to Achilles" in a2
     assert "with no mark on it, it looks just as it did" in a2
     assert f2 == "**Tortoise:** The glass chimed, and then the letter went."
-    assert not DIALOGUE.following("Fifth")[-1].startswith("\\begin")    # nothing after P5.4
+    assert DIALOGUE.following("Fifth")[-1] == f2                  # nothing pictured after B5.4
+    assert PC.lines_drawn(f23) == 4                               # the tokens on the cloth aside
 
     # the tie, slack <-> a half: every stone the table draws is 1/2 I, purity 1/2, at every
     # stage the plan draws.  Wires d (keepsake), a (message), b (Alice's), c (Bob's).

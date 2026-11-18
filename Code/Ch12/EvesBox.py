@@ -188,8 +188,8 @@ def pictures(ledger):
     calls = DIALOGUE.check_layout("Third", sizes=[1, 2, 1])
     p31, p32, p33, p34 = calls
     assert [(c.macro, c.keyed, c.opt, c.args, c.caption) for c in calls] == [
-        ("glinttray", True, "set the tell's key; set in the tell-glass; lay the side rod",
-         (f"his: {R8}; hers: {R8}",), "the tell-glass in the sleeve's place"),
+        ("traysteps", True, "set the tell's key", (f"his: {R8}; hers: {R8}", "set in the tell-glass; lay the side rod"),
+         "a key beside hers, the sleeve closed; the glass set in; the side rod laid"),
         ("glinttray", False, "", (IIIR,), "the run as laid"),
         ("glinttray", False, "strike the second and the fourth", (IIIR,), "struck, the gaps closed"),
         ("keycloth", True, "thread the fork", ("green to red",), "threaded on partway along")]
@@ -212,10 +212,82 @@ def pictures(ledger):
                    "stays where it lies on the table's edge"):                              # D11
         assert phrase in section, phrase
 
-    t31, t32, t33, c34 = (PC.picture(c) for c in calls)
+    # B3.1 (card 3e.8, E3), a keyed strip of three from the sleeve still closed: F12a, the
+    # tell's key set beside hers (the strip's own operation; the keyed frame -- the glass
+    # family turns on "set the tell's key"); F13, the glass set in; F14, the side rod laid.
+    # The later frames are keyed "new": each names only the part its step brought.  Neither
+    # step is marked (the Lua's note): the frame shows what it changed.
+    f12ac, f13c, f14c = PC.frame_calls(p31)
+    assert [(f.keyed, PC.bracket(f)) for f in (f12ac, f13c, f14c)] == [
+        (True, "set the tell's key"),
+        ("new", "set the tell's key; step=set in the tell-glass"),
+        ("new", "set the tell's key; set in the tell-glass; step=lay the side rod")]
+    (f12a, cap12a), (f13, cap13), (t31, cap14) = PC.pictures(p31)
+    assert (cap12a, cap13, cap14) == ("a key beside hers, the sleeve closed", "the glass set in", "the side rod laid")
+    assert PC.family(f12ac) == PC.family(p31) == "glass" and PC.keyed_kind(p31) == ("glinttray", "glass")
+    assert f12a.dump == (f"sleeve closed; tell's key set; side rod in the box; his [{R8}]; "
+                         f"hers [{R8}]; tell's []; bell still")
+    assert f12a.step is None and len(f12a.log) == 1                  # a before-frame: no step line
+    assert PC.tray_dump(f13.before) == f12a.dump                      # frame 2 starts where frame 1 ends
+    assert f13.dump == (f"sleeve off, tell-glass in; tell's key set; side rod in the box; his [{R8}]; "
+                        f"hers [{R8}]; tell's []; bell still")
     assert t31.dump == (f"sleeve off, tell-glass in; tell's key set; side rod at the side port; his [{R8}]; "
                         f"hers [{R8}]; tell's []; bell still")
-    assert t31.labels == ("lamp", "key", "rod", "reflection", "tell-glass", "tell's key")   # no room for the rows'
+    assert PC.tray_dump(t31.before) == f13.dump                      # frame 3 starts where frame 2 ends
+    assert [PC.lines_drawn(p.shown) for p in (f12a, f13, t31)] == [7, 9, 11]
+    for p, st, w in ((f13, "set in the tell-glass", "tell-glass"), (t31, "lay the side rod", "side rod")):
+        assert p.mark_tikz == () and p.log[2:] == (f"glinttray: + no mark for '{st}': the frame shows what it changed",
+                                                   f"glinttray: + keyed new: the word for the {w}, the part this step brought")
+        assert p.labels == (w,)
+    # the keyed frame names everything on the tray, the sleeve too (no room for the rows' words);
+    # the tell's key's word above the far edge at the frame's right, the sleeve's (the glass's)
+    # down on the black beneath their reflection -- no longer stacked under it as one two-line
+    # label (the PDF Builder's E3 note)
+    assert f12a.labels == ("lamp", "key", "rod", "reflection", "tell's key", "sleeve")
+    (tk,) = [l for l in f12a.label_tikz if "{tell's key}" in l]
+    (sl,) = [l for l in f12a.label_tikz if "{sleeve}" in l]
+    assert tk == "\\node[propchtwelvelabel, overlay, anchor=base east] at (1.250,0.600) {tell's key};"
+    assert sl == ("\\node[propchtwelvelabel, overlay, text=propchtwelvelabelpale, anchor=north] at "
+                  "(0.550,-0.190) {sleeve};")
+    assert f13.label_tikz == (sl.replace("{sleeve}", "{tell-glass}"),)   # the glass where the sleeve's word stood
+    assert 0.60 - PC.GLASSWORDY > 0.5                                   # the two words far apart, not one label
+    # the side rod's word above the table's far edge, its estimated box over the whole rod
+    (side,) = [r for r in t31.shown.rods if r[0] == "side"]
+    x0, _, x1, _ = PC.word_box(PC.SIDEWORDX - (0.055 * 8 + 0.035) / 2, 0.45, "west", "side rod")
+    assert t31.label_tikz == ("\\node[propchtwelvelabel, overlay, anchor=base] at (0.500,0.450) {side rod};",)
+    assert x0 < side[1] < side[3] < x1
+    # F12a is the single starred call of its state; F13 and F14 with marks=off draw the state
+    # with the step as one more operation (their one word apart); F14 is round 3's P3.1 up to keying
+    assert PC.frame_of(f12a) == PC.frame_of(PC.glinttray("set the tell's key", f"his: {R8}; hers: {R8}", True))
+    for fc, p, ops in ((f13c, f13, "set the tell's key; set in the tell-glass"),
+                       (f14c, t31, "set the tell's key; set in the tell-glass; lay the side rod")):
+        assert PC.frame_of(PC.twin(fc))[:2] == PC.frame_of(PC.glinttray(ops, f"his: {R8}; hers: {R8}"))[:2]
+        assert PC.twin(fc).label_tikz == p.label_tikz
+    assert len(PC.picture(p31).frames) == 3 and PC.describe(p31)[0] == "traysteps: strip of 3 frames"
+    t32, t33, c34 = (PC.picture(c) for c in calls[1:])
+    # the counted frames F15 (P3.2) and F16 (P3.3), card section 3e.5: twelve lines each, and
+    # no mark.  The four rods (left, right to the glass, far from the glass, side) each with its
+    # reflection, apart: the right and far rods stop short of the glass on each side, so no two
+    # meet end to end; three rows, the tell's a line further back; the bell standing apart.
+    for t in (t32, t33):
+        assert PC.lines_drawn(t.shown) == 12 and t.mark_tikz == () and t.step is None
+        rods = {name: (x1, d1, x2, d2) for name, x1, d1, x2, d2 in t.shown.rods}
+        assert set(rods) == {"left", "right", "far", "side"}
+        assert rods["left"][2] < PC.XLAMP < rods["right"][0] < rods["right"][2] < PC.XSLEEVE < rods["far"][0]
+        assert rods["far"][0] - rods["right"][2] > 0.1                # the glass between: no shared end
+        assert rods["side"][1] > 0                                     # the side rod runs back from the port
+        assert all(t.shown.rows[w] for w in ("his", "hers", "tell"))
+        assert {y for _, _, y in t.shown.rows["tell"]} == {PC.YTELLROW} != {y for _, _, y in t.shown.rows["hers"]}
+        assert t.bell_tikz == "\\begin{scope}[shift={(1.190,-0.880)}]"          # standing, unrung
+    # the pieces told apart (L6): between two black neighbours the felt shows, half the 0.8 pt
+    # ring wide -- 0.0141 cm, about 1.7 px at 300 dpi (more than one pixel, 0.0085 cm)
+    half = PC.FELTRING / 2 * PC.PT
+    assert [(w, i) for w, i, _, _ in PC.felt_between(t32.shown)] == [("his", 12), ("hers", 12)]
+    assert [(w, i) for w, i, _, _ in PC.felt_between(t33.shown)] == [("tell", 1), ("his", 10), ("hers", 9), ("hers", 10)]
+    for t in (t32, t33):
+        for w, i, vis, felt in PC.felt_between(t.shown):
+            assert np.isclose(vis, half) and np.isclose(felt, half) and felt > 2.54 / 300
+    assert PC.PITCH - 2 * t32.shown.rx < 2.54 / 300                    # without the felt: under a pixel
     assert t32.dump == (f"sleeve off, tell-glass in; tell's key set; side rod at the side port; "
                         f"his [{R8} white black white white black black]; hers [{R8} white white black white black black]; "
                         "tell's [white white black white black white]; bell still")

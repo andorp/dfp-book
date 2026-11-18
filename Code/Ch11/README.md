@@ -46,35 +46,54 @@ last builds the eleven-line Forbidden Telegraph, counts its edges, and shows by 
 that at the cross setting the near record falls away from the far ones. So the only
 telegraph a copier could make is one no linear picture can draw.
 
-**The prop pictures.** The dialogue draws its props with two macros from
+**The prop pictures.** The dialogue draws its props with four macros from
 `pdf/props/ch11.tex`: the black slab with the fresh pair, the copying press, the tray, the
-pewter counters and the viewer (`\presstable`), and the Tortoise's string, rings, points,
-cards, loops and knot on her drawing-cloth (`\copycloth`, drawn on the shared cloth of
-`pdf/props/cloth.lua`). Their Lua rules are transcribed once, with the card's L1–L5 in
-force, in `tools/props_ch11.py` (no matrices there). For the table it holds the places read
-from the Lua after L1 and the computed operations: a reading spends its stone, draws its
-reflection tight and lays the tray's top counter opposite it; the far stone goes into the
-hopper unread; the one strike drops two struck stones, their reflections slack. For the
-cloth it holds the six scenes and their moves (thread, lift off, slide the cards together,
-a faithful pressing, fold, slide the forks together, pull, slide together, draw apart),
-laid out and framed through the book's one transcription of the cloth kit,
-`tools/props_cloth.py`. It also holds the frames (the table's 1.66 cm; the cloth's 1.78,
-1.24 and 1.22 cm) and the Lua's thirty-five fault sites, each keyed and each message byte for
-byte. Every dump, frame, keyed word and card place was compared with `texlua` on the
-dialogue's calls, every fault message on its own call, and five hundred random calls on both
-sides, while the transcription was written. Each file reads the pictures of its own section
-of `dialog.md` through `tools/dfp_props.py` and checks their layout (4, 3, 3, 2, 4 pictures;
-blocks `[1,2,1]`, `[1,1,1]`, `[3]`, `[2]`, `[1,1,2]`; the same in `dialog.raw.md`), one frame
-per block, the captions (words only, from a forbidden list with no quantity word and no
-Stage-D word, and never a sentence someone speaks), the places each scene may appear, the
-paragraph each block follows and the one after it, and every picture's state. Each file also
-**ties the transcription to its own mathematics**, NumPy against its blackboard. This is a
-structural check, not a second proof. A red point is a stone settled plain, a green point a
-stone settled crosswise; a separate piece of cord is a factor of a product. A slack reflection
-is a stone that is $\tfrac12 I$ averaged over every record laid elsewhere, a tight one a stone
-that is pure given the counter laid opposite it. `ForbiddenTelegraph.py` checks the whole
-dialogue besides: sixteen pictures, the keyed rule, no fault on any call, the thirty-five
-fault sites one by one, and the transcription's constants against the Lua itself.
+pewter counters and the viewer (`\presstable`), the Tortoise's string, rings, points, cards,
+loops and knot on her drawing-cloth (`\copycloth`, drawn on the shared cloth of
+`pdf/props/cloth.lua`), and, from round 4 (*Show the process*), their step strips
+(`\presssteps`, `\copysteps`), a row of frames each one step on from the last. Their Lua
+rules are transcribed once in `tools/props_ch11.py` (no matrices there). For the table it
+holds the places read from the Lua and the computed operations: a reading spends its stone,
+draws its reflection tight and lays the tray's top counter opposite it; the far stone goes
+into the hopper unread; the one strike drops two struck stones, their reflections slack. For
+the cloth it holds the six scenes and their moves (thread, lift off, slide the card along,
+lift the cards off, a faithful pressing, fold, slide the forks together, pull, slide
+together, draw apart), laid out and framed through the book's one transcription of the cloth
+kit, `tools/props_cloth.py`. Round 4 adds the bracket's `;` grammar (one bare item and
+`step=`, `marks=`, `expects=`, `after=`, `from=`, in any order), the **step** (the frame drawn
+from the state before it, with the **marks** of the move: a ghost where a thing was, a short
+curved arc with a head for its path), the two **wrong rules** (`expects=copies anything`,
+`expects=deleted`: Achilles's predictions drawn pale, never keyed, never marked), and the
+strips. The Lua's fifty-five fault sites are mirrored one for one (twelve direct ones outside
+its two wrappers, fourteen of the table's, twenty-nine of the cloth's), each message byte for
+byte. The transcription was proved against `texlua`: 9335 calls (the dialogue's thirty-four,
+both files, and sweeps of every scene, step, prediction and strip), every emitted line equal,
+every fault site hit; and every marked frame with `marks=off` added draws round 3's picture
+byte for byte. `check_lua` then holds it there: the Lua's code (107 chunks), the `.tex`'s
+definitions (61) and the three rule comments that quote the dialogue are pinned by hash.
+
+**Pins (the cloth kit).** The shared cloth kit, `pdf/props/cloth.{lua,tex}`, is pinned in
+`tools/props_cloth.py`, which every file imports through `props_ch11`; a change to the kit fails
+every file of this chapter (see the note in `chapter10/Code/README.md`).
+
+Each file reads the pictures of its own section of `dialog.md` through `tools/dfp_props.py`
+and `PC.check_section`: the calls per block (`[1,2,2]`, `[1,1,1]`, `[1]`, `[3]`, `[1,1,1,2]`;
+seventeen calls) and the frames (6, 4, 3, 3, 6; twenty-two), the same in `dialog.raw.md`; at
+most four frames to a block, one frame height and one macro family to a block; the captions
+(words only, from a forbidden list with no quantity word and no Stage-D word, never a cloth
+word, never a sentence someone speaks); the places each scene may appear; the paragraph each
+block follows and the one after it; the log each call writes, line by line; and every
+frame's state, each ghost's place and each arc's ends. Every frame of a strip is checked to be
+the single call `[<the steps before>; step=<its step>]`, and every marked frame's marks-off
+twin to be round 3's picture. Each file also **ties the transcription to its own
+mathematics**, NumPy against its blackboard. This is a structural check, not a second proof.
+A red point is a stone settled plain, a green point a stone settled crosswise; a separate
+piece of cord is a factor of a product. A slack reflection is a stone that is $\tfrac12 I$
+averaged over every record laid elsewhere, a tight one a stone that is pure given the counter
+laid opposite it. `ForbiddenTelegraph.py` checks the whole dialogue besides: the keyed rule
+(true frames only), the predictions, the ten marked frames, the counted frames, every mark
+inside its picture, the log (77 lines), the fifty-five fault sites one by one, and the
+transcription's constants against the Lua itself.
 
 ---
 
@@ -130,23 +149,35 @@ h = g.copy(); simp.full_reduce(h); assert same_picture(h, bell_picture(0))
 
 *Pictures.* The slab as the press is set down, keyed: the near stone and the far stone,
 each restless over a slack reflection, the press at the far end, the counters stacked in the
-tray, the viewer beside it. The file checks the places the card's L1 fixes (the far stone in
-the slab's right half, the gaps) and the drawn extents, reflections included: every stone a
-positive gap from the press's legs, body and chutes and from the other stone, everything a
-positive gap inside the slab's ends. It also checks that each stone of the
-fresh pair is $\tfrac12 I$ alone. Then the fork with a red point, keyed, and the point
-threaded: two red points either side of where the fork stood, each on a cord of its own
-that keeps its course, a product of Schmidt rank 1. The direction says the out-cords are "no
-longer and no shorter"; measured on the picture, each is within a twentieth of its length
-before (+5% and −3.5%). Last the
-green point threaded and lifted off: one bend with both ends loose, one piece, which is
-$\delta\ket+=\tfrac1{\sqrt2}\,$cup exactly (the cup unnormalized, Schmidt rank 2).
+tray, the viewer beside it. It is one of the two **counted frames**: unmarked, seven lines
+(each stone and its reflection two, each stacked counter one: the discs stand up out of the
+tray, each a little up and every other one a little aside, so they count at print size, and
+the ruled fallback of four, the discs counted by the dialogue instead, is unused). The file
+asserts the stack countable: consecutive disc faces at least 0.05 apart, every face above the
+tray's front wall. The file checks the places the card's L1 fixes and the
+drawn extents, reflections included, each a positive gap, and that each stone of the fresh
+pair is $\tfrac12 I$ alone. Then the fork with a red point, keyed, and the point threaded, a
+step: two red points either side of where the fork stood, each on a cord of its own that
+keeps its course (within a twentieth of its length), a product of Schmidt rank 1; its marks
+are the point's ghost where it lay, the fork's ghost where it stood (into her shell; no cord
+is ghosted; clipped away round the two red points that came to lie over its place, which
+the file checks), and a slide arc above the in-cord. Then, at the naming beat, Achilles's
+prediction recalled, pale (`copies anything`: two green points where the red ones lay, two
+pieces, the product $\ket+\ket+$, which the copier does not make), and the green point's
+process as a strip of two: threaded, one green ring (the point's ghost, a slide arc stopping
+short of the ring), then the bare ring lifted off, one bend with both ends loose (the fork's
+ghost). One piece, which is $\delta\ket+=\tfrac1{\sqrt2}\,$cup exactly (the cup unnormalized,
+Schmidt rank 2).
 
 ```python
-assert np.linalg.matrix_rank(out.reshape(2, 2)) == 1           # red: two points, a product
-(piece,) = pieces(c14.cloth)                                     # green: one bend, one piece
+assert PC.lines_drawn(t11) == 7 and PC.lines_drawn(t11, tray=False) == 4    # a counted frame
+assert PC.frame_of(t)[:3] == PC.frame_of(PC.copycloth("thread", RED))[:3]  # marks off: round 3's P1.3
+wrong = pieces(w14p.cloth)                                      # the pale frame: two pieces
+assert not np.allclose(DELTA @ PLUS, kron(PLUS, PLUS).ravel())   # not two green points
+(piece,) = pieces(c16.cloth)                                     # green: one bend, one piece
 assert np.allclose(DELTA @ PLUS, CUP / np.sqrt(2))
 ```
+
 
 ## II. `NoCloning.py` — *One Loop, Two Loops* (the headline; *The Theorem, Twice*)
 
@@ -198,18 +229,26 @@ assert np.isclose(value(loops(Fraction(1, 3), Fraction(-1, 4), 2)), s1 ** 2) # t
 ```
 
 *Pictures.* The likeness loop, keyed: a point, the press card, its mirror card, the other
-point, on one closed loop. Then the cards slid face to face and gone, the points still on
-the loop; on the blackboard the press with its blank and works plugged in is an isometry
-$V$, and $V^\dagger V=I$ while $VV^\dagger\neq I$. Last, after a faithful pressing, two
-point-carrying loops and a small plain one, side by side and not touching: the likeness
-read off the picture is $s$ to the number of point-carrying loops, $s$ before and $s^2$
-after, and $s\neq s^2$ for a non-real $s$.
+point, on one closed loop (the caption now says what the picture shows: "the cards between
+the points"). Then the slide as a strip of two: the card slid along, up onto the mirror card,
+face to face (its ghost where it stood, a slide arc inside the loop below the cards), then
+both lifted off together, the points still on the loop (both cards' ghosts, into her shell). Each card's ghost is broken where the string passes;
+the file checks the break is a band across the whole ghost, wider than the cord and the
+dotted line together.
+The Lua refuses to lift the cards before they touch. On the blackboard the press with its
+blank and works plugged in is an isometry $V$: face to face, $V^\dagger V=I$; the other way
+round, $VV^\dagger$ is a projector, not the bare string. Last, after a faithful pressing, two
+point-carrying loops and a small plain one, side by side and not touching: the likeness read
+off the picture is $s$ to the number of point-carrying loops, $s$ before, during and after
+the slide and $s^2$ after the pressing, and $s\neq s^2$ for a non-real $s$.
 
 ```python
-assert np.allclose(V.conj().T @ V, I2)                          # cards off: bare string
-assert not np.allclose(P8, np.eye(8)) and np.allclose(P8 @ P8, P8)
+assert (under[:3], over[:3]) == (("mirror card", 4, 0), ("card", 4 - PC.CARDTOUCH, 0))
+assert PC.faults(PC.copycloth, "lift the cards off", LOOP) == ["loop-lift-early"]
+assert np.isclose(np.vdot(phi, V.conj().T @ (V @ psi)), s ** n(c22a))   # face to face: V^dagger V
 assert np.isclose(np.vdot(np.kron(phi, phi), np.kron(psi, psi)), s ** n(c23))   # pressed
 ```
+
 
 ## III. `NoBroadcasting.py` — *Eve's Tap* (copying is looking; no-broadcasting, easy half)
 
@@ -259,18 +298,23 @@ assert same_picture(read_then_set(), tap())                  # copy-and-forget =
 assert same_picture(fed(tap(), VT.Z, a), grey())             # the crosswise stone turns grey
 ```
 
-*Pictures.* One block. The fork and its mirror, keyed: the mirror string is the first one
-reflected top to bottom and runs the same way (a left-to-right reflection would not match).
-Then the second copy folded onto its reflection at the right, fork to mirror fork. Then the
-forks slid into one ring with two cords in from the left and two out to the right. On the
-blackboard copy-then-forget is the dephasing, exactly; the doubling of a non-real map is
-$K\otimes\bar K$, and the transposed pairing fails.
+*Pictures.* One strip of three, its first frame keyed. The fork and its mirror: the mirror
+string is the first one reflected top to bottom and runs the same way (a left-to-right
+reflection would not match). Then the second copy folded onto its reflection at the right,
+fork to mirror fork, with no mark (a curve beside the turn would read as a second fold). Then
+the forks slid into one ring with two cords in from the left and two out to the right, each
+fork's ghost where it stood and a slide arc from each, inside the wedge between the cords,
+the two arcs mirror images, clear of every cord. On the blackboard copy-then-forget is the
+dephasing, exactly; the doubling of a non-real map is $K\otimes\bar K$, and the transposed
+pairing fails.
 
 ```python
 assert sorted(far) == [0, 0, 6, 6]                               # two in, two out: a trace
+assert (c32.marks, c32.mark_tikz) == ((), ())                    # the fold: no mark
 assert np.allclose(sup, ring4)                                    # copy-then-forget: the ring
 assert not np.allclose(np.kron(K, K.conj().T) @ vec(rho), vec(K @ rho @ K.conj().T))
 ```
+
 
 ## IV. `NoDeleting.py` — *Eve's Blanks* (no-deleting)
 
@@ -313,16 +357,23 @@ assert same_picture(knot(), crossing())
 h = lhs.copy(); simp.full_reduce(h); assert same_picture(h, rhs)   # psi psi 0 -> psi 0 psi
 ```
 
-*Pictures.* One block. The knot, keyed: the upper line loose from the left, the lower from
-a red point, three cords across, green-over-red, red-over-green, green-over-red. Then the
-knot pulled: a plain crossing, the lines exchanging rows. Each cord is a CNOT with green the
-control, and the three alternating ones make the swap, Eve's frame, exactly; three the same
-way make one CNOT again, and the Lua's pull refuses them (`knot-not-alternating`).
+*Pictures.* One block of three. The knot, keyed: the upper line loose from the left, the
+lower from a red point, three cords across, green-over-red, red-over-green, green-over-red.
+Then Achilles's prediction, pale (`deleted`: the stone's line stops where the knot was, a
+fresh blank starts the upper line out of nothing, the tell runs on as it came in). Then the
+knot pulled, a step: a plain crossing, the lines exchanging rows, the six knot rings' ghosts
+where they stood and no arc. Each cord is a CNOT with green the control, and the three
+alternating ones make the swap, Eve's frame, exactly; three the same way make one CNOT
+again, and the Lua's pull refuses them (`knot-not-alternating`). The pale frame is the
+deletion the theorem forbids: it would take two copies' likeness $s^2$ to $s$, while the
+swap keeps $s^2$.
 
 ```python
+assert rows == [(0, 0, PC.DELSTOP), (0, PC.DELBLANK, 6), (1, 0, 6)]   # stops; from nothing; runs on
 assert np.allclose(knot, FRAME)                                # the drawn knot is the swap
-assert PC.faults(PC.knot_pull, same) == ["knot-not-alternating"]
+assert np.isclose(np.vdot(knot @ ins[1], knot @ ins[0]), s ** 2)   # the swap keeps the likeness
 ```
+
 
 ## V. `ForbiddenTelegraph.py` — *The Forbidden Telegraph* (the master)
 
@@ -380,29 +431,50 @@ assert not connected(h, m, z1) and not connected(h, m, z2)   # at cross: disconn
 assert set(h.neighbors(red)) == {m} and set(h.neighbors(green)) == {z1, z2}   # the cloth
 ```
 
-*Pictures.* The slab just after the strike: the near stone spent, read high at cross, its
-counter face-up opposite it; the far stone's place bare; two struck stones below the
-chutes, slack. The full run of l.436 (both struck stones read low, their counters face-down
-side by side, the viewer opposite the second) is checked on the transcription and not
-pictured. The reflection rule is tested on every stone shown: slack is $\tfrac12 I$ averaged
-over every record laid elsewhere, tight is pure given the stone's own counter. At cross each
-struck stone is $\tfrac12 I$ on either near outcome; at plain it is $\tfrac12 I$ only
-averaged and pure given the near record, so the rule's wording is what is tested. The far
-stone after the near reading is $\tfrac12 I$ averaged at both settings, and pure but
-setting-dependent given the record, which is why it stays slack and is never pictured. The
-run has probability $\tfrac14$; the far counters never disagree. Then the reading rings: at
-plain, keyed, one green ring with every counter's cord, and the three records always agree;
-at cross, the red ring joined to the far green one by the link, and then drawn away (L5: to
-the left), holding only the near counter's cord. The distribution is the product over the
-picture's pieces, and each picture's pieces fail on the other setting's distribution. This
-file also checks all sixteen pictures of the dialogue, the thirty-five fault sites, and the
-transcription's constants against the Lua, the press's drawn extents among them. In every
-state the table can reach, each stone, standing or reflected, keeps a positive gap from the
-press's legs, body and chutes, from every other stone and from the slab's ends. The
-clearances the Lua's header states are reproduced from those extents.
+*Pictures.* First a strip of two from the slab as set down: the near stone read high at
+cross, spent, its reflection tight, its counter laid face-up opposite it, the viewer at the
+window end (a pale ghost of the viewer by the tray; no ghost for the counter taken off the
+stack, which would read as one more counter; no arc),
+and **the far stone beside it, still restless, its reflection slack**; then the far stone
+lifted into the hopper (a dotted outline of the pebble where it stood, its reflection not
+ghosted, a lift arc from above the outline up and over into the cup). Then the slab just after the strike, computed with `marks=off`
+(the same picture as round 3's, and as the strike with its marks on, less the lever's swing
+and the two falls): the far stone's place bare, two struck stones below the chutes, slack.
+It is the second counted frame: nine lines (with P1.1's seven, all eleven of the chapter's
+wires). The full run of l.436 is checked on the transcription and not pictured. The reflection
+rule is tested on every stone shown: slack is $\tfrac12 I$ averaged over every record laid
+elsewhere, tight is pure given the stone's own counter. At cross each struck stone is
+$\tfrac12 I$ on either near outcome; at plain it is $\tfrac12 I$ only averaged and pure given
+the near record. The far stone after the near reading is $\tfrac12 I$ averaged at both
+settings, and pure but setting-dependent given the record: a reflection that tightened would
+be the telegraph. So it stays slack in every table frame after the near reading, the rule
+this file asserts on every frame and every reachable step. The run has probability
+$\tfrac14$; the far counters never disagree. Then the reading rings: at plain, keyed, one
+green ring with every counter's cord, and the three records always agree; at cross, the red
+ring joined to the far green one by the link, and then drawn away, a step (its ghost, a swing
+arc above the row), holding only the near counter's cord. The distribution is the product
+over the picture's pieces, and each picture's pieces fail on the other setting's
+distribution.
+
+This file also checks the whole dialogue: seventeen calls, twenty-two frames, four strips,
+two predictions (each followed by the true step it foresees), ten marked frames, six keyed
+frames (true frames only), the log of 77 lines in both files, the nineteen dialogue phrases
+the Lua's rule comments quote (each in one challenge), every mark inside its linen or frame
+by more than 0.01 cm (line width and arrow head included; the closest a table reading's
+viewer ghost, 0.0375 cm from the frame's foot) and no cloth arc within 0.05 cm of a cord,
+over the dialogue's frames and every step the Lua draws marks for; the fifty-five fault
+sites, one call each; the bracket order-free; and the transcription's constants against the
+Lua, the round-4 marks among them (the ghost's and the pale frame's opacities, the card ghost's
+size, the card's overlap, the deleted line's stop and blank, the lever's arc, the three mark
+styles). In every state the table can reach, each stone, standing or reflected, keeps a
+positive gap from the press's legs, body and chutes, from every other stone and from the
+slab's ends.
 
 ```python
-check_reflections(T)                                           # for P1.1, P5.1 and the full run
-assert not np.allclose(cond["plain"], cond["crosswise"])       # the far stone: not pictured
+assert things["far"] == PC.Thing("far", "stone", PC.XFAR, "restless", "slack")   # F17: pictured slack
+assert PC.frame_of(t51) == PC.frame_of(PC.presstable(STRIKE, F))   # round 3's P5.1, exactly
+assert [PC.lines_drawn(p) for p in counted] == [7, 9]              # the counted frames
+assert (direct, table, cloth) == PC.SITE_COUNTS == (12, 14, 29)    # 55 fault sites, by location
+assert not np.allclose(cond["plain"], cond["crosswise"])           # why it must stay slack
 assert pieces_hold(real["cross"], pieces(rings4)) and not pieces_hold(real["cross"], pieces(rings))
 ```

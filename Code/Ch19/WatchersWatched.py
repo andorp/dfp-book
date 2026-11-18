@@ -79,26 +79,41 @@ def pictures():
     assert calls == [] and DIALOGUE.blocks("Fifth") == [] and DIALOGUE.blocks("Fifth", DIALOGUE.raw) == []
     assert DIALOGUE.anchors("Fifth") == [] and PC.SECTION_PICS["Fifth"] == ()
     ORD = PC.ORDER
-    assert DIALOGUE.check_whole(ORD) == 15
+    assert DIALOGUE.check_whole(ORD) == 21
     DIALOGUE.keyed_first(ORD, kind=PC.keyed_kind)
     starred = [(o, c.macro) for o in ORD for b in DIALOGUE.blocks(o) for c in b if c.keyed]
     assert starred == [("First", "rulecard"), ("Second", "hingecloth"), ("Third", "darecloth"),
-                       ("Fourth", "boxcloth"), ("Fourth", "crablute")]
+                       ("Fourth", "boxcloth"), ("Fourth", "crablutesteps")]
     PC.check_negative_anchors(DIALOGUE)
     every_call = [c for o in ORD for b in DIALOGUE.blocks(o) for c in b]
-    assert [c.macro for c in every_call].count("rulecard") == 4 and len(every_call) == 15
+    assert len(every_call) == 21 and [c.macro for c in every_call].count("rulecard") == 2
+    assert sum(c.macro in PC.STRIPS_WHO for c in every_call) == 5                # five strips, sixteen singles
+    every = [fr for c in every_call for fr in PC.frame_runs(c)]                  # every frame: (Run, caption, keyed)
+    assert len(every) == 26 and sum(k for _, _, k in every) == 5
+    # the frames per challenge (card section 3e.2, as applied)
+    assert [sum(len(PC.frame_runs(c)) for b in DIALOGUE.blocks(o) for c in b) for o in ORD] == [5, 7, 7, 7, 0]
+    # a marked frame is never keyed; no card and no lute frame is marked
+    assert all(not (R.marked and k) for R, _, k in every)
+    assert not any(R.marked or R.mark_tikz for R, _, _ in every if R.kind in ("card", "lute"))
+    assert sum(R.marked for R, _, _ in every) == 13 == 4 + 5 + 4            # the hub, the dare, the box
     # the Cat and the Genie's lamp are never pictured: no macro draws them, and no caption, keyed
     # word or dump names them (the table lamp a card is held to is not the Genie's)
-    assert PC.MACROS == ("rulecard", "hingecloth", "darecloth", "boxcloth", "crablute")
-    for c in every_call:
-        pic = PC.picture(c)
-        said = " ".join([c.caption, pic.dump] + list(pic.labels))
-        assert not re.search(r"\b(cat|cat's|genie|genie's|purr)\b", said, re.I), c.text
-        assert not re.search(r"\blamp\b", " ".join([pic.dump] + list(pic.labels)), re.I), c.text
+    assert PC.MACROS == ("rulecardsteps", "hingeclothsteps", "dareclothsteps", "boxclothsteps", "crablutesteps",
+                         "rulecard", "hingecloth", "darecloth", "boxcloth", "crablute")
+    for R, cap, k in every:
+        said = " ".join([cap, R.dump] + list(R.labels))                    # what is drawn (the log may name the Cat's point)
+        assert not re.search(r"\b(cat|cat's|genie|genie's|purr)\b", said, re.I), cap
+        assert not re.search(r"\blamp\b", " ".join([R.dump] + list(R.labels)), re.I), cap
+    # the Cat is never drawn: no picture after the Fifth Challenge begins (the dialogue ends when
+    # someone looks at the Cat), in either file
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        text = DIALOGUE.read(path)
+        assert text.rindex("\\begin{center}") < text.index("## Fifth Challenge")
+        assert [l for l in text.split("\n") if l.startswith("**")][-1] == "**Cat:** Awake."   # the last word spoken
     # the counting scan (section 6.17 (d)): no caption and no keyed word counts, each alone and
     # all joined; the whole files' hits are exactly the approved ones, ruled kept
-    words = [c.caption for c in every_call] + [w for c in every_call for w in PC.picture(c).labels]
-    assert len(set(w for c in every_call for w in PC.picture(c).labels)) == 11
+    words = [cap for _, cap, _ in every] + [w for R, _, _ in every for w in R.labels]
+    assert len(set(w for R, _, _ in every for w in R.labels)) == 11
     for w in words + [" ".join(words)]:
         assert not PC.COUNT_SCAN.search(w), w
     for path in (DIALOGUE.dialog, DIALOGUE.raw):
@@ -122,6 +137,158 @@ def pictures():
                 "**Crab:** Nineteen, then.\n\n", "**Crab:** Nine courses.\n\n"):
         assert PC.form_check(text[:first] + bad + text[first:])[0] != [], bad
     assert PC.forbidden_lines(text + "\nThe ZX of it.\n") != []
+    check_faults()
+
+
+# the Lua's fault sites (card section 3e.6): one call raising each, in TEX_SITES order
+FAULT_CASES = [
+    ("step-unknown", "hinge", False, "red frob", ""),
+    ("step-done", "hinge", False, "red point, red point", ""),
+    ("step-after", "hinge", False, "slid into the hub", ""),
+    ("card", "card", False, "face", "a joker"),
+    ("view", "card", False, "sideways", "new"),
+    ("lute", "lute", False, "humming", ""),
+    ("opt-unknown", "hinge", False, "step=red point; colour=red", ""),
+    ("opt-twice", "hinge", False, "step=red point; step=red point", ""),
+    ("opt-bare-two", "hinge", False, "red point; red point; marks=off", ""),
+    ("opt-onoff", "hinge", False, "step=red point; marks=maybe", ""),
+    ("marks-no-step", "hinge", False, "red point; marks=on", ""),
+    ("marks-keyed", "hinge", True, "red point; step=slid into the hub", ""),
+    ("step-commas", "hinge", False, "step=red point, slid into the hub", ""),
+    ("step-empty", "hinge", False, "red point; step=", ""),
+    ("card-expects", "card", False, "expects=the same card", "new"),
+    ("card-step", "card", False, "step=turned over", "new"),
+    ("card-through", "card", False, "through; step=held to the lamp", "new"),
+    ("hinge-expects", "hinge", False, "expects=red into red", ""),
+    ("dare-expects", "dare", False, "expects=an eighth", ""),
+    ("box-part-turn", "box", False, "red points slid in, her look's ring slid along", ""),
+    ("box-part-begin", "box", False, "his look's ring slid along", ""),
+    ("box-part-next", "box", False, "red points slid in, his look's ring slid along, loops off", ""),
+    ("box-expects", "box", False, "expects=awake", ""),
+    ("box-part-keyed", "box", True, "red points slid in, his look's ring slid along", ""),
+    ("lute-expects", "lute", False, "expects=a chord", ""),
+    ("lute-same", "lute", False, "step=still", ""),
+    ("lute-still-first", "lute", False, "pairs sounding; step=top string sounding", ""),
+    ("strip-unknown", "steps", False, "nope", "", "", "x", "a"),
+    ("strip-bare", "steps", False, "hinge", "", "loud", "red point", "a; b"),
+    ("strip-star-from", "steps", True, "hinge", "", "from=off", "red point", "a"),
+    ("strip-none", "steps", False, "hinge", "", "", "", "a"),
+    ("strip-commas", "steps", False, "hinge", "", "", "red point, slid into the hub", "a; b"),
+    ("strip-long", "steps", False, "hinge", "", "", "red point; slid into the hub; feet slid apart; tube", "a; b; c; d; e"),
+    ("strip-captions", "steps", False, "hinge", "", "", "red point", "a"),
+]
+# a legal step for each macro (its own words), and its state argument
+STEP = {"card": ("held to the lamp", "new"), "hinge": ("red point", ""), "dare": ("drawn through", ""),
+        "box": ("red points slid in", ""), "lute": ("top string sounding", "")}
+MARKED = {"hinge": ("red point", "slid into the hub"), "dare": ("", "drawn through"), "box": ("", "red points slid in")}
+STRIPSTEP = {"card": "held to the lamp", "hinge": "red point", "dare": "drawn through", "box": "red points slid in",
+             "lute": "top string sounding"}
+def pair_cases():
+    """A call for every macro-site pair the fault cases leave (the shared sites, from each macro)."""
+    out = []
+    for k, (st, arg) in STEP.items():
+        out += [("opt-unknown", k, False, "step=%s; colour=red" % st, arg),
+                ("opt-twice", k, False, "step=%s; step=%s" % (st, st), arg),
+                ("opt-bare-two", k, False, "a; b; marks=off", arg),
+                ("opt-onoff", k, False, "step=%s; marks=maybe" % st, arg),
+                ("marks-no-step", k, False, "; marks=on", arg),
+                ("step-commas", k, False, "step=%s, %s" % (st, st), arg),
+                ("step-empty", k, False, "; step=", arg)]
+    for k, (bare, st) in MARKED.items():
+        out.append(("marks-keyed", k, True, "%s; step=%s" % (bare, st), ""))
+    for k, st in STRIPSTEP.items():
+        arg = "new" if k == "card" else ""
+        out += [("opt-unknown", "steps", False, k, arg, "colour=red", st, "a; b"),
+                ("opt-twice", "steps", False, k, arg, "from=on; from=on", st, "a; b"),
+                ("opt-bare-two", "steps", False, k, arg, "loud; soft", st, "a; b"),
+                ("opt-onoff", "steps", False, k, arg, "marks=maybe", st, "a; b"),
+                ("strip-bare", "steps", False, k, arg, "loud", st, "a; b"),
+                ("strip-star-from", "steps", True, k, arg, "from=off", st, "a"),
+                ("strip-none", "steps", False, k, arg, "", "", "a"),
+                ("strip-commas", "steps", False, k, arg, "", st + ", " + st, "a; b"),
+                ("strip-long", "steps", False, k, arg, "", "; ".join([st] * 4), "a; b; c; d; e"),
+                ("strip-captions", "steps", False, k, arg, "", st, "a")]
+    for k in ("hinge", "dare", "box"):
+        out += [("step-unknown", k, False, "frob", ""), ("step-done", k, False, ", ".join([STEP[k][0]] * 2), "")]
+    out += [("step-after", "dare", False, "card backwards", ""), ("step-after", "box", False, "slid together", "")]
+    return out
+
+
+def check_faults():
+    """Every fault site of ch19.lua raised by its own call, alone, each with messages of its own;
+    the 34 sites are the Lua's, all of them, and the 113 macro-site pairs each reached; the ';'
+    bracket is order-free (every order of a refused bracket raises the same faults); a call with a
+    fault draws no marks."""
+    def run(case):
+        if case[1] == "steps":
+            _, _, keyed, kind, state, opt, stepspec, caps = case[:8]
+            return PC.ch19_steps, (kind, keyed, state, opt, stepspec, caps)
+        _, kind, keyed, br, state = case[:5]
+        return PC.run_frame, (kind, br, state, keyed)
+    seen = {}
+    for case in FAULT_CASES:
+        site = case[0]
+        fn, args = run(case)
+        assert PC.faults(fn, *args) == [site], (site, PC.TEX_ERRORS)
+        (m,) = PC.messages(fn, *args)
+        assert m not in seen, (site, seen.get(m))                          # no two sites share a message
+        seen[m] = site
+    assert [c[0] for c in FAULT_CASES] == [k for k, _ in PC.TEX_SITES] and len(PC.ERROR_SITES) == 34
+    assert {k.rstrip("("): v for k, v in PC.SITE_COUNTS.items()} == {"errf": 3, "cerr": 2, "lerr": 1, "xerr": 28}
+    assert sum(PC.SITE_COUNTS.values()) == 34 == 6 + 28
+    # every pair: the site raised with the macro's own name, from every macro that reaches it
+    reached = set()
+    for case in FAULT_CASES + pair_cases():
+        fn, args = run(case)
+        for m in PC.messages(fn, *args):
+            reached.add((case[0], m.split(": ", 1)[0]))
+    want = {(k, w) for k, ws in PC.SITE_MACROS.items() for w in ws}
+    assert len(want) == 113 and reached == want | {("strip-unknown", "steps")}, sorted(want ^ reached)
+    # the bracket's items in any order: the same faults
+    import itertools
+    orders = 0
+    for case in FAULT_CASES:
+        k = 5 if case[1] == "steps" else 3
+        items = case[k].split("; ")
+        if len(items) < 2:
+            continue
+        fn, args = run(case)
+        want_f = sorted(PC.faults(fn, *args))
+        for order in itertools.permutations(items):
+            c2 = case[:k] + ("; ".join(order),) + case[k + 1:]
+            fn, args = run(c2)
+            assert sorted(PC.faults(fn, *args)) == want_f, (case[0], order)
+            orders += 1
+    assert orders >= 10
+    # a call with a fault draws no marks; a refused step none either
+    for case in FAULT_CASES:
+        if case[1] != "steps":
+            PC.TEX_ERRORS.clear()
+            R = PC.run_frame(case[1], case[3], case[4], case[2])
+            assert PC.TEX_ERRORS and R.mark_tikz == [] and R.arcs == [] and R.ghosts == [], case[0]
+    # the arcs' floor: an arc bowed under the Lua's MINSAG is refused, with the reason, and the same
+    # arc bowed just over it fits (no arc of the dialogue is refused for its bow, so the rule is tried
+    # on a drawn one: the hub's hop into the hub, its bow changed)
+    import copy
+    # the floor as the Lua writes it (read here from the Lua's text, not through the transcription),
+    # and its comment's figure
+    floor = float(re.search(r"^local MINSAG = ([\d.]+) ", PC.LUA_TEXT, re.M).group(1))
+    assert PC.MINSAG == floor == 0.055 and "bows at least MINSAG (0.055)" in PC.LUA_TEXT
+    R = PC.run_frame("hinge", "red point; step=slid into the hub", "", False)
+    S1 = PC.hinge_scene(R.after)
+    g = PC.G(S1, PC.HOPTS, PC.HWHO)
+    O_ = PC.c_obstacles(S1, g)
+    assert PC.c_fits(R.arcs[0], O_, list(R.ghosts), g)[0]
+    flat = copy.copy(R.arcs[0])
+    flat.sag = floor - 0.001
+    assert PC.c_fits(flat, O_, list(R.ghosts), g) == (False, "it bows only %s from its chord, under %s" % (
+        PC.f(flat.sag), PC.f(floor)))
+    flat.sag = floor + 0.0005
+    assert PC.c_fits(flat, O_, list(R.ghosts), g)[0]
+    PC.TEX_ERRORS.clear()
+    PC.check_sites()                                                     # the wrappers' tex.error calls
+    PC.check_lua()                                                       # every rule and place, in the Lua's words
+    PC.check_pins()
 
 
 # ----------------------------------------------------------------------------- the sketchbook

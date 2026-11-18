@@ -307,7 +307,7 @@ def pictures():
         ("stormline", False, "clip-bell on, glass cloudy", (), "Lifted at her mark")]
     PC.check_captions(DIALOGUE, "Fourth", calls)
     PC.check_section(DIALOGUE, "Fourth", calls)
-    PC.check_anchors(DIALOGUE, "Fourth", ["P4.1", "P4.2"])
+    assert PC.check_anchors(DIALOGUE, "Fourth", PC.BLOCKS["Fourth"]) == (0, 0)   # round 4 left these blocks alone
     p41, p42 = pics = [PC.picture(c) for c in calls]
     assert tuple(p.dump for p in pics) == FOURTH_DUMPS
     assert p41.frame == p42.frame == PC.stormline("").frame

@@ -155,25 +155,30 @@ def pictures():
     calls = DIALOGUE.check_layout("Third", sizes=[1, 1, 1])
     opened = "granted; first drawer open; first drawer shut; second drawer open"
     assert [(c.macro, c.keyed, c.opt, c.args, c.caption) for c in calls] == [
-        ("drawercase", False, "", ("granted",), "upper plain, lower gleaming"),
-        ("drawercase", False, "", (opened,), "the key, found"),
+        ("drawercasesteps", False, "", ("", "granted"), "the case as set on the table; upper plain, lower gleaming"),
+        ("drawercasesteps", False, "from=off", ("granted", "first drawer open; first drawer shut; second drawer open"),
+         "the drawer pulled out, empty; the drawer pushed shut; the key, found"),
         ("drawercase", True, "back", (opened + "; key taken; back open",), "the inside, from behind")]
     PC.check_captions(DIALOGUE, "Third", calls)
     PC.check_section(DIALOGUE, "Third", calls)
+    frames = [PC.frame_calls(c) for c in calls]
+    assert [len(f) for f in frames] == [2, 3, 1]                          # card 3e.6: 3 blocks, 6 frames
     case_h = round(PC.CFTOP - PC.CFBOT, 2)
     assert case_h == 1.51                                                # read from the Lua
-    assert [[PC.height(c) for c in b] for b in DIALOGUE.blocks("Third")] == [[case_h]] * 3
+    assert [[PC.height(f) for f in fs] for fs in frames] == [[case_h] * 2, [case_h] * 3, [case_h]]
+    assert [PC.family(f) for fs in frames for f in fs] == ["front"] * 5 + ["back"]
 
-    # the anchors (card section 4)
-    a1, a2, a3 = DIALOGUE.anchors("Third")
-    f1, f2, f3 = DIALOGUE.following("Third")
-    assert "What has held: the upper pane, plain; the back, still sealed; every drawer still shut." in a1
-    assert f1.startswith("**Achilles:** Upper dark, lower lit. The second drawer.")
-    assert a2.endswith("He draws out the second towards him. On its floor lies a small brass key.]*")          # D12
-    assert f2.startswith("*[He takes the key up. Nothing else on the case has stirred:")
-    assert "a pendant along the gap, towards the windows, to its own bob" in a3                                 # D15
-    assert f3.startswith("**Achilles:** The marker's pieces aren't the same on the two rows.")
-    assert DIALOGUE.following("Third", DIALOGUE.raw) == [f1, f2, f3]
+    # the anchors (card sections 4 and 3e.6), in both files
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        a1, a2, a3 = DIALOGUE.anchors("Third", path)
+        f1, f2, f3 = DIALOGUE.following("Third", path)
+        assert "What has held: the upper pane, plain; the back, still sealed; every drawer still shut." in a1
+        assert f1.startswith("**Achilles:** Upper dark, lower lit. The second drawer.")
+        assert a2.endswith("He draws out the second towards him. On its floor lies a small brass key.]*")      # D12
+        assert "Achilles draws out the first towards him" in a2
+        assert f2.startswith("*[He takes the key up. Nothing else on the case has stirred:")
+        assert "a pendant along the gap, towards the windows, to its own bob" in a3                             # D15
+        assert f3.startswith("**Achilles:** The marker's pieces aren't the same on the two rows.")
     for path in (DIALOGUE.dialog, DIALOGUE.raw):
         sec = DIALOGUE.section("Third", path)
         for phrase in ("beside the peg-card, just beyond it, its drawers towards him",                           # D11
@@ -200,7 +205,8 @@ def pictures():
             if o != "Third":
                 assert "**Genie:**" not in DIALOGUE.section(o, path)
 
-    p31, p32, p33 = (PC.picture(c) for c in calls)
+    process(calls)
+    p31, p32, p33 = (PC.pictures(c)[-1][0] for c in calls)                 # F23, F26, F27
 
     # P3.1: after the one passage the windows read the master's output |01>: upper dark,
     # lower lit -- the second drawer, D O_01 |s>
@@ -331,6 +337,86 @@ def pictures():
             assert min(g.values()) > least, (w, min(g, key=g.get), min(g.values()))
     assert PC.word_gaps(p33)["collar"]["word end-ring"] > 0.01
     assert PC.word_gaps(p33, ink=True)["collar"]["word end-ring"] > 0.08
+
+
+def case_model(clauses):
+    """The case as the dialogue handles it, clause by clause: before the passage both panes plain
+    and every drawer shut and locked; `granted` lights the windows with the master's output
+    D O_01 |s> = |01> (upper plain, lower lit: top cord first) and lets the locks go; a drawer
+    opened or shut; the key taken from the second (the marked drawer)."""
+    out = grover_D(4) @ marker(0b01, 4) @ (np.ones(4) / 2)
+    K = {"granted": False, "open": [False] * 4, "windows": None, "taken": False}
+    for cl in [c for c in clauses.split("; ") if c]:
+        if cl == "granted":
+            K["granted"], K["windows"] = True, tuple(bool(b) for b in bits(int(np.argmax(abs(out))), 2))
+        elif cl.endswith(" drawer open") or cl.endswith(" drawer shut"):
+            assert K["granted"]                                            # locked before the passage
+            K["open"][("first", "second", "third", "fourth").index(cl.split()[0])] = cl.endswith("open")
+        elif cl == "key taken":
+            assert K["open"][0b01]
+            K["taken"] = True
+    return K
+
+
+def same_case(K, model):
+    return (K.granted, K.open, K.windows, K.taken) == (model["granted"], model["open"], model["windows"],
+                                                       model["taken"])
+
+
+def process(calls):
+    """The Third's frames (round 4, card section 3e), each against the model in order: B12 the case
+    as set, then after the one passage (no marks: the gleam shows it); B13 from the passage on,
+    the first drawer out (no marks: 0.18 cm, under an arc's 0.20), shut again (its front's ghost
+    where it stood pulled out, no arc), the second out with the key on its floor; B14 (P3.3) the
+    counted frame, unmarked and unchanged from round 3.  Every marks=off twin draws round 3's
+    picture of the same state, line for line."""
+    case = [p for c in calls for p, _ in PC.pictures(c)]
+    clauses = ["", "granted", "granted; first drawer open", "granted; first drawer open; first drawer shut",
+               "granted; first drawer open; first drawer shut; second drawer open"]
+    models = [case_model(c) for c in clauses]
+    for k, (p, m) in enumerate(zip(case, models)):
+        assert same_case(p.after, m), (k, p.after)
+    assert models[1]["windows"] == (False, True) and models[0]["windows"] is None
+    for k in (1, 2, 3, 4):
+        p = case[k]
+        assert p.marked and same_case(p.before, models[k - 1])              # B13's before: B12's last
+        assert p.arcs == [] and p.wrong is None
+    assert [p.step for p in case[:5]] == [None, "granted", "first drawer open", "first drawer shut", "second drawer open"]
+    assert [len(p.ghosts) for p in case[:5]] == [0, 0, 0, 1, 0] and [len(p.mark_tikz) for p in case[:5]] == [0, 0, 0, 2, 0]
+    assert any(n.startswith("no marks: the passage moves nothing") for n in case[1].notes)
+    for p in (case[2], case[4]):
+        assert any(n.startswith("no marks: the drawer comes out 0.18 cm, under the 0.20 cm an arc needs") for n in p.notes)
+    # the shut drawer's ghost: its front's own outline where the before-frame drew it pulled out
+    (what, k, rect), = case[3].ghosts
+    (front,) = PC.case_view("", case[3].before).fronts
+    assert (what, k) == ("drawer front", 1) and front[0] == 1 and np.allclose(rect, front[1:])
+    assert not case[3].after.open[0] and case[3].before.open[0]
+    # the twins and the strips' frames as their single calls
+    fcs = PC.frame_calls(calls[0]) + PC.frame_calls(calls[1])
+    for fc, p in zip(fcs, case[:5]):
+        if p.step is None:
+            continue
+        tw = PC.twin(fc)
+        assert tw.mark_tikz == [] and tw.ghosts == [] and "no marks (marks=off)" in tw.notes
+        o = PC.options(fc)
+        r3 = PC.run_frame("case", o["bare"].strip(), (fc.args[0] + "; " + o["step"]).lstrip("; "), False)
+        assert not PC.TEX_ERRORS and r3.opts.get("round4") is None
+        assert PC.drawn(tw) == PC.drawn(r3) == PC.drawn(p)
+    # P3.3, the counted frame: a state clause `back open`, no step, no marks; it draws what round 3
+    # drew (its call is round 3's; the Lua's round-3 path), and a step on the back view never marks
+    p33 = case[5]
+    assert "step" not in PC.options(calls[2]) and p33.opts.get("round4") is None
+    assert p33.mark_tikz == [] and p33.ghosts == [] and p33.arcs == [] and not p33.marked
+    assert same_case(p33.after, case_model(clauses[-1] + "; key taken")) and p33.after.back
+    # `step=back open` is accepted only in the back view and never draws a mark (card section 3e)
+    before = "granted; first drawer open; first drawer shut; second drawer open; key taken"
+    b = PC.run_frame("case", "back; step=back open", before, False)
+    assert not PC.TEX_ERRORS and b.mark_tikz == [] and b.ghosts == [] and b.after.back
+    assert same_case(b.after, case_model(before)) and b.head == p33.head
+    assert PC.drawn(b) == PC.drawn(PC.run_frame("case", "back", before + "; back open", False))
+    assert any(n.startswith("no marks: the inside is the counted frame") for n in b.notes)
+    assert PC.faults(PC.run_frame, "case", "step=back open", before, False) == ["case-back-view"]
+    assert PC.faults(PC.run_frame, "case", "back; step=back open", before, True) == ["marks-keyed"]
 
 
 # --- the sketchbook ---------------------------------------------------------------------

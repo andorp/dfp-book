@@ -94,20 +94,26 @@ def blackboard():
 
 
 # --------------------------------------------------------------------------
-# The pictures.  The dialogue draws its props with two macros
+# The pictures.  The dialogue draws its props with five macros
 # (pdf/props/ch04.tex; the rules in pdf/props/ch04.lua):
-#   \stringframe[place]{state}{caption}   the Tortoise's frame, face on
-#   \foldsheet{folds}{marks}{caption}     the sheet, folded and opened flat
+#   \stringframe[opts]{state}{caption}    the Tortoise's frame, face on; opts
+#        the place of the coins, and a step (slide=, lift=, exchange=) with its
+#        marks, or what a wrong rule predicts (expects=), on cols= columns
+#   \framewalk[opts]{state}{captions}     a step strip of one walk of the coins
+#   \framesteps[opts]{state}{steps}{captions}   a step strip of moves (unused)
+#   \foldsheet[opts]{folds}{marks}{caption}     the sheet, folded and opened flat
+#   \foldsteps[opts]{first}{last}{captions}     a step strip of the folding
 # The Lua COMPUTES what a picture shows -- rows, coins, crossings, panels,
-# arrows -- and tools/props_ch04.py transcribes it.  The calls are read out of
-# this challenge's section of dialog.md (tools/dfp_props.py), never copied, so
-# an edit to the dialogue that breaks a picture breaks here.  This first file
-# also checks the dialogue as a whole: twenty pictures, and the keyed rule.
+# arrows, the moves, the marks, a wrong rule's prediction -- and
+# tools/props_ch04.py transcribes it.  The calls are read out of this
+# challenge's section of dialog.md (tools/dfp_props.py), never copied, so an
+# edit to the dialogue that breaks a picture breaks here.  This first file also
+# checks the dialogue as a whole: twenty-nine calls, thirty-six frames, the
+# keyed rule, the marks and the predictions.
 # --------------------------------------------------------------------------
-DIALOGUE = Dialogue(__file__, macros=("stringframe", "foldsheet"))
+MACROS = ("stringframe", "foldsheet", "framewalk", "framesteps", "foldsteps")
+DIALOGUE = Dialogue(__file__, macros=MACROS)
 ORDINALS = ("First", "Second", "Third", "Fourth", "Fifth", "Sixth")
-NOT_IN_CAPTIONS = ("strings", "wires", "wire", "diagram", "diagrams", "drawing", "drawings",
-                   "picture", "pictures", "box", "boxes")
 X = np.array([[0, 1], [1, 0]], dtype=complex)            # "turn it over"
 S0 = np.array([[1, 1], [0, 0]], dtype=complex)           # "heads up, whatever it was"
 CNOT = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]], dtype=complex)
@@ -115,25 +121,58 @@ SWAP = np.array([[1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]], dtype=
 GATES = {"over": X, "heads": S0, "yoke": CNOT, "cross": SWAP}
 
 
-def kind(call):
-    """What a keyed picture labels: the frame with its hooked strings, the sheet."""
-    if call.macro == "stringframe":
-        return (call.macro, P.hooked_of(call))
-    return call.macro
+def marked(pic):
+    """Whether a picture carries motion marks (a step's, a walk's, a fold's)."""
+    if isinstance(pic, P.Sheet):
+        return pic.marks
+    return pic.moved is not None or pic.walkmarks
 
 
 def check_whole_dialogue():
-    assert DIALOGUE.check_whole(ORDINALS) == 20                  # 3 + 3 + 3 + 4 + 3 + 4
-    DIALOGUE.keyed_first(ORDINALS, kind=kind)
-    placed = [(o, i, c) for o in ORDINALS
-              for i, c in enumerate(c for b in DIALOGUE.blocks(o) for c in b)]
-    assert [(o, i) for o, i, c in placed if c.keyed] == [("First", 0), ("First", 1),
-                                                         ("Second", 1)]
+    total, nframes, starred = P.check_dialogue(DIALOGUE, ORDINALS)
+    assert total == 29 and nframes == 36                    # 3+3+3+4+4+4 moments
+    assert [len(DIALOGUE.blocks(o)) for o in ORDINALS] == [3, 3, 3, 4, 4, 4]
+    assert starred == [("First", 0), ("First", 2), ("Second", 2)]
+    calls = [(o, c) for o in ORDINALS for b in DIALOGUE.blocks(o) for c in b]
     # the keyed rule is by labelling: by macro alone, P2.2 would be no first
-    seen = [c.macro for o, i, c in placed[:4]]
-    assert placed[4][2].keyed and placed[4][2].macro in seen
-    for o, i, c in placed:
-        P.picture(c)                                       # no macro ever faults
+    second = [c for o, c in calls if o == "Second"]
+    assert second[2].keyed and second[2].macro == "stringframe"
+    assert any(c.macro == "stringframe" for o, c in calls if o == "First")
+    # four step strips, of 2, 3, 3 and 3 frames; \framesteps is not used
+    strips = [(o, c.macro, len(P.pictures(c))) for o, c in calls
+              if c.macro in ("framewalk", "framesteps", "foldsteps")]
+    assert strips == [("First", "foldsteps", 2), ("Third", "framewalk", 3),
+                      ("Fifth", "framewalk", 3), ("Sixth", "framewalk", 3)]
+    # eight marked single frames; in a strip, the frames of a step carry its marks
+    # (a fold, the walk through a column), the first and the arrival none
+    singles = [(o, c) for o, c in calls if c.macro in ("stringframe", "foldsheet")]
+    assert len([1 for o, c in singles if marked(P.picture(c))]) == 8
+    for o, m, n in strips:
+        (c,) = [c for oo, c in calls if oo == o and c.macro == m]
+        want = [False, True] if m == "foldsteps" else [False, True, False]
+        assert [marked(p) for p, _ in P.pictures(c)] == want
+    # five predictions, each a refuted rule, never keyed, never marked
+    rules = [(o, P.picture(c).expects) for o, c in calls if P.is_prediction(c)]
+    assert rules == [("Second", "edge"), ("Third", "untouched"), ("Fifth", "row"),
+                     ("Fifth", "flat"), ("Sixth", "patchwork")]
+    for o, c in calls:
+        if P.is_prediction(c):
+            pic = P.picture(c)
+            assert not c.keyed and not marked(pic) and not pic.labels
+    # the hold rings: at the two exchanges only, on the pair's left-hand hooks
+    pinned = [(o, c.caption, [(n, r, x) for n, r, x, y in pic.pins])
+              for o, c in calls for pic, _ in P.pictures(c)
+              if isinstance(pic, P.Frame) and pic.pins]
+    assert pinned == [("Fifth", "crossed once", [("gut", 3, 0), ("horsehair", 4, 0)]),
+                      ("Fifth", "wound", [("horsehair", 4, 0), ("gut", 3, 0)])]
+    for o, c in calls:
+        for pic, _ in P.pictures(c):
+            if isinstance(pic, P.Frame):
+                assert bool(pic.pins) == (pic.step == "exchange")
+    # the old captions are gone (C1, C2), in both files
+    P.check_edits(DIALOGUE, "Third", [("{blue: over the first fold}",
+                                       "{blue: across the first fold}")])
+    P.check_edits(DIALOGUE, "Sixth", [("{every one home}", "{all home}")])
 
 
 def check_colon_rule():
@@ -149,42 +188,110 @@ def check_colon_rule():
     assert P.faults(P.stringframe, "start", "flax") != []  # an unknown string
 
 
+def check_round4_rules():
+    """The macros' own refusals, which a dialogue edit could otherwise slip past."""
+    # an expects picture is never keyed and carries no marks
+    assert P.faults(P.stringframe, "end;expects=row", "silk heads: cross, over; hemp: cross",
+                    True) == ["stringframe: an expects picture is not keyed"]
+    assert P.faults(P.foldsheet, "three", "blank", False, "expects=edge;marks=on") == [
+        "foldsheet: an expects picture carries no marks"]
+    # a wrong rule only where it differs from the paper
+    assert P.faults(P.foldsheet, "twice", "blank", False, "expects=edge") == [
+        "foldsheet: expects=edge differs from the paper from the third fold on"]
+    # the fold strip: forwards only, at most four frames, a caption for each
+    assert P.faults(P.foldsteps, "once", "none", "", "a; b") == [
+        "foldsteps: the last fold must come after the first"]
+    assert P.faults(P.foldsteps, "none", "four", "", "a; b; c; d; e") == [
+        "foldsteps: 5 frames; at most four fit a line (from=off)"]
+    assert P.faults(P.foldsteps, "none", "once", "", "one whole face") == [
+        "foldsteps: 2 frames but 1 captions"]
+    # marks on an unfolded sheet, and the key on a sheet not folded twice
+    assert P.faults(P.foldsheet, "none", "blank", False, "marks=on") == [
+        "foldsheet: marks=on needs a fold (once .. four)"]
+    assert P.faults(P.foldsheet, "once", "blank", True) == [
+        "foldsheet: the key names the four panels of the sheet folded twice"]
+
+
 def pictures(panels, two_lists):
+    P.check_lua()                     # ch04.lua and ch04.tex as the transcription was proved
     check_whole_dialogue()
     check_colon_rule()
-    p11, p12, p13 = DIALOGUE.check_layout("First", sizes=[1, 1, 1])
-    for c in (p11, p12, p13):
-        assert words_only(c.caption, forbidden=NOT_IN_CAPTIONS), c.caption
+    check_round4_rules()
+    # Three moments.  P1.1 the frame; block 1.2 the fold strip (none, once)
+    # beside the keyed sheet folded twice, with its marks; P1.3 the patchwork.
+    found = P.check_section(DIALOGUE, "First", sizes=[1, 2, 1], frames=[1, 3, 1])
+    (p11, [(fr, _)]), = found[0]
+    (p12a, strip), (p12b, [(sh, _)]) = found[1]
+    (p13, [(pw, _)]), = found[2]
 
     # P1.1: the frame, a string below; the coins are behind the card, not drawn
-    fr = P.picture(p11)
     assert p11.macro == "stringframe" and p11.keyed and fr.place == ("start", None)
     assert fr.hooked == ("silk", "hemp") and fr.ncol == 0
     assert fr.rows == {"silk": [1], "hemp": [2]}           # hemp BELOW silk
     assert fr.clips() == [] and fr.yokes() == [] and fr.crossings() == []
     assert fr.face == {"silk": None, "hemp": None} and fr.coins() == {}
     assert fr.labels == {"silk": 1, "hemp": 2}
+    assert not marked(fr)
     # a bare frame: every coin arrives as it was laid, whatever the pair
     assert np.allclose(P.check_walks(fr, GATES), np.kron(np.eye(2), np.eye(2)))
 
-    # P1.2: the sheet folded twice, blank, keyed
-    sh = P.picture(p12)
-    assert p12.macro == "foldsheet" and p12.keyed
-    assert sh.shape == (2, 2) and sh.panels == 4 == len(panels)
+    # Block 1.2: the folding, frame by frame.  Each fold goes through every
+    # panel there is (D1: once across, the lower half up onto the upper, and
+    # opened again; D2: end to end, the right half over onto the left).  The
+    # swing arcs of a fold stand one in every panel there was before it.
+    assert p12a.macro == "foldsteps" and not p12a.keyed and p12a.opt == ""
+    assert p12a.args == ("none", "once")
+    assert p12b.macro == "foldsheet" and p12b.keyed and P.options(p12b) == {"marks": "on"}
+    sheets = [s for s, _ in strip] + [sh]
+    assert [s.folds for s in sheets] == [0, 1, 2]
+    assert [s.shape for s in sheets] == [(1, 1), (2, 1), (2, 2)]
+    for before, after in zip(sheets, sheets[1:]):
+        assert after.panels == 2 * before.panels          # every panel split in two
+        assert len(after.swings) == before.panels         # one arc in each old panel
+    assert not sheets[0].marks and sheets[0].swings == []
+    once, twice = sheets[1], sheets[2]
+    assert once.swing_kind == "across" and twice.swing_kind == "endtoend"
+    # D1: the arc of the first fold runs up, from the lower half over the crease
+    # onto the upper
+    (a,) = once.swings
+    assert P.up(a) and a[0][1] < P.SH / 2 < a[3][1]
+    assert (once.panel_at(*a[0]), once.panel_at(*a[3])) == ((2, 1), (1, 1))
+    # D2: the arcs of the second fold, one in each row, run to the left, from
+    # the right half over the new crease onto the left
+    assert all(P.leftward(a) and a[3][0] < P.SW / 2 < a[0][0] for a in twice.swings)
+    assert sorted((twice.panel_at(*a[0]), twice.panel_at(*a[3])) for a in twice.swings) == [
+        ((1, 2), (1, 1)), ((2, 2), (2, 1))]
+    # the keyed sheet: blank, the names of its four panels
     assert sh.shares is None and sh.arrows == [] and sh.tallies is None and not sh.borders
+    assert sh.panels == 4 == len(panels)
     assert sh.labels == {"columns": ("hemp heads", "hemp tails"),
                          "rows": ("silk heads", "silk tails")}
     assert P.panel("heads", "tails") == 1                   # the panel asked for: upper right
+    # D1 and D2, where the folding is done: in the paragraph the block follows
+    D1 = ("and folds it once across the middle; the sheet is no smaller folded, but the crease "
+          "has scored it into an upper half and a lower half.]*",
+          "and folds it once across the middle, the lower half up onto the upper, and opens it "
+          "again.]*")
+    D2 = ("*[She folds it again, this time end to end, and opens it flat: the outline is "
+          "unchanged, yet the two creases have quartered the single face into four panels.]*",
+          "*[She folds it again, this time end to end, the right half over onto the left, and "
+          "opens it flat.]*")
+    P.check_edits(DIALOGUE, "First", [D1, D2])
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        a11, a12, a13 = DIALOGUE.anchors("First", path)
+        assert a12.endswith("For the hemp: left of the crease heads, right of it tails. "
+                            "Four panels. Fill them.")
+        assert D1[1] in a12 and D2[1] in a12
+        assert a12.index(D1[1]) < a12.index("For the silk: above the crease") < a12.index(D2[1])
 
     # P1.3: the patchwork -- the panels the blackboard computed, the slips its lists
-    sh = P.picture(p13)
-    assert not p13.keyed and sh.shape == (2, 2)
-    assert np.allclose(sh.shares, panels)                   # 3/8, 1/8, 3/8, 1/8
-    assert np.allclose(sh.shares, [3 / 8, 1 / 8, 3 / 8, 1 / 8])
-    assert np.isclose(sum(sh.shares), 1)                    # "They make one whole"
-    assert sh.borders
-    assert np.allclose(sh.border["silk"] + sh.border["hemp"], two_lists)
-    assert not np.isclose(sum(sh.border["silk"] + sh.border["hemp"]), 1)   # the lists: two
+    assert not p13.keyed and pw.shape == (2, 2) and not marked(pw)
+    assert np.allclose(pw.shares, panels)                   # 3/8, 1/8, 3/8, 1/8
+    assert np.allclose(pw.shares, [3 / 8, 1 / 8, 3 / 8, 1 / 8])
+    assert np.isclose(sum(pw.shares), 1)                    # "They make one whole"
+    assert pw.borders
+    assert np.allclose(pw.border["silk"] + pw.border["hemp"], two_lists)
+    assert not np.isclose(sum(pw.border["silk"] + pw.border["hemp"]), 1)   # the lists: two
     # the macro's patchwork is the Kronecker product of the two slips, for any words
     for sw, s in (("a half", 1 / 2), ("one in three", 1 / 3), ("nothing", 0.0), ("whole", 1.0)):
         for hw, h in (("three-quarters", 3 / 4), ("two-fifths", 2 / 5), ("one in four", 1 / 4)):
@@ -194,6 +301,19 @@ def pictures(panels, two_lists):
             if 0 < s < 1:
                 assert not np.allclose(got, np.kron([h, 1 - h], [s, 1 - s]))   # silk the rows
     assert P.faults(P.foldsheet, "twice", "patchwork: a half") != []
+
+    assert P.section_dumps(found) == [
+        "stringframe: start",
+        "stringframe: + cells silk bare",
+        "stringframe: + cells hemp bare",
+        "foldsheet: none rows 1 cols 1",
+        "foldsheet: once rows 2 cols 1",
+        "foldsheet: + swing 1 across",
+        "foldsheet: twice rows 2 cols 2",
+        "foldsheet: + swing 2 endtoend",
+        "foldsheet: twice rows 2 cols 2",
+        "foldsheet: + shares 0.3750,0.1250,0.3750,0.1250",
+        "foldsheet: + slips 0.5000,0.7500"]
 
 
 # --------------------------------------------------------------------------

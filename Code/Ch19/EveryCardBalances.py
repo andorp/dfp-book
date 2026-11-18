@@ -13,6 +13,7 @@ card by card; the deck is the book's, listed in Section 19.1 with its Rosetta ro
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools"))
 
+import re
 from fractions import Fraction
 from functools import reduce
 
@@ -297,6 +298,12 @@ def blackboard():
 FIRST_DUMPS = ("half passing face | left: g12 r6 | right: r18 g12 | dial=right:6 | cross=none",
                "sliding through | left: g15 | right: g18 g21 | dial=none | cross=none",
                "half passing through | left: g12 r6 | right: r18 g12 | dial=left:18 | cross=none")
+FIRST_FRAMES = (
+    ("Face up on the table", True, None, FIRST_DUMPS[0]),
+    ("The card face up", False, None, "sliding face | left: g3 g6 | right: g9 | dial=none | cross=none"),
+    ("Held to the lamp", False, "held to lamp", FIRST_DUMPS[1]),
+    ("The card as dealt", False, None, FIRST_DUMPS[0]),
+    ("Read from behind", False, "held to lamp", FIRST_DUMPS[2]))
 CARD_NAMES = ("sliding", "half passing", "new", "three quarters back", "green point")
 
 
@@ -435,24 +442,51 @@ def check_card_views(name):
 
 
 def pictures():
-    """The First Challenge's prop pictures (identity card, section 4), read from the dialogue
-    through tools/dfp_props.py and the transcription tools/props_ch19.py, and held against this
-    file's deck: each card side built as a chain on one wire from its dump."""
+    """The First Challenge's prop pictures (identity card, sections 4 and 3e), read from the
+    dialogue through tools/dfp_props.py and the transcription tools/props_ch19.py, and held against
+    this file's deck: each card side built as a chain on one wire from its dump.  Round 4 shows
+    each card held to the lamp beside its face: a strip of two frames, the card as set and the
+    card after the one step, computed by the see-through's rule."""
     calls = DIALOGUE.check_layout("First", sizes=[1, 1, 1])
     assert [(c.macro, c.keyed, c.opt, c.args, c.caption) for c in calls] == [
         ("rulecard", True, "", ("half passing",), "Face up on the table"),
-        ("rulecard", False, "through", ("sliding",), "Held to the lamp"),
-        ("rulecard", False, "through", ("half passing",), "Read from behind")]
-    PC.check_captions(DIALOGUE, "First", calls)
-    PC.check_section(DIALOGUE, "First", calls)
-    PC.check_anchors(DIALOGUE, "First")
-    pics = [PC.picture(c) for c in calls]
+        ("rulecardsteps", False, "", ("sliding", "held to the lamp"), "The card face up; Held to the lamp"),
+        ("rulecardsteps", False, "", ("half passing", "held to the lamp"), "The card as dealt; Read from behind")]
+    assert PC.check_captions(DIALOGUE, "First", calls) == 5
+    blocks = PC.check_section(DIALOGUE, "First", calls, [1, 2, 2])
+    assert PC.check_anchors(DIALOGUE, "First") == (4, 4)               # next-starts, phrases before
+    frames = [R for b in blocks for R, _, _ in b]
+    assert tuple((cap, k, R.step, R.dump) for b in blocks for R, cap, k in b) == FIRST_FRAMES     # the readings
+    # round 3's pictures are each block's last frame, unchanged
+    pics = [b[-1][0] for b in blocks]
     p11, p12, p13 = pics
     assert tuple(p.dump for p in pics) == FIRST_DUMPS
-    # the captions are true of their dumps: face up; held to the lamp and read from behind, through
-    assert (p11.state.view, p12.state.view, p13.state.view) == ("face", "through", "through")
-    # one frame, every card, both views
+    assert tuple(R.picture.dump for R in pics) == FIRST_DUMPS and p11.dump == PC.rulecard("half passing").dump
+    # the strips: the card as set (its face, the very picture an old call draws), then the card held
+    # to the lamp, computed from the frame before by the see-through's rule (card_state, D2)
+    for b, name in ((blocks[1], "sliding"), (blocks[2], "half passing")):
+        (f1, _, _), (f2, _, _) = b
+        assert f1.step is None and f1.dump == PC.rulecard(name, "face").dump
+        assert f2.step == "held to lamp" and repr(f2.before) == repr(f1.drawn)
+        assert repr(f2.after) == repr(PC.card_state(name, "through")) and f2.dump == PC.rulecard(name, "through").dump
+        assert f2.dump != f1.dump
+    # NO MARKS on a card, ever (the Lua: "a mark on the card would read as one of its drawings"),
+    # not even when asked for; and held to the lamp once only
+    assert not any(R.marked or R.arcs or R.ghosts or R.mark_tikz for R in frames)
+    asked = PC.run_frame("card", "face; step=held to the lamp; marks=on", "sliding", False)
+    assert PC.TEX_ERRORS == [] and not (asked.marked or asked.arcs or asked.ghosts or asked.mark_tikz)
+    assert asked.dump == p12.dump
+    assert PC.faults(PC.run_frame, "card", "through; step=held to the lamp", "sliding", False) == ["card-through"]
+    # no prediction frame: expects= is refused, with the Lua's reason, which quotes the dialogue
+    assert PC.faults(PC.run_frame, "card", "face; expects=two rings", "sliding", False) == ["card-expects"]
+    for q in re.findall(r'"([^"]+)"', PC.CEXPECTS):
+        assert all(q in DIALOGUE.read(f) for f in (DIALOGUE.dialog, DIALOGUE.raw)), q
+    PC.TEX_ERRORS.clear()
+    # the captions are true of their frames: face up / as dealt; held to the lamp, read from behind
+    assert [R.state.view for R in frames] == ["face", "face", "through", "face", "through"]
+    # one frame, every card, both views (strips included: every frame the card's frame)
     assert {PC.rulecard(n, v).frame for n in CARD_NAMES for v in ("face", "through")} == {p11.frame} == {1.12}
+    assert {R.frame for R in frames} == {1.12}
 
     # the see-through's rule, on every card of the deck the Tortoise draws (not only the pictured)
     for name in CARD_NAMES:
@@ -515,7 +549,7 @@ def pictures():
 
     # the keyed words (P1.1): is and dial, set by the Lua, at the compiled boxes and measured
     # clear; no cross on this card, so none printed; the other pictures unkeyed
-    assert p11.labels == ("is", "dial") and p12.labels == p13.labels == ()
+    assert p11.labels == ("is", "dial") and all(R.labels == () for R in frames[1:])
     PC.check_compiled_boxes(p11)
     assert min(PC.check_keyed_words(p11).values()) >= PC.LETTER_FLOOR
     for name in CARD_NAMES:                                           # every card the Lua can key

@@ -22,24 +22,50 @@ ask at all, and join two protected messages by a split and a merge, the same rin
 colours.
 
 Each file also runs `pictures()`, at the end of its blackboard. The dialogue's prop pictures
-(`\plaintin`, `\stormline`, `\partcloth`, `\linecloth`, `\tubecloth`, `\splitcloth`:
-seventeen calls, four, four, three, two and four by challenge) are read out of `dialog.md` and
-`dialog.raw.md` through `tools/dfp_props.py`. Their state is computed by `tools/props_ch18.py`,
-a transcription of `pdf/props/ch18.lua` on the shared cloth kit. The transcription reads the
-Lua's places and tables from the Lua itself, and a drift guard finds every rule it transcribes,
-word for word, in the Lua and counts the Lua's `tex.error` call sites (25: `\plaintin` 3,
-`\stormline` 7, `\partcloth` 3, `\linecloth` 4, `\tubecloth` 6, `\splitcloth` 2). It was
-diffed against the Lua under texlua: 96 reference lines (the seventeen calls of the dialogue,
-keyed and unkeyed, and the unpictured states between them), 28 error calls and 3000 fuzzed
-calls give 0 differences, and all 25 sites are reached. `pictures()` ties each picture to the
-blackboard. A cloth dump is read as a PyZX graph (`PC.graph_of`: a ring a spider of its colour
-turned as its bead, a ring lying on a cord spliced into it, a cord with an odd number of tubes a
-Hadamard edge, a loose end a boundary), and a storm-line state is read as the labels of the
-file's `storm_line`. It also checks the dialogue's rules: blocks and sizes, captions in words
-only and no echoes, every picture in its place, the anchor phrases, the starred pictures (P1.1,
-P1.2, P1.4, P2.2, P3.2, P5.1), and the keyed words' clearances on drawn extents: a word's node
-box clears the frame by at least $0.025$ cm and its letters clear every part drawn and every
-other word by at least $0.02$ cm. This is a structural check of the pictures, not a third proof.
+are read out of `dialog.md` and `dialog.raw.md` through `tools/dfp_props.py`: 21 calls in 19
+blocks (First 5, Second 6, Third 4, Fourth 2, Fifth 4), of which eight are step strips
+(`\plaintinsteps`, `\partclothsteps`, `\lineclothsteps`, `\tubeclothsteps`,
+`\splitclothsteps`, `\stormlinesteps` are the six strip macros beside `\plaintin`,
+`\stormline`, `\partcloth`, `\linecloth`, `\tubecloth`, `\splitcloth`), so 34 frames in all
+(10, 10, 5, 2, 7 by challenge). Their state is computed by `tools/props_ch18.py`, a
+transcription of `pdf/props/ch18.lua` on the shared cloth kit. The transcription reads the
+Lua's places and tables from the Lua itself, finds every rule it transcribes word for word in
+the Lua, and pins the Lua's 265 top-level chunks and the `.tex`'s 98 by hash
+(`PC.check_pins()`), with the two comments that state a wrong rule (`"three copies"`,
+`"nothing gets past the bells"`) pinned word for word and found again in the card. It counts
+the Lua's 63 fault sites (`PC.TEX_SITES`: round 3's 25, `\plaintin` 3, `\stormline` 7,
+`\partcloth` 3, `\linecloth` 4, `\tubecloth` 6, `\splitcloth` 2, and round 4's 38 strip,
+step and mark faults); the eleven bare `tex.error` calls are seven fault wrappers' bodies and
+four re-raisings of messages a site already made, none a site of its own. Under texlua the
+transcription gives byte-identical logs on the dialogue's 34 frames (42 log records), on 40009
+crude and 128592 targeted fuzzed calls, and on every fault case in every order of its items.
+`pictures()` ties each frame to the blackboard. A cloth dump is read as a PyZX graph
+(`PC.graph_of`: a ring a spider of its colour turned as its bead, a ring lying on a cord spliced
+into it, a cord with an odd number of tubes a Hadamard edge, a loose end a boundary, a bell tied
+twice its two ties), and a storm-line state is read as the labels of the file's `storm_line`.
+
+**Pins (the cloth kit).** The shared cloth kit, `pdf/props/cloth.{lua,tex}`, is pinned in
+`tools/props_cloth.py`, which every file imports through `props_ch18`; a change to the kit fails
+every file of this chapter (see the note in `chapter10/Code/README.md`).
+
+Every frame of every strip is asserted, in order, against the model's state after that many
+steps: each step frame starts from the state the frame before it draws, and a strip starts
+from the state the block before stops at. The motion marks are asserted against their step: a
+ghost (dotted) sits where a piece of the state before lay; an arc runs from beside a piece of
+the state before to beside a piece of the step's state, at another place, bowed by at least the
+Lua's `MINSAG` ($0.055$ cm) and clear of every part; moves of one kind are marked every one or
+none (the log says which, and why); a counted frame (P1.4, P2.2) and every step on the storm
+line draw no marks, and a refused step draws none either. The two prediction frames (P1.3's
+pale frame, "three copies"; P3.1's, "nothing gets past the bells") are the named wrong rule as
+the file itself applies it to the state before, drawn pale beside the true frame and shown to
+differ from it in value. `BlindVote.py` holds the fault cases: one call per site, in the Lua's
+order, each raising its own site with messages of its own, every order of a refused bracket's
+items raising the same faults. It also checks the dialogue's rules: blocks and sizes, captions in
+words only and no echoes, every picture in its place, the anchor phrases (for the blocks round 4
+changed or added, the paragraph before and the start of the paragraph after), the starred
+pictures, and the keyed words' clearances on drawn extents: a word's node box clears the frame
+by at least $0.025$ cm and its letters clear every part drawn and every other word by at least
+$0.02$ cm. This is a structural check of the pictures, not a third proof.
 
 Six conventions hold across the files.
 
@@ -121,6 +147,22 @@ assert same_picture(g13, point_into_encoder(VT.Z, Fraction(1, 2)))
 assert PC.line_cords() == 18 == len(p14.shown.spans)
 ```
 
+Round 4 shows the process. The tin is read lid by lid (four frames: the vote is decided after
+two dark lids, and each lid lifted leaves the others fixed); the dark point is knotted before
+it is pushed in, the knotted frame's value the pushed-in one times the counter's $\tfrac12$,
+the push's arcs from the point to the ring. P1.3's pale frame is Achilles's rule, "three
+copies", built in the file: three turned points, equal to the drawn pale frame, and not the
+true frame at any power of $\sqrt2$ (rank 1 against rank 2), while for the dark and the lit
+point the rule's picture is the true one up to the counter, and the Lua refuses the prediction.
+The rule's comment in the Lua is pinned and found in the card, and every phrase it quotes is in
+both dialogue files.
+
+```python
+assert same_picture(guess, three_points(VT.Z, Fraction(1, 2)))   # three turned points ...
+assert not same_picture(g_, true)                                  # ... not "Taken in", at any power
+assert PC.faults(PC.run_frame, "part", "expects=three copies", st, False) == ["part-expects-true"]
+```
+
 ## The Blind Vote — `BlindVote.py`
 
 A quiet run comes through clear. Then a gust at the door, both bells ring, and the Crab mends
@@ -168,9 +210,28 @@ and the mend all at a half; without the halves on the ties it does not. P2.4, th
 straight, equals P2.2.
 
 ```python
-assert signature(g22) == signature(master) and same_picture(g22, master)
-assert same_picture(halves, gust) and same_picture(g23, halves)
+assert signature(g22) == signature(master)
+assert same_picture(g22, master)
+assert same_picture(halves, gust)
+assert same_picture(g23, halves)
 assert same_picture(g24, g22) and np.allclose(matrix_of(g24), I2)
+```
+
+Round 4 draws the mend move by move: the gust's half sent through (P2.3), the halves slid into
+their red rings (B2.3a), the green rings slid together one strand at a time (B2.3b: four
+frames, the last the whole step `green rings slid together`, state and picture), the bells
+lifted off and the cord drawn straight (P2.4). Every one of the ten frames is the bare wire
+with the number 1, by tensor and by `full_reduce`; a bell tied twice read as tied once is not.
+Each piece stays where it lay until the step that moves it, and each step's ghosts and arcs
+are the ones the move makes. The same step taken whole draws no arcs (its after-state crowds
+every arc's end), which is why the strip goes ring by ring. Then the fault cases: the 63 sites,
+the order-free bracket, refused steps unmarked, and no step on the storm line marked.
+
+```python
+assert np.allclose(matrix_of(g), I2), R.step                                   # every frame
+assert h.num_vertices() == 2 and h.num_edges() == 1 and np.isclose(h.scalar.to_number(), 1), R.step
+assert whole.dump == last.dump and not PC.TEX_ERRORS
+assert [c[0] for c in FAULT_CASES] == [k for k, _ in PC.TEX_SITES] and len(PC.ERROR_SITES) == 63
 ```
 
 ## The Turn the Bells Miss — `NineStrands.py`
@@ -216,6 +277,21 @@ without its tubes it is not.
 assert np.allclose(line, Z) and not np.allclose(line, I2)
 assert same_picture(g, green)                      # fresh, pairs, drawn through
 assert same_picture(g33, shor_encoder()) and np.allclose(matrix_of(g33), ENC9)
+```
+
+Round 4 draws Achilles's prediction pale beside P3.1: "nothing gets past the bells", applied in
+the file to the line as it stands (both bells silent, nothing mended), says the glass reads
+clear. The line's value is $Z$, so a message a quarter round comes out a quarter back, cloudy:
+the drawn pale frame is the rule's line, not the true one. Where every tell ring is at rest the
+rule is right, and the Lua refuses the prediction. P3.2 becomes a strip: the fresh ring with its
+pairs of tubes (keyed with the word tube; two tubes in a row are no tube, so the value is the
+fresh ring's), then drawn through, the near tubes slid into the ring with four arcs and no ghost
+of a tube.
+
+```python
+assert pale.wrong.glass == rule == "clear" and pale.drawn.glass == "clear"
+assert p31.state.glass == "cloudy" != pale.drawn.glass
+assert np.isclose(abs(np.vdot(MARKS["a quarter back"], value @ quarter)) ** 2, 1)
 ```
 
 ## What a Bell May Ask — `WhatABellMayAsk.py`
@@ -292,12 +368,27 @@ the half slid into the split are $(Z\otimes I)\,\mathrm{CNOT}/\sqrt2$; P5.3, sli
 that branch with the half on the upper line; P5.4, the Crab's half slid into hers, is the
 joiner again, and its table is the drawn-out one's. The split's green ring stays at $(1,0)$ and
 the merge's red at $(3,2)$ throughout. The file then checks the whole dialogue: the sections in
-order with seventeen pictures, the starred form on the first of each macro, none of the 35
+order with every picture, the starred form on the first of each macro, none of the 35
 negative anchors, the form check of card §1c on both files, no signal, no "Let Bob draw", no
 Genie, and the Cat four times in each file and never in a picture.
 
 ```python
-assert same_picture(g[0], bare) and same_picture(g[1], surgery(0))
+assert same_picture(g[0], bare) and np.allclose(matrix_of(g[0]), CNOT / np.sqrt(2))
+assert same_picture(g[1], bare) and same_picture(g[1], surgery(0))
 assert same_picture(g[2], surgery(1, half_on_upper=True)) and np.allclose(matrix_of(g[2]), zc)
 assert same_picture(g[3], bare)
+```
+
+Round 4 draws P5.3 and P5.4 as strips: the half set on the string, back into the split, slid
+apart (three frames, each $(Z\otimes I)\,\mathrm{CNOT}/\sqrt2$ exactly), then the Crab's half
+laid beside hers and the two slid together (two frames, each the plain joiner). The half and
+the Crab's half come from a box and a claw, so their frames carry no marks; each slide has its
+arc and its ghosts. Laid on the lower line instead, the Crab's half would not mend. The
+whole-dialogue check counts 19 blocks, 21 calls and 34 frames, the keyed frame of each macro
+the first, every call (a strip by its frames' macro) in its place in both files, and the last
+picture before the Crab's question whether the Cat is asleep and the Cat's own line.
+
+```python
+assert np.allclose(matrix_of(gR), zc) and not same_picture(gR, bare), R.step   # every frame of P5.3
+assert same_picture(g54[0], bare) and same_picture(g54[0], g54[1]) and same_picture(g54[1], g[3])
 ```

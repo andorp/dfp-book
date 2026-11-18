@@ -15,6 +15,8 @@ from fractions import Fraction
 import numpy as np
 import pyzx as zx
 from dfp import Picture, matrix_of, random_state, same_picture, verdict
+from dfp_props import Dialogue, words_only
+import props_ch03 as P
 
 
 X = np.array([[0, 1], [1, 0]], dtype=complex)
@@ -196,46 +198,20 @@ def beads():
 
 
 # --------------------------------------------------------------------------
-# The pictures.  The dialogue draws the ball with \crabball{glass}{steel}{...}
-# (pdf/props/ch03.tex), in the room's frame: x towards the dresser, y up, z towards
-# the company.  Ours above is x towards the stove, y towards the company, z up;
-# ROOM carries a direction of ours into the room's.  The pictures are read out
-# of this challenge's section of dialog.md, never copied, so an edit to the
-# dialogue that breaks a picture breaks here.
+# The pictures.  The dialogue draws the ball with \crabball[opts]{glass}{steel}{..},
+# a step strip of it with \crabplay[opts]{glass}{steel}{score}{cap; cap; ..}, and
+# the Tortoise's strip with \scorestrip[view]{score}{caption} (pdf/props/ch03.tex).
+# pdf/props/ch03.lua COMPUTES what each shows -- the ball after a score is played,
+# a step strip's frames with their marks, the state a wrong rule predicts, the
+# strip as it now lies -- and tools/props_ch03.py transcribes it.  The calls are
+# read out of this challenge's section of dialog.md (tools/dfp_props.py), never
+# copied, so an edit to the dialogue that breaks a picture breaks here.  Every
+# state is checked against the model above.  The pictures use the room's frame
+# (x towards the dresser, y up, z towards the company); ours is x towards the
+# stove, y towards the company, z up, and ROOM carries one into the other.
 # --------------------------------------------------------------------------
-DIALOG = pathlib.Path(__file__).resolve().parents[2] / "dialog.md"
+DIALOGUE = Dialogue(__file__, macros=("crabball", "crabplay", "scorestrip"))
 ROOM = np.array([[-1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, 1.0, 0.0]])
-ROOM_PLACES = {"up": (0, 1, 0), "down": (0, -1, 0), "company": (0, 0, 1),
-               "away": (0, 0, -1), "dresser": (1, 0, 0), "stove": (-1, 0, 0)}
-
-
-def room_direction(arg):
-    """A picture argument read as pdf/props/ch03.lua reads it: a name, or a
-    triple x,y,z scaled to length one."""
-    arg = re.sub(r"\s", "", arg)
-    if arg in ROOM_PLACES:
-        return np.array(ROOM_PLACES[arg], dtype=float)
-    v = np.array([float(t) for t in arg.split(",")])
-    assert v.shape == (3,), arg
-    return v / np.linalg.norm(v)
-
-
-def section(ordinal):
-    """The dialogue's '## <ordinal> Challenge' section, up to the next heading."""
-    text = DIALOG.read_text(encoding="utf-8")
-    heads = list(re.finditer(r"^## " + ordinal + r" Challenge\b.*$", text, re.M))
-    assert len(heads) == 1, ordinal
-    rest = text[heads[0].end():]
-    after = re.search(r"^## ", rest, re.M)
-    return rest[:after.start()] if after else rest
-
-
-def drawn(ordinal):
-    """Every picture of the ball in the dialogue's '## <ordinal> Challenge'
-    section, in order: (keyed, glass, steel, caption)."""
-    macro = r"\\crabball(\*?)\{([^}]*)\}\{([^}]*)\}\{([^}]*)\}"
-    return [(star == "*", room_direction(g), room_direction(s), caption)
-            for star, g, s, caption in re.findall(macro, section(ordinal))]
 
 
 def check_frame():
@@ -243,173 +219,178 @@ def check_frame():
     # clock" would silently become "against"
     assert np.allclose(ROOM.T @ ROOM, np.eye(3)) and np.isclose(np.linalg.det(ROOM), 1)
     for name, u in PLACES.items():                      # all six names agree
-        assert np.allclose(ROOM @ u, room_direction(name)), name
-    assert np.allclose(ROOM @ HOME["glass"], room_direction("up"))       # home
-    assert np.allclose(ROOM @ HOME["steel"], room_direction("company"))
+        assert np.allclose(ROOM @ u, P.vec(name)), name
 
 
-def check_strip(ordinal, moments, keyed_first=False):
-    """The pictures of one challenge against the positions the file computes
-    for those moments, one position per picture, in order."""
-    check_frame()
-    pictures = drawn(ordinal)
-    assert len(pictures) == len(moments), (ordinal, len(pictures))
-    for k, ((keyed, glass, steel, caption), R) in enumerate(zip(pictures, moments)):
-        assert keyed == (keyed_first and k == 0), caption
-        assert np.isclose(glass @ steel, 0), caption    # at right angles
-        assert np.allclose(glass, ROOM @ R @ HOME["glass"]), caption
-        assert np.allclose(steel, ROOM @ R @ HOME["steel"]), caption
-        # the macro draws the brass needle midway; so does the ball
-        assert np.allclose((glass + steel) / np.sqrt(2), ROOM @ R @ HOME["brass"]), caption
+def beads_of(R):
+    """Where the model puts the three beads, in the room's frame."""
+    return {n: ROOM @ R @ HOME[n] for n in HOME}
 
 
-# --------------------------------------------------------------------------
-# The Tortoise's strip.  The dialogue draws it with
-# \scorestrip[view]{score}{caption} (pdf/props/ch03.tex).  The score is the strip
-# AS DRAWN, left to right: "glass+1" is glass, one click, with the clock;
-# "steel-2" steel, two clicks, against; a bare "|" a gummed join; nothing at
-# all, a blank strip.  The view says how the strip now lies -- drawn, page
-# (order reversed, every arrow the other way round), round (order reversed,
-# arrows as drawn), flip (order kept, every arrow the other way round) -- and
-# pdf/props/ch03.lua draws what is then seen.  parse_score and view_score are a
-# line-for-line transcription of ch03.lua, so what is asserted here is what
-# the printed page shows.  An arrow is (needle, clicks, +1 with the clock /
-# -1 against), the very triple play() takes.
-# --------------------------------------------------------------------------
-VIEWS = ("drawn", "page", "round", "flip")
-SEAM = "|"
+def drawn_at(state, R):
+    """A drawn state (glass, steel, and the brass the macro puts midway) is the
+    model's position R."""
+    return all(np.allclose(state.bead(n), v) for n, v in beads_of(R).items())
 
 
-def parse_score(spec):
-    items = []
-    for tok in spec.split(","):
-        tok = re.sub(r"\s", "", tok)
-        if tok == SEAM:
-            items.append(SEAM)
-        elif tok != "":
-            m = re.fullmatch(r"([A-Za-z]+)([+-])([12])", tok)
-            assert m and m.group(1) in ("glass", "steel", "brass"), tok
-            items.append((m.group(1), int(m.group(3)), +1 if m.group(2) == "+" else -1))
-    return items
+def triples(arrows):
+    """The transcription's arrows as the model's (needle, clicks, way)."""
+    return [(a.needle, a.clicks, a.sign) for a in arrows]
 
 
-def view_score(items, view):
-    assert view in VIEWS, view
-    reverse = view in ("page", "round")
-    mirror = view in ("page", "flip")
-    seq = items[::-1] if reverse else list(items)
-    return [it if it == SEAM else (it[0], it[1], -it[2] if mirror else it[2])
-            for it in seq]
+def marked(ball, before, needle, after):
+    """The marks of one step from position `before` to `after`, twirling
+    `needle`: a ghost where each bead that moved stood before, and the hold
+    ring round the bead of the needle held fast -- which did not stir."""
+    m = ball.marks
+    assert m is not None and m.arrow.needle == needle
+    b0, b1 = beads_of(before), beads_of(after)
+    assert drawn_at(m.before, before)
+    assert np.allclose(m.hold, b1[needle]) and np.allclose(m.hold, b0[needle])
+    moved = {n for n in HOME if not np.allclose(b0[n], b1[n])}
+    assert set(m.ghosts) == moved and needle not in moved
+    assert all(np.allclose(m.ghosts[n], b0[n]) for n in moved)
 
 
-def arrows(items):
-    """What is played: the arrows, left to right; a gummed join is not a turn."""
-    return [it for it in items if it != SEAM]
+def check_turning(seed):
+    """The transcription turns the ball as the model does, on generic scores:
+    the Lua's twirl about the held needle as it lies is the model's."""
+    rng = np.random.default_rng(seed)
+    home = P.State(P.vec("up"), P.vec("company"))
+    for _ in range(100):
+        score = [(str(rng.choice(["glass", "steel", "brass"])), int(rng.integers(1, 3)),
+                  int(rng.choice([-1, 1]))) for _ in range(int(rng.integers(1, 7)))]
+        assert drawn_at(P.play(home, [P.Arrow(n, w, c) for n, c, w in score]), play(score))
 
 
-def pieces(items):
-    """The strips a gummed strip was made from, left to right."""
-    out = [[]]
-    for it in items:
-        if it == SEAM:
-            out.append([])
-        else:
-            out[-1].append(it)
+def any_order(score):
+    """Achilles's rule, "the order never mattered anyway": each needle's clicks
+    gathered, in the order the needles first come, and added (a needle's two
+    half-turns cancel)."""
+    net = {}
+    for n, c, w in score:
+        net[n] = net.get(n, 0) + w * c
+    out = []
+    for n, q in net.items():
+        out += {0: [], 1: [(n, 1, +1)], 2: [(n, 2, +1)], 3: [(n, 1, -1)]}[q % 4]
     return out
 
 
-def strips(ordinal):
-    """Every strip in the dialogue's '## <ordinal> Challenge' section, in
-    order: (view, the strip as drawn, the strip as shown, caption)."""
-    text = section(ordinal)
-    macro = r"\\scorestrip(?:\[([^\]]*)\])?\{([^}]*)\}\{([^}]*)\}"
-    found = [(view or "drawn", parse_score(spec), view_score(parse_score(spec), view or "drawn"),
-              caption) for view, spec, caption in re.findall(macro, text)]
-    assert text.count("\\scorestrip") == len(found), ordinal   # none malformed, none skipped
-    return found
+def half_way(before, needle, angle, bead):
+    """Where a bead is half-way along a twirl, in the room's frame."""
+    return ROOM @ before @ turn(HOME[needle], angle / 2) @ HOME[bead]
 
 
-def check_views():
-    """What the four views mean as turns, on generic strips, not only the
-    dialogue's own."""
-    rng = np.random.default_rng(3)
-    needles = ("glass", "steel", "brass")
-    # ch03.lua curls a two-click arrow the other way in the page and flip
-    # views; a half-turn either way round is the same turn, so nothing is lost
-    for n in needles:
-        assert np.allclose(play([(n, 2, +1)]), play([(n, 2, -1)]))
-        assert not np.allclose(play([(n, 1, +1)]), play([(n, 1, -1)]))
-
-    def random_spec(clicks, names):
-        toks = []
-        for _ in range(int(rng.integers(2, 8))):
-            if toks and toks[-1] != SEAM and rng.random() < 0.2:
-                toks.append(SEAM)
-            toks.append("%s%s%d" % (rng.choice(names), rng.choice(["+", "-"]), rng.choice(clicks)))
-        return ",".join(toks)
-
-    # any strip at all: the page read after the strip brings the ball home,
-    # read either way round throughout; round and flip do not in general
-    fails = {"round": 0, "flip": 0}
-    for _ in range(200):
-        items = parse_score(random_spec((1, 2), needles))
-        drawn_ = arrows(items)
-        assert pieces(view_score(items, "page")) == \
-            [view_score(p, "page") for p in pieces(items)[::-1]]      # seams travel too
-        for s in (+1, -1):
-            assert at_home(play(drawn_ + arrows(view_score(items, "page")), s))
-            assert np.allclose(play(arrows(view_score(items, "page")), s), play(drawn_, s).T)
-        for v in ("round", "flip"):
-            fails[v] += not at_home(play(drawn_ + arrows(view_score(items, v))))
-    assert fails["round"] > 100 and fails["flip"] > 100      # astray more often than not
-    generic = parse_score("glass+1,steel-2,|,brass+1,glass-1")
-    for v in ("round", "flip"):
-        assert not at_home(play(arrows(generic) + arrows(view_score(generic, v))))
-    # one arrow of one click: flip is the page, round is not
-    one = parse_score("glass+1")
-    assert view_score(one, "flip") == view_score(one, "page")
-    assert not at_home(play(one + view_score(one, "round")))
-
-    # half-turns only -- the trap of the First Challenge.  Round always works
-    # (every half-turn is its own undoing) and plays exactly as the page does.
-    for _ in range(100):
-        items = arrows(parse_score(random_spec((2,), needles)))
-        assert at_home(play(items + view_score(items, "round")))
-        assert np.allclose(play(view_score(items, "round")), play(view_score(items, "page")))
-    # flip works too while the needles are glass and steel, whose half-turns
-    # do not mind their order ...
-    for _ in range(100):
-        items = arrows(parse_score(random_spec((2,), ("glass", "steel"))))
-        assert at_home(play(items + view_score(items, "flip")))
-    # ... but not once the brass needle joins them: order matters again
-    bg = parse_score("brass+2,glass+2")
-    assert not at_home(play(bg + view_score(bg, "flip")))
-    assert at_home(play(bg + view_score(bg, "round")))
+def side_named(paragraph, pattern):
+    """The sides of the room a direction names, read out of it by a pattern."""
+    m = re.search(pattern, paragraph)
+    assert m and all(g in ("dresser", "stove") for g in m.groups()), pattern
+    return m.groups()
 
 
 def strip():
-    check_views()
+    P.check_lua()                                  # the Lua and .tex the transcription was proved on
+    check_frame()
+    check_turning(33)
     cw = +1
     score = [("brass", 2, cw), ("glass", 2, cw), ("brass", 2, cw)]
 
-    # the strip, as drawn and turned like a page
-    shown = strips("Third")
-    assert len(shown) == 2
-    (_, drawn_, as_drawn, _), (_, again, as_page, _) = shown
-    assert as_drawn == drawn_ == score              # brass, glass, brass, two clicks each
-    assert again == drawn_
+    calls = DIALOGUE.check_layout("Third", sizes=[2, 2, 1])       # three moments
+    P.check_rows(DIALOGUE, "Third")
+    drawn_pic, page_pic, expect_pic, steps, steel_pic = calls
+    assert [c.macro for c in calls] == ["scorestrip", "scorestrip", "crabball", "crabplay",
+                                        "crabball"]
+    assert sum(P.frames(c) for c in (expect_pic, steps)) == 4      # four frames, one line
+    paras = DIALOGUE.paragraphs("Third")
+    a_strips, a_sandwich, a_steel = DIALOGUE.anchors("Third")
+    f_strips, f_sandwich, f_steel = DIALOGUE.following("Third")
+
+    # --- the strip, as drawn and turned like a page -----------------------
+    s1, s2 = P.picture(drawn_pic), P.picture(page_pic)
+    assert s1.view == "drawn" and s2.view == "page" and s2.drawn == s1.drawn
+    as_drawn, as_page = triples(s1.shown), triples(s2.shown)
+    assert as_drawn == score                        # brass, glass, brass, two clicks each
     # through the paper every arrow curls the other way ...
     assert as_page == [("brass", 2, -cw), ("glass", 2, -cw), ("brass", 2, -cw)]
     assert as_page == page(score) and as_page != as_drawn
     # ... but each is a half-turn, and "the same score, either side of the paper"
     for s in (+1, -1):
         assert np.allclose(play(as_page, s), play(as_drawn, s))
-        # the Crab plays the page from where the score left the ball: home
-        assert at_home(play(as_drawn + as_page, s))
+        assert at_home(play(as_drawn + as_page, s))   # the Crab plays the page: home
 
-    check_strip("Third", [play(as_drawn[:1]),             # after one brass turn
-                          play(as_drawn),                 # brass, glass, brass
-                          play([("steel", 2, cw)])])      # one steel turn, from home
+    # --- the prediction: Achilles's rule, drawn pale ------------------------
+    expected = P.picture(expect_pic)
+    assert expect_pic.caption == "as Achilles expects"
+    assert expected.expects == "anyorder" and expected.marks is None
+    assert expect_pic.opt.startswith("play=brass+2,glass+2,brass+2;")
+    assert any_order(score) == [("glass", 2, cw)]   # the brass clicks add to a whole turn
+    assert drawn_at(expected.start, np.eye(3))
+    assert drawn_at(expected.after, play(any_order(score)))
+    # which is what he said, in so many words
+    said = [p for p in paras if "Brass twice over is no turn at all" in p]
+    assert len(said) == 1
+    glass_said, steel_said = re.search(r"Glass bead (\w+), steel bead (\w+)\.", said[0]).groups()
+    assert (reading(play(any_order(score)), "glass"), reading(play(any_order(score)), "steel")) \
+        == (glass_said, steel_said) == ("up", "away")
+    # and it is not what the ball did, beside it
+    assert not drawn_at(expected.after, play(score))
+    assert reading(play(score), "glass") == "down" and reading(play(score), "steel") == "company"
+    assert "it is exactly the other thing" in a_sandwich
+    assert f_sandwich.startswith("**Tortoise:** *[She turns the strip like a page once more.]*")
+
+    # --- the sandwich, one turn a frame ------------------------------------
+    frames = P.picture(steps)
+    assert steps.opt == "" and steps.args[2] == "brass+2,glass+2,brass+2"
+    assert len(frames) == 3
+    assert [f.caption for f in frames] == ["first the brass", "then the glass",
+                                           "then the brass again"]
+    assert all(words_only(f.caption) for f in frames)
+    for k, f in enumerate(frames, 1):
+        before, after = play(score[:k - 1]), play(score[:k])
+        assert triples([f.step]) == [score[k - 1]]
+        assert drawn_at(f.ball.start, before) and drawn_at(f.ball.after, after)
+        marked(f.ball, before, score[k - 1][0], after)
+    assert drawn_at(frames[-1].ball.after, play(score))
+    # the brass half-turn swaps glass and steel, bead for bead (frame one)
+    assert reading(play(score[:1]), "glass") == "company" and reading(play(score[:1]), "steel") == "up"
+    # the pin: the brass bead, then the glass where it now lies, then the brass
+    brass_para = [p for p in paras if "The brass bead is the pin now" in p]
+    glass_para = [p for p in paras if "The glass needle, as it now lies" in p]
+    assert len(brass_para) == len(glass_para) == 1
+    brass_para, glass_para = brass_para[0], glass_para[0]
+    assert np.allclose(frames[0].ball.marks.hold, P.vec("0,1,1"))         # brass at home
+    assert np.allclose(frames[1].ball.marks.hold, P.vec("company"))       # the glass, level
+    # the sides each half-turn swings past -- the place each moving bead
+    # passes half-way, one click in -- are the sides the directions name
+    glass_by, steel_by = side_named(
+        brass_para, r"the glass bead round by the (\w+) and the steel round by the (\w+)\.")
+    (steel_by_2,) = side_named(glass_para, r"the steel swings half-way round, by the (\w+)\.")
+    assert "by the same sides" in glass_para
+    sides = [{"glass": glass_by, "steel": steel_by}, {"steel": steel_by_2},
+             {"glass": glass_by, "steel": steel_by}]
+    for k, (f, named) in enumerate(zip(frames, sides), 1):
+        needle, clicks, way = score[k - 1]
+        assert clicks == 2                                                # a half-turn
+        assert set(f.ball.marks.midway) == set(named) | ({"brass"} if needle != "brass" else set())
+        for bead, side in named.items():
+            mid = half_way(play(score[:k - 1]), needle, -way * clicks * np.pi / 2, bead)
+            assert np.allclose(f.ball.marks.midway[bead], mid)
+            assert mid @ P.vec(side) > 0.5                                # clearly that side
+            other = "stove" if side == "dresser" else "dresser"
+            assert mid @ P.vec(other) < -0.5
+            # and it is the bead's place after the turn's first click
+            assert np.allclose(mid, ROOM @ play(score[:k - 1] + [(needle, 1, way)]) @ HOME[bead])
+
+    # --- one steel half-turn, from home: bead for bead the same -------------
+    ball = P.picture(steel_pic)
+    assert a_steel == "**Achilles:** Bead for bead the same!"
+    assert f_steel == "**Tortoise:** And your numbers?"
+    assert triples(ball.arrows) == [("steel", 2, cw)] and drawn_at(ball.start, np.eye(3))
+    assert drawn_at(ball.after, play([("steel", 2, cw)])) and drawn_at(ball.after, play(score))
+    assert ball.marks is None and ball.dump == "crabball: glass=down steel=company"
+    # marks=off is what keeps the marks off this one-arrow picture
+    assert P.crabball("up", "company", "play=steel+2").marks is not None
+
 
 # --------------------------------------------------------------------------
 # The sketchbook.  PyZX draws this with the spiders you meet in Chapter 8.

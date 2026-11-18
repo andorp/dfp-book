@@ -119,36 +119,108 @@ def blackboard():
 # tools/props_ch04.py), read out of this challenge's section of dialog.md.
 # The macro's yoke looks at the coin on the upper of its two rows as it
 # arrives at the bar and turns the lower one for tails; here that walk is
-# checked against CNOT from every start, and the closing frame against the
-# master picture.
+# checked against CNOT from every start, frame by frame in the walk strip,
+# and the closing frame against the master picture.
 # --------------------------------------------------------------------------
-DIALOGUE = Dialogue(__file__, macros=("stringframe", "foldsheet"))
-NOT_IN_CAPTIONS = ("strings", "wires", "wire", "diagram", "diagrams", "drawing", "drawings",
-                   "picture", "pictures", "box", "boxes")
+DIALOGUE = Dialogue(__file__, macros=("stringframe", "foldsheet", "framewalk", "framesteps",
+                                      "foldsteps"))
 S0 = np.array([[1, 1], [0, 0]], dtype=complex)
 I4 = np.eye(4, dtype=complex)
 CLIP_CELLS = ("-", "over", "heads", "over+heads", "heads+over")
 
 
-def pictures(CNOT, matched, alternating):
-    GATES = {"over": X, "heads": S0, "yoke": CNOT, "cross": SWAP}
-    p61, p62, p63, p64 = DIALOGUE.check_layout("Sixth", sizes=[1, 1, 1, 1])
-    for c in (p61, p62, p63, p64):
-        assert not c.keyed
-        assert words_only(c.caption, forbidden=NOT_IN_CAPTIONS), c.caption
-    assert "yoked" not in p64.caption.lower().split()       # never the master's name
-    f1, f2, sh, f4 = (P.picture(c) for c in (p61, p62, p63, p64))
-    wound = [(2, "gut", "horsehair"), (3, "horsehair", "gut")]
+def faces(v):
+    """The faces a basis column shows, top row first (heads = 0)."""
+    (k,) = np.flatnonzero(np.abs(v) > 0.5)
+    n = int(np.log2(len(v)))
+    return [P.FACE[int(b)] for b in format(int(k), "0%db" % n)]
 
-    # P6.1: the bar near the left upright; tails above, heads below
-    assert p61.macro == "stringframe" and f1.place == ("end", None)
-    assert f1.yokes() == [(1, "silk", "hemp", 1, 2)] and f1.clips() == []
-    assert f1.crossings() == wound                          # the lower pair still wound
+
+def borders(shares):
+    """The two border lists of a sheet folded twice: the silk's (the rows' sums)
+    and the hemp's (the columns' sums)."""
+    a = np.reshape(shares, (2, 2))
+    return a.sum(axis=1), a.sum(axis=0)
+
+
+def pictures(CNOT, matched, alternating):
+    P.check_lua()                     # ch04.lua and ch04.tex as the transcription was proved
+    GATES = {"over": X, "heads": S0, "yoke": CNOT, "cross": SWAP}
+    # Four moments: the walk past the bar, a step strip (6.1); no clip (6.2);
+    # the sheet as Achilles expects it beside the sheet as it is (6.3); all home
+    # (6.4).
+    found = P.check_section(DIALOGUE, "Sixth", sizes=[1, 1, 2, 1], frames=[3, 1, 2, 1])
+    (p61, walk), = found[0]
+    (p62, [(f2, _)]), = found[1]
+    (p63e, [(pw, _)]), (p63, [(sh, _)]) = found[2]
+    (p64, [(f4, _)]), = found[3]
+    for c in (p61, p62, p63e, p63, p64):
+        assert not c.keyed
+    assert p64.caption == "all home"                          # C2
+    assert "yoked" not in p64.caption.lower().split()       # never the master's name
+    (g0, _), (g1, _), (f1, _) = walk
+    wound = [(2, "gut", "horsehair"), (3, "horsehair", "gut")]
+    # no "two clips on a stick" frame (ruling Q1): the macro's stick rule differs
+    # from the bar only when the silk shows heads, and the strip's last walk is
+    # tails above, where the two agree
+    assert not any(P.options(c).get("expects") == "stick"
+                   for o in ("Sixth",) for b in DIALOGUE.blocks(o) for c in b)
+    stick = P.clean(P.stringframe, "end;expects=stick", p61.args[0])
+    assert stick.coins() == f1.coins()
+    heads_above = p61.args[0].replace("silk tails", "silk heads")
+    assert (P.clean(P.stringframe, "end;expects=stick", heads_above).coins()
+            != P.clean(P.stringframe, "end", heads_above).coins())
+
+    # Block 6.1: the bar near the left upright; the silk and hemp coins set back
+    # at the left (D10), tails above, heads below, walked through it
+    assert p61.macro == "framewalk" and P.options(p61) == {"to": "end"}
+    assert [g.place for g in (g0, g1, f1)] == [("start", None), ("past", 1), ("end", None)]
+    for g in (g0, g1, f1):                                    # one frame, three moments
+        assert g.yokes() == [(1, "silk", "hemp", 1, 2)] and g.clips() == []
+        assert g.crossings() == wound                         # the lower pair still wound
+        assert g.face == {"silk": "tails", "hemp": "heads", "gut": None, "horsehair": None}
+    assert P.colx(f1.state, 1) == min(P.colx(f1.state, j) for j in range(1, 5))   # near the left
+    assert all(np.isclose(x, 0.2) for _, _, _, x, _ in g0.drawn_coins)        # at the left upright
+    start = ket(1, 0)                                         # tails above, heads below
+    for g, v in zip((g0, g1, f1), (start, CNOT @ start, CNOT @ start)):
+        assert np.allclose(P.drawn_column(g, rows=[1, 2]), v)
+    # P6.1 (the strip's arrival): tails above, heads below arrives tails, tails
+    assert f1.place == ("end", None)
     M1 = P.check_walks(f1, GATES)
     assert np.allclose(M1, np.kron(CNOT, I4) @ np.kron(I4, SWAP @ SWAP))
     assert np.allclose(M1, np.kron(CNOT, I4))
     assert f1.coins() == {"silk": ("tails", 1), "hemp": ("tails", 2)}   # no coins below
     assert np.allclose(P.column({1: "tails", 2: "tails"}, 2), CNOT @ ket(1, 0))
+    assert f1.dump == P.stringframe("end", p61.args[0]).dump            # the old P6.1, unchanged
+    # the step through the bar: the hemp coin turned -- its ghost as it was, and
+    # its hop, drawn under it, since the bar stands above; the silk coin, never
+    # touched, has neither
+    changed = [r for r, a, b in zip((1, 2), faces(start), faces(CNOT @ start)) if a != b]
+    assert changed == [2]
+    assert [(n, r) for n, f, r, x, y in g1.ghost_coins] == [("hemp", 2)]
+    assert np.allclose(P.drawn_column(g1, rows=changed, ghosts=True), ket(0))   # heads, as laid
+    (name, side, hop), = g1.hops
+    assert (name, side) == ("hemp", "under")
+    assert max(y for x, y in hop) < P.rowy(2)                # below the hemp row
+    (_, bx, bya, byb), = g1.bars_drawn
+    bar = P.bar_extent(bx, bya, byb)
+    ghost = [P.coin_extent(x, y, ghost=True) for n, f, r, x, y in g1.ghost_coins]
+    after = [P.coin_extent(x, y) for n, f, r, x, y in g1.drawn_coins]
+    assert ghost[0][1] < bar[0] and all(bar[1] < c[0] for c in after)   # clear of the bar
+    under = [y for x, y in P.bezier_points(hop) if bar[0] <= x <= bar[1]]
+    assert under and max(under) + P.SWING / 2 < bar[2]       # under the bar, with a gap
+    D10 = ("*[He walks the pairs through it,",
+           "*[He sets the silk and hemp coins back at the left upright, and walks the pairs "
+           "through it")
+    P.check_edits(DIALOGUE, "Sixth", [D10])
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        a61 = DIALOGUE.anchors("Sixth", path)[0]
+        assert a61.endswith("That is two clips nailed to a stick.") and D10[1] in a61
+        assert "the last of them tails above and heads below" in a61
+    # the macro refuses a walk strip of the closing tableau
+    assert any("too crowded to walk" in e for e in
+               P.faults(P.run_call, "framewalk", False, "to=end", (p64.args[0],),
+                        "laid on; past the bar; past the crossing; at the hooks"))
 
     # P6.2: no clip, no bar -- tails above, heads below arrives unchanged
     assert f2.yokes() == [] and f2.clips() == [] and f2.crossings() == wound
@@ -166,8 +238,8 @@ def pictures(CNOT, matched, alternating):
             assert any(fr.walk(1, st) != bar.walk(1, st) for st in P.starts(bar))
             assert not np.allclose(P.check_walks(fr, GATES), P.check_walks(bar, GATES))
 
-    # P6.3: a dozen tallies, the shares shaded, the border slips empty
-    assert p63.macro == "foldsheet" and sh.shape == (2, 2) and sh.arrows == []
+    # Block 6.3: a dozen tallies, the shares shaded, the border slips empty
+    assert p63.macro == "foldsheet" and p63.opt == "" and sh.shape == (2, 2) and sh.arrows == []
     assert np.allclose(sh.shares, [1 / 2, 0, 0, 1 / 2])
     assert np.allclose(sh.shares, matched)                  # CNOT on (1/2,1/2) (x) (1,0)
     assert np.allclose(sh.shares, CNOT.real @ np.kron([1 / 2, 1 / 2], [1, 0]))
@@ -175,14 +247,31 @@ def pictures(CNOT, matched, alternating):
     assert sh.tallies == (7, 0, 0, 5) and sum(sh.tallies) == 12
     assert all((t == 0) == np.isclose(s, 0) for t, s in zip(sh.tallies, sh.shares))
     assert sh.borders and sh.border is None                 # slips laid, nothing on them
+    # the prediction beside it: each panel its row's border times its column's,
+    # the borders read off the sheet -- a quarter everywhere, the slips written;
+    # and that is not the sheet
+    assert P.options(p63e) == {"expects": "patchwork"} and p63e.args == p63.args
+    assert pw.expects == "patchwork" and pw.tallies is None and pw.borders
+    silk, hemp = borders(sh.shares)
+    assert np.allclose(silk, [1 / 2, 1 / 2]) and np.allclose(hemp, [1 / 2, 1 / 2])
+    assert np.allclose(pw.border["silk"], silk) and np.allclose(pw.border["hemp"], hemp)
+    assert np.allclose(pw.shares, np.kron(silk, hemp)) and np.allclose(pw.shares, [1 / 4] * 4)
+    assert not np.allclose(pw.shares, sh.shares)             # refuted
+    assert np.allclose(borders(pw.shares)[0], silk)          # the same borders, all the same
+    assert P.faults(P.foldsheet, "twice", "shares: one-quarter, one-quarter, one-quarter, "
+                    "one-quarter", False, "expects=patchwork") == [
+        "foldsheet: expects=patchwork: the sheet is a patchwork; the rule agrees"]
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        assert DIALOGUE.anchors("Sixth", path)[2].endswith(
+            "It will not multiply out. It isn't a patchwork!")
 
-    # P6.4: every one home -- bar, crossing, bar, crossing
+    # P6.4: all home -- bar, crossing, bar, crossing
     assert p64.macro == "stringframe" and f4.place == ("end", None) and f4.ncol == 4
     kinds = [sorted({rule for rule, rows in f4.layers(j)}) for j in range(1, 5)]
     assert kinds == [["yoke"], ["cross"], ["yoke"], ["cross"]]
     assert f4.yokes() == [(1, "silk", "hemp", 1, 2), (3, "silk", "hemp", 1, 2)]
     assert f4.crossings() == [(2, "gut", "horsehair"), (4, "horsehair", "gut")]
-    assert f4.clips() == []
+    assert f4.clips() == [] and f4.moved is None and not f4.walkmarks
     M4 = P.check_walks(f4, GATES)
     assert np.allclose(M4, alternating)                     # the master picture
     assert np.allclose(M4, np.eye(16))
@@ -194,9 +283,71 @@ def pictures(CNOT, matched, alternating):
     assert f4.walk(1)["hemp"] == "tails" and f4.walk(3)["hemp"] == "heads"
     assert f4.row_after("gut", 2) == 4 and f4.row_after("gut", 4) == 3
 
-    # the macro's own faults: a yoke needs its partner, and a coin on both or neither
+    # the macro's own faults: a yoke needs its partner, and a coin on both or
+    # neither; a slide cannot pass a bar's clip; a stick needs a bar
     assert P.faults(P.stringframe, "end", "silk tails: yoke; hemp: yoke") != []
     assert P.faults(P.stringframe, "end", "silk: yoke; hemp") != []
+    assert P.faults(P.stringframe, "off;slide=silk first to third", "silk: over, yoke; hemp: -, yoke") == [
+        "stringframe: slide: a clip cannot pass the bar's clip on its string (lift it)"]
+    assert P.faults(P.stringframe, "end;expects=stick", p62.args[0]) == [
+        "stringframe: expects=stick needs a bar"]
+
+    assert P.section_dumps(found) == [
+        "stringframe: start",
+        "stringframe: + coin silk tails row 1",
+        "stringframe: + coin hemp heads row 2",
+        "stringframe: + cells silk yoke,-,-,-",
+        "stringframe: + cells hemp yoke,-,-,-",
+        "stringframe: + cells gut -,cross,cross,-",
+        "stringframe: + cells horsehair -,cross,cross,-",
+        "stringframe: + front gut col 2",
+        "stringframe: + front horsehair col 3",
+        "stringframe: past-first",
+        "stringframe: + coin silk tails row 1",
+        "stringframe: + coin hemp tails row 2",
+        "stringframe: + cells silk yoke,-,-,-",
+        "stringframe: + cells hemp yoke,-,-,-",
+        "stringframe: + cells gut -,cross,cross,-",
+        "stringframe: + cells horsehair -,cross,cross,-",
+        "stringframe: + front gut col 2",
+        "stringframe: + front horsehair col 3",
+        "stringframe: + ghost coin hemp heads row 2",
+        "stringframe: end",
+        "stringframe: + coin silk tails row 1",
+        "stringframe: + coin hemp tails row 2",
+        "stringframe: + cells silk yoke,-,-,-",
+        "stringframe: + cells hemp yoke,-,-,-",
+        "stringframe: + cells gut -,cross,cross,-",
+        "stringframe: + cells horsehair -,cross,cross,-",
+        "stringframe: + front gut col 2",
+        "stringframe: + front horsehair col 3",
+        "stringframe: end",
+        "stringframe: + coin silk tails row 1",
+        "stringframe: + coin hemp heads row 2",
+        "stringframe: + cells silk -,-,-,-",
+        "stringframe: + cells hemp -,-,-,-",
+        "stringframe: + cells gut -,cross,cross,-",
+        "stringframe: + cells horsehair -,cross,cross,-",
+        "stringframe: + front gut col 2",
+        "stringframe: + front horsehair col 3",
+        "foldsheet: twice rows 2 cols 2 expects patchwork",
+        "foldsheet: + shares 0.2500,0.2500,0.2500,0.2500",
+        "foldsheet: + slips 0.5000,0.5000",
+        "foldsheet: twice rows 2 cols 2",
+        "foldsheet: + shares 0.5000,0.0000,0.0000,0.5000",
+        "foldsheet: + slips empty",
+        "foldsheet: + tallies 7,0,0,5",
+        "stringframe: end",
+        "stringframe: + coin silk tails row 1",
+        "stringframe: + coin hemp heads row 2",
+        "stringframe: + coin gut heads row 3",
+        "stringframe: + coin horsehair tails row 4",
+        "stringframe: + cells silk yoke,-,yoke,-",
+        "stringframe: + cells hemp yoke,-,yoke,-",
+        "stringframe: + cells gut -,cross,-,cross",
+        "stringframe: + cells horsehair -,cross,-,cross",
+        "stringframe: + front gut col 2",
+        "stringframe: + front horsehair col 4"]
 
 
 # --------------------------------------------------------------------------

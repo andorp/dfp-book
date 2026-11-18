@@ -36,30 +36,54 @@ two keep every box and every picture unchanged and change only the passenger: fi
 division of one whole into two shares, then to an arrow of length one in $\mathbb{C}^2$. Two
 turn-overs still come off.
 
-**The pictures in the dialogue.** The dialogue draws its props at the moments that matter:
-the Tortoise's string with its end tag, its tags and the traveller
-(`\tagstring[place]{start}{tags}{caption}`) and the square of tracing paper with its matches
-(`\arrowsquare[view]{matches}{caption}`), twenty pictures in eighteen blocks. The macros
-live in `pdf/props/ch01.tex` and `ch01.lua`, and the Lua *computes* what a picture shows —
-the coin's face, which end of the strip is at the string, how many matches lie in each row —
-from the start as tied and the tags passed, so the dialogue never writes a turned result by
-hand. Each file reads the calls out of its own `## <Ordinal> Challenge` section of
-`chapter01/dialog.md` (never a copy: an edit that breaks a picture breaks the file), and in
-`blackboard()` checks them against the chapter's state model, with the very $X$ and $S_0$ the
+**The pictures in the dialogue.** The dialogue draws its props at the moments that matter,
+with three macros from `pdf/props/ch01.tex`: the Tortoise's string with its end tag, its tags
+and the traveller (`\tagstring[place;opts]{start}{tags}{caption}`), a **step strip** of one
+walk along it (`\tagwalk[opts]{start}{tags}{caption; caption; ...}`: the start, then one frame
+just past each tag, then with `to=end` the arrival), and the square of tracing paper with its
+matches (`\arrowsquare[view;opts]{matches}{caption}`) — 25 calls, 30 frames, in seventeen
+blocks, at most four moments to a challenge (2, 3, 4, 4, 4). The Lua (`ch01.lua`) *computes*
+what a frame shows — the coin's face, which end of the strip is at the string, the square's
+reaches and how many matches lie in each row — from the start as tied and the tags passed;
+with `marks=on` it draws the step just made (a **ghost**, the traveller one tag earlier, and a
+dotted hop under the tag, or for the square a ghost arrow, a swing and a pin ring), and none
+where the tag changed nothing; with `expects=<rule>` it draws, pale, what a **named wrong rule**
+predicts (`twice`, `twins`, `anyorder`, `idle`, `sum`), from the call's own start and tags. The
+dialogue never writes a turned result by hand.
+
+`tools/props_ch01.py` transcribes `ch01.lua`, all but the drawing: the option grammar, the
+start and the tags, the walk, the marks, the five rules (`twins` with its cascade of pairs,
+its lifted set, the place read on the string as hung, and its fault for a place inside a
+pair), the step strip's frames, the close-up, every fault the macro raises (recorded in
+`TEX_ERRORS`; `picture()` insists there are none) and the log dump. Each file reads its own
+`## <Ordinal> Challenge` section of `chapter01/dialog.md` through `tools/dfp_props.Dialogue`
+(never a copy: an edit that breaks a picture breaks the file), and checks **every frame**
+against the chapter's state model, written out in the file with the very $X$ and $S_0$ the
 blackboard uses: heads is the first entry, `over` is NOT, the `heads` tag is SET-0; the strip
-`strip-k` is $(k/6,(6-k)/6)$; the square is $(3/5,4/5)$ with reaches five times its entries.
-The part of `ch01.lua` that decides what is drawn — `parse_start`, `parse_tags`, `travel`,
-the place rule, the strip's panels and heads' share, the square's reaches and match counts —
-is transcribed line for line, and first checked against the model on *every* start, every
-string of up to four tags and every place, not only on the dialogue's own pictures. Then each
-picture is checked against the scene: the end tag as tied, the tags on the string (and which
-touch), where the traveller is, and the reading recorded for it on the identity card (§3b). The
-files also check the card's layout rules: the only starred pictures are the first coin
-picture, the first strip picture and the first close-up of the square; every caption is words
-only; every block is a paragraph of its own (never inside a stage direction), holds at most
-four pictures, and keeps a square-tied string to itself; `[off]` is never used; no picture
-stands outside a challenge section; and every block appears identically in
-`chapter01/dialog.raw.md`.
+`strip-k` is $(k/6,(6-k)/6)$ and which end is held; the square is $(3/5,4/5)$ with reaches five
+times its entries. Each ghost is the model one tag earlier, there exactly when the tag moved
+the traveller. Each prediction is three things at once: the named rule of `props_ch01`, the
+file's own model of what Achilles says, and *not* the true frame beside it at the same place.
+The transcription is first checked against the model on every start, every string of up to
+four tags, every place, with and without marks, and on every step strip of such a walk — not
+only on the dialogue's own pictures; each file also checks the log dumps the card records for
+its section (identity.md §3e.2). Then the card's layout rules: the only starred pictures are
+the first of the coin (the first frame of the First's step strip), of the strip and of the
+square close up; every caption, and each caption of a step strip, is words only; every block
+is a paragraph of its own, holds at most three string frames or two squares to a line, and a
+line of three frames made of two calls is joined by a bare `%` line end; the place `off` is
+never used; each block stands after the line it pictures (its anchor phrases are asserted);
+and every block appears identically in `chapter01/dialog.raw.md`.
+
+**Pins.** `props_ch01.check_lua()` (run when the module is imported, unless `DFP_REPIN` is set
+to re-pin, and again at the head of every file's picture checks) holds `pdf/props/ch01.lua`
+and `ch01.tex` to the text the transcription was proved against with texlua: `LUA_PINS`
+hashes the Lua's 40 top-level chunks (comments left out), `TEX_PINS` the `.tex`'s 31 colours,
+styles and macros, and `COMMENT_PINS` the Lua's two comments that quote the dialogue, word for
+word, each quote still in `dialog.md`. A drawing-only or style-only edit then fails all five
+files, naming the chunk, until the transcription is proved again and re-pinned
+(`print(P.lua_pins())` with `DFP_REPIN=1`; the module's docstring has the line); a plain
+comment edit passes.
 
 ---
 
@@ -81,16 +105,19 @@ assert not same_picture(state_then_not(0), state(0))
 assert not same_picture(not_box(), bare_wire())
 ```
 
-Its two pictures are the two walks: from "heads up" past one tag, the coin is drawn tails (the
-keyed picture), and from "tails up", heads. `Flip.py` also holds the keyed rule for the coin:
-of all the dialogue's coin pictures, the first is starred and no other.
+Its pictures are two moments. The evening's first walk is a keyed step strip of three frames
+— heads beside the end tag; just past the tag, tails, with the ghost of the heads coin just
+before it; arrived, tails — and the same walk from "tails up" is one picture, heads. There is
+no prediction: Achilles is right. The file also runs every step strip of every coin walk of up
+to four tags, with and without a start frame and an arrival, and checks that a caption short
+or one too many is a fault.
 
 ```python
-first, other = check_coin_pictures("First", [1, 1], [
-    ("heads", one, "end", True, "tails"),
-    ("tails", one, "end", False, "heads"),
-])
-assert np.allclose(first, X @ HEADS) and np.allclose(other, X @ TAILS)
+assert np.allclose(check_coin(start, False), HEADS)            # from heads up
+assert np.allclose(check_coin(turned, True), X @ HEADS)       # turned at the tag ...
+assert turned.ghost["face"] == "heads"                       # ... from heads, the ghost
+assert np.allclose(check_coin(arrived, False), TAILS)          # carried on: tails
+assert start.keyed and start.labels == ("the end tag", "a tag")
 ```
 
 ## 2. There and Back — `Ch1/TwiceOver.py`   *(The Theorem, Twice; the master diagram)*
@@ -115,15 +142,20 @@ assert not same_picture(row_of_nots(1), bare)
 assert np.allclose(two[:, bit], matrix_of(state_then_nots(bit, 2)).ravel())
 ```
 
-Its four pictures: the coin past two tags from each start arrives as it left (and one tag
-alone would have turned it — not "twice as much"); then one block of two, the pair slid
-together until the tags touch (`over+over`, one group) and lifted off, the coin lying tails
-where the last walk left it. A bare string with the coin at its end reads as its start.
+Its pictures are three moments. The first two-tag walk is a step strip of two marked frames —
+tails just past the first tag (ghost heads), heads just past the second (ghost tails) — with
+the prediction beside it, pale, at the same place: `twice`, "Very... thoroughly tails", the
+coin the other way up from its start once it has been turned at all. The rule is checked
+against the file's model of what he says on every row of up to four turn-overs, and it parts
+from the truth from the second tag on. Then the other start, and one block of two: the pair
+slid together (`over+over`, one group) and lifted off, the coin lying tails where the last walk
+left it.
 
 ```python
-assert np.allclose(from_heads, HEADS) and np.allclose(from_tails, TAILS)
-assert not np.allclose(carry(HEADS, ["over"]), from_heads)
-assert np.allclose(slid, from_tails) and np.allclose(lifted, TAILS)
+assert np.allclose(check_coin(second, True), X @ X @ HEADS) and second.ghost["face"] == "tails"
+assert guess.where == second.where and guess.passed == second.passed == 2
+assert guess.shown["face"] == face_of(twice_as_much(HEADS, guess.passed)) == "tails"
+assert guess.shown != second.shown
 ```
 
 ## 3. Which Tag First? — `Ch1/OrderMatters.py`
@@ -149,16 +181,28 @@ assert not same_picture(row_of("X", "S0"), row_of("S0", "X"))
 assert np.allclose(matrix_of(row_of(*tags)), then @ first)
 ```
 
-Its four pictures: the twins from tails arrive heads, where a bare string gives tails; "as
-hung" and "swapped" are the very same two tags in the other order and give the other face;
-and swapped from tails arrives as swapped from heads did — both starts alike. The negative
-assert is the mix-up the convention rules out: read from the right, the swapped string would
-give heads, not the tails drawn (and over all strings of up to four tags, the two readings part
-on 24 of the 62 walks of the 31 strings of up to four tags, from either start).
+Its pictures are four moments. The first walk past the "heads up, whatever it was" twins is a
+step strip of two frames: heads just past the first (ghost tails), and heads just past the
+second with **no marks**, for there the tag changed nothing ("at the second it is heads up
+already, and he leaves it"). Beside it, pale, `twins`: "Twins. Off they come." — the lifted set
+is exactly the two twins, the string is bare where they hung, and the coin, read at the same
+place, is tails. The file's own model lifts pairs as the Tortoise would (the leftmost two of a
+kind side by side, and look again) and agrees with the rule, its lifted set and its fault for a
+place inside a pair on every string of up to four tags. Then "as hung", and the swapped string
+with the prediction `anyorder` beside the true frame: the tags walked in the other order give
+heads, the page gives tails. That wrong rule is exactly the mix-up the convention rules out —
+the string read from the right — and over the 28 strings of two to four tags, from either
+start, it parts from the truth on 24 of the 56 walks. Last, swapped from tails arrives as
+swapped from heads did: both starts alike.
 
 ```python
-assert hung[1]["tags"] == hung[2]["tags"][::-1]
-assert face_of(carry(HEADS, hung[2]["tags"][::-1])) != hung[2]["now"]["face"]
+assert second.marks and second.ghost is None and np.allclose(p1, S0 @ S0 @ TAILS)
+assert twins.lifted == {1, 2} and twins.hanging == ()
+assert twins.shown["face"] == face_of(guess) == "tails" != second.shown["face"]
+assert P.faults(P.tagstring, "first;expects=twins", "tails", "heads,heads") == [
+    "tagstring: expects=twins: the place falls inside a pair that comes off "
+    "(past tag 1, not past tag 2)"]
+assert anyorder.shown["face"] == face_of(guess) == face_of(p2) == "heads"
 assert np.allclose(p3, p4)                       # "Both starts arrive alike!"
 ```
 
@@ -185,18 +229,25 @@ assert same_picture(fair_then_nots(1), fair_coin())
 assert not same_picture(not_box(), bare_wire())
 ```
 
-Its five pictures are the two strips. Achilles's tossed coin (the keyed strip picture, on a
-string still bare) reads three in six, and turned end for end at the tag it still reads three,
-with its white end now at the string — the trap. The Tortoise's strip reads five, turned at the
-tag it reads one ("It moved!"), and tied on again on a bare string it reads five, as it began.
-`strip-three` and `strip-five` are asserted to be the blackboard's `FAIR` and `FIVE_ONE`.
-The turned five-and-one strip still has five dark panels while heads' share is one: the shading
-only marks the place.
+Its pictures are four moments of the two strips. Achilles's tossed coin, the keyed strip
+picture on a string still bare, reads three in six. Turned end for end at the tag, it still
+reads three, with its white end now at the string, and the ghost of the strip as tied is
+drawn: the strip did move, though the division reads the same — the trap, and the tag at work
+in it. The file's strip model is therefore two facts, the shaded panels and the end held,
+and a ghost is there exactly when the end held changes. The Tortoise's strip is a step strip —
+tied on, five in six; just past the tag, one in six, the white end at the string, the ghost
+five-dark ("It moved!") — with the prediction `idle` beside it, pale, at the same place: "this
+tag does nothing", the strip as tied, five in six. Last, tied on again on a bare string, it
+reads five, as it began. `strip-three` and `strip-five` are asserted to be the blackboard's
+`FAIR` and `FIVE_ONE`; the turned five-and-one strip still has five dark panels while heads'
+share is one: the shading only marks the place.
 
 ```python
-assert np.allclose(tossed_turned, tossed)
+assert np.allclose(tossed_turned, tossed) and np.allclose(X @ FAIR, FAIR)
+assert turned_pic.ghost == {"kind": "strip", "dark": 3, "turned": False}
 assert not np.allclose(die_turned, die) and np.allclose(die_turned, X @ FIVE_ONE)
-assert sum(turned_panels) == 5 and not np.isclose(6 * die_turned[0], 5)
+assert idle.where == die_turned_pic.where and idle.passed == die_turned_pic.passed == 1
+assert idle.shown != die_turned_pic.shown
 assert np.allclose(home, die)
 ```
 
@@ -225,16 +276,21 @@ assert not same_picture(arrow_then_nots(1), arrow_then_nots(0))
 assert same_picture(arrow_then_nots(2), arrow_then_nots(0))
 ```
 
-Its five pictures: three close-ups of the square — the keyed one with matches along the two
-edges (three heads-ward, four tails-ward), then along the arrow too (five, not seven, and
-nine and sixteen make twenty-five), then turned over (four and three, and still five) — and one
-block of two with the square tied on, under two turn-over tags and with them lifted off, drawn
-as drawn since nothing is walked. The views `home` and `twice` are checked to read as two
-turns, `over` as one, against `X @ ARROW`.
+Its pictures are four moments. The keyed close-up has matches along the two edges (three
+heads-ward, four tails-ward). Then the measure, five, with the prediction `sum` beside it,
+pale: the reaches added, seven matches along the arrow, a row that runs past the tip and off
+the paper by a clear gap. Then the turn, two frames: the square turned over and cleared of
+matches, with the ghost arrow where it lay (three and four), its swing and its pin; then
+measured once more, four and three, and still five. Last, the square tied on under two
+turn-over tags and with them lifted off, drawn as tied, since nothing is walked. The views
+`home` and `twice` are checked to read as two turns and `over` as one, against `X @ ARROW`,
+on every choice of rows, with and without the turn's marks.
 
 ```python
-assert (c["along"], c["up"], c["arrow"]) == reading          # (3,4,5) or (4,3,5)
-assert c["along"] + c["up"] == 7 != c["arrow"]
-assert c["along"] ** 2 + c["up"] ** 2 == c["arrow"] ** 2
-assert square_on_string(whole) == (3, 4)          # two tags come off for the arrow
+assert five.count == (3, 4, 5) and not five.sum
+assert five.count[0] ** 2 + five.count[1] ** 2 == five.count[2] ** 2
+assert seven.count == (3, 4, 7) and seven.count[2] == as_achilles_counts(ARROW)
+assert seven.far_end - P.SIDE > 0.1                     # off the paper
+assert turn.ghost == (3, 4) and turn.reaches == (4, 3)
+assert again.count == (4, 3, 5)
 ```

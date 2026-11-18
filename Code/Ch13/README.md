@@ -58,32 +58,58 @@ wishes a wisher must spend.
 with the lid lifted (`\wishcasket`, drawn with the shared Office parts of
 `pdf/props/office.lua`); the wisher's slips of seven squares, with the disc (`\wishslip`);
 and the Tortoise's web, end-rings, tubes and pairs box on her drawing-cloth (`\wishcloth`,
-drawn on the shared cloth of `pdf/props/cloth.lua`). Their Lua rules are transcribed once in
-`tools/props_ch13.py` (no matrices there), on top of `tools/props_office.py`, which holds
-the Office parts' sizes and drawn outlines for this chapter and the next two, and
-`tools/props_cloth.py`, the shared cloth (where an open cord of length zero draws nothing,
-as in `cloth.lua`). Every constant and every inline place, scale and frame is read from the
-Lua itself, and every rule the Python mirrors is guarded by a literal snippet of it (a drift
-guard). The transcription holds the three state models, among them the casket's passage
-simulated on its 128 entries as the Lua does it, and also the dumps, frames, keyed words
-and where they go, the drawn outlines, and the Lua's forty-six fault sites, each keyed and
-each message byte for byte. Each was compared with `texlua` on the fifteen dialogue calls,
-on fifty fault calls (all 46 sites hit), and on four thousand random calls. There was no
-difference. Each file reads the pictures of its own section through `tools/dfp_props.py` and
-checks:
+drawn on the shared cloth of `pdf/props/cloth.lua`). Since round 4 (*Show the process*,
+card §3e) each takes a `;` bracket, order-free, with a view or the operations before, a
+`step=` (the move drawn), `marks=on|off` and `expects=` (a refuted prediction drawn pale), and
+three strip macros (`\wishcasketsteps`, `\wishslipsteps`, `\wishclothsteps`) run a move as a
+row of frames, each frame the single call with the steps before it as operations.
 
-- the layout (4 pictures in each section, one per block, the same in `dialog.raw.md`), with
-  one frame and one macro per block;
-- the captions (words only, none on the card's forbidden list, never a spoken sentence,
-  never the first sentence after the block);
-- the places each prop may appear, and the paragraph each block follows and the one after
-  it, with the card's direction phrases;
-- every picture's state.
+**Pins (the cloth kit).** The shared cloth kit, `pdf/props/cloth.{lua,tex}`, is pinned in
+`tools/props_cloth.py`, which every file imports through `props_ch13`; a change to the kit fails
+every file of this chapter (see the note in `chapter10/Code/README.md`).
+
+The Lua rules are transcribed once in `tools/props_ch13.py` (no matrices there), on top of
+`tools/props_office.py` and `tools/props_cloth.py`: the three state models (the casket's
+passage simulated on its 128 entries as the Lua does it), the steps and their preconditions
+(the casket's clauses; the disc's `wish …` and `turn at the …`; the cloth's operations one at
+a time, `clip the tubes on`, `push into the next ring` with its partial state, `on to the far
+end`), the marks (the dotted ghosts, the slide and swing arcs, every logged gap), the three
+wrong rules (`every mark`, `my marks`, and `gave nothing`, unused but tested), the strips, the
+dumps and log, the keyed words, and the Lua's **90** fault sites (12 of the casket's, 10 of the
+slip's, 35 of the cloth's, 33 of the brackets' and strips', through four `tex.error` calls),
+each keyed and each message byte for byte. The transcription was compared with `texlua`
+line for line — every log line, fault, keyed word, gleam disc, disc, ruled square, pale group,
+ghost, clip, arc and full-strength ring — on every call of both dialogue files (40 calls, every
+strip run frame by frame as TeX runs it), on the 90 fault cases, and on two sweeps of 19,068
+random and aimed calls each: no difference. Every top-level chunk of the Lua (127) and of the
+`.tex` (43), and the three comments that state the wrong rules, are pinned by hash: a change to
+any of them fails the import until the transcription is proved again.
+
+Each file reads its own section through `tools/dfp_props.py` and checks:
+
+- the layout (the blocks, a strip counting as one call; the same in `dialog.raw.md`), with one
+  frame height and one macro per block, and every strip frame equal to its single call;
+- the captions of every frame (words only, none on the card's forbidden list, never a spoken
+  sentence, never the first sentence after the block);
+- the places each prop may appear, the paragraph each block follows and the one after it, and
+  every keyed word named in the dialogue before its picture;
+- every frame's reading (its log head), and for a step its `+ step` line, every ghost's place,
+  every arc's ends and side, and every logged gap;
+- for every marked frame: its twin with `marks=off` draws the same frame with no mark, its
+  marks lie inside the linen or frame by more than 0.01 cm, and every cloth arc clears every
+  cord and tie by more than 0.02 cm edge to edge;
+- each refuted prediction against its wrong rule, its comment in the Lua, and the spoken
+  reactions to it, in order.
 
 Each file also **ties the transcription to its own mathematics**, NumPy against its
-blackboard. This is a structural check of the pictures, not a second proof. Fifteen
-mutations of the dialogue (a caption, a setting, a mark, a keyed star, a phrase, a Genie
-line, an extra picture) were each caught by the file that owns the section.
+blackboard. This is a structural check of the pictures, not a second proof. Twelve
+mutations (an arc's sense flipped, a ghost dropped, `marks=off` ignored — each in the Lua and
+its transcription, the pins renewed — a mark on the counted frame, a strip's order reversed,
+a block moved past its look, an `expects=` where it agrees or in the wrong view, a strip
+unstarred or given its before-frame back, and the clipping direction reverted) were each
+caught by a file's asserts, and three more (a code edit in `ch13.lua`, one word of a
+wrong-rule comment, an edit in `ch13.tex`, the pins left as they were) stop every file at
+the import.
 
 ---
 
@@ -127,16 +153,26 @@ assert same_picture(scaled(h, 2 * w), bare_wires(n + 1))
 The web composed with its PyZX mirror (`adjoint`) reduces to bare wires as well, the picture
 form of unitarity.
 
-**Pictures (P1.1–P1.4).** The casket from the knob face (P1.1) has its nibs at the top, its
-rows on the Lua's pitch and the flag set apart. Every nib is clear of its own ball and
-pointer and of the neighbouring collars, with either stop, and the seal is clear of the
-plate. The checks are on drawn outlines, not body widths, and every gap is positive. The
-unit wishes give the slip's inked squares (P1.2). The two slips of P1.3 answer Achilles's
-four wishes alike (parities 1, 0, 1, 0). The disc's rule agrees with the parity for all 63
-nonzero strings, both slips and both faces; the string of zeros is not expressible in the
-disc's words. The slips are more than 0.04 apart, and both slips and their shadows lie inside the frame
-the Lua draws, both read from `ch13.lua`. On P1.4 each tie's row is an inked square, and an X on the flag's wire in the PyZX
-web of the slip. Each tie crosses every cord between its ends and clears every other ring.
+**Pictures (F01–F08: six blocks, six calls, eight frames).** The casket from the knob face
+(F01) has its nibs at the top, its rows on the Lua's pitch and the flag set apart. Every nib
+is clear of its own ball and pointer and of the neighbouring collars, with either stop, and
+the seal is clear of the plate. The disc frames show the slip folded under Achilles's hand
+(Q-A). F02, keyed `slip` and `disc`, stands beside the pale prediction F03: `expects=every
+mark`, the disc **gilt**, the face the wrong rule gives (turned when any inked square is
+lit), while its step line logs the true face, black, $y\oplus a\cdot x$ at $a=100010$,
+$x=111111$. For every non-empty wish and both faces the Lua accepts the prediction exactly
+where the two rules differ (an even count of inked squares lit) and refuses it elsewhere.
+The strip B1.2 (F04, F05) turns the disc at the first square and at the fifth, one swing arc
+each, over the disc, left to right, the same arc for the same verb; each clears the frame by
+0.029 cm and the disc's rim by 0.033 cm. Its steps are the slip's inked squares in order, each
+frame turning the face the one before left. The disc, the prediction's telling part, is drawn
+0.26 cm across, over the 0.15 cm legibility floor. The paragraphs run as card §3e.1 says: the
+prediction, "Choose, then.", the pale frame, the look, the strip, "Black. As if I'd made no
+marks at all.", "One face, one answer". The unit wishes give the slip's inked squares (F06).
+The two slips of F07 answer Achilles's four wishes alike, and the disc's rule (and every
+`step=wish`) agrees with the parity for all 63 nonzero strings, both slips and both faces. On
+F08 each tie's row is an inked square, and an X on the flag's wire in the PyZX web of the
+slip; each tie crosses every cord between its ends and clears every other ring.
 
 ## II. `KickedMark.py` — *The Mark on the Cords* (kickback as a copy; Deutsch–Jozsa read off the web)
 
@@ -174,11 +210,22 @@ The trap's phase-free point copies as nothing (`add_power(-1)`, determined here)
 is built with green end-rings; `full_reduce` leaves one point per cord, $\pi$ exactly on the
 first, fifth and flag cords, and read crosswise the windows are $1000101$.
 
-**Pictures (P2.1–P2.4).** The cloth's end-rings read crosswise give $H^{\otimes7}U_fH^{\otimes7}$
-on the blackboard: $\ket{0}\mapsto\ket{0}$ (the trap), $\ket{0000001}\mapsto\ket{1000101}$,
-and with no marks the flag alone. On P2.4 the flag cord has length zero and draws nothing
-(`props_cloth.drawn`: six paths, six tips, six lashings; P2.2 has seven of each). The
-end-rings' fixed parts are unmoved by the push.
+**Pictures (F09–F19: three strips and a single call, eleven frames).** K3 lays the web
+with red end-rings (F09, keyed `end-ring`, `bead`), clips a tube by every end-ring before any
+is slid (F10, keyed new: `tube`; the direction T1, `till a tube sits by every end-ring`, is
+asserted), and slides them out (F11, round 3's P2.1). K4 pushes the flag's end-ring into a
+red ring, slides the copy's ring out to its end-ring, and does it again (F12–F15): each
+frame's ghosts and its one slide arc, read as the Lua logs them, every arc starting at its
+ghost and heading where the ring went, above the flag row or beneath a wish row, and "no arc
+up a tie" where a copy climbs. K5 does the same with the flag lit (F16–F18): the half-turn
+reaches the first mark, then the fifth. F19 runs the flag clear to the far end. Read crosswise
+on the blackboard: $\ket{0}\mapsto\ket{0}$ (F15, the trap), $\ket{0000001}\mapsto\ket{1000101}$
+(F18), and with no marks the flag alone (F19). With `marks=off`, F11, F15, F18 and F19 are
+round 3's P2.1–P2.4. The least cord clearance here is F15's, 0.068 cm (0.102 on centre
+lines). On F19 the flag cord has length zero and draws nothing. The cloth's wrong rule
+`gave nothing`, unused in the dialogue (Q-C), is tested on K5's two pushes: the pale cloth
+with the climbed-into ring at full strength, its bead at rest where the flag gave it 12, and
+refused with the flag at rest, where it would agree.
 
 ## III. `TurnedWeb.py` — *The Turned Web* (Bernstein–Vazirani; *The Theorem, Twice*; the master)
 
@@ -224,30 +271,26 @@ same ties ("Nothing has moved"), for every $(a,b)$ at $n=4$. Cleve's form is bui
 secrets at $n=6$ with `add_power(w-n-1)` and reduced to a red $\pi$ point on each marked rod
 and a green $\pi$ point on the flag.
 
-**Pictures (P3.1–P3.4).** The tubes swap every ring's colour and keep every place (P3.1).
-Pushed and read plainly, the web gives the inked squares and the flag: $\ket{1000101}$,
-amplitude $+1$ (P3.2). The swallowed flag cord draws nothing. The casket's passage, run as
-the Lua runs it, **is** the blackboard's
-$(H\text{ on window-crosswise rows})\,U_f\,(H\text{ on knob-crosswise rows})$. The file
-checks this on several sets of cases:
-
-- all 128 knob settings, every collar upright and every collar crosswise, through the
-  macro's own words;
-- every one of the $2^{14}$ collar patterns at two knob settings, where the Lua has exactly
-  one reading in exactly the 160 cases where the blackboard's state is a basis state;
-- 200 random settings.
-
-At the setting the dialogue declines (l.570: the flag knob's collar upright), the macro
-refuses with the gamble fault, and the likeliest reading has probability $\tfrac12$. P3.3's
-windows `dldlddl` are $\ket{0101001}$. Inside (P3.4), section 1a's thirteen lengths are
-there by name, with the ties behind. The lower red ring is below the upper and further
-across. The backs gleam as the windows do. No length crosses a ring. The words "ring" and
-"tie" sit in the gap above the flag row (y = 0.515). Their node boxes are measured once with
-lualatex, as `\tiny\itshape` in the book's TeX Gyre Pagella with the 1pt inner sep, and they
-clear every length, knot and ring. The margin is thin by design: the least gap is 0.005 cm,
-"tie" against the first tie, inner sep included. The fourteen Genie lines
-are pinned word for word in both files. Granting changes only the windows and the seal, and
-lifting changes only the lid.
+**Pictures (F20–F27: five blocks, six calls, eight frames).** K6 lays the web again for the
+casket (F20), threads the tubes (F21) and slides them in (F22, round 3's P3.1): every ring
+changes colour and keeps its place. Pushed and read plainly, the web gives the inked squares
+and the flag: $\ket{1000101}$, amplitude $+1$ (F23). The casket's passage, run as the Lua runs
+it, **is** the blackboard's
+$(H\text{ on window-crosswise rows})\,U_f\,(H\text{ on knob-crosswise rows})$: on all 128 knob
+settings through the macro's own words, on every one of the $2^{14}$ collar patterns at two
+knob settings (one reading in exactly the 160 basis cases), and on 200 random settings, where
+the wrong rule's passage is the same blackboard with Achilles's marks. B3.3a stands directly
+after the Genie's "Granted.": the set casket (F24, keyed `window`, `collar`, `flag window`,
+`lid`, `seal`) and the pale prediction F25, `expects=my marks`, its windows $\ket{1000101}$ —
+his slip's — while its step line logs the true `dldlddl`; each gleam disc (L2) is 0.18 cm
+across, over the legibility floor. The look follows, then F26: the
+casket's own $\ket{0101001}$, amplitude $+1$, equal to round 3's P3.3. The reactions run in
+order from "the one wish brings back every mark at once" to "not turned at all". Inside
+(F27, the counted frame) are section 1a's thirteen lines by name and ordinal, eleven cords and
+two ties, with no step and no mark; each tie drops straight from its green ring to its red
+ring (x = ∓0.18 cm, read from the Lua's inside view), and the rows' pitch less a cord's drawn
+width is 0.154 cm. The words "ring" and "tie" clear every length, knot and ring. The fourteen
+Genie lines are pinned word for word in both files.
 
 ## IV. `PairsBox.py` — *The Pairs Box* (the *da capo*; one round of Simon's problem)
 
@@ -294,17 +337,25 @@ The parity gadget obeys $P_s=2^{|s|/2-1}\times$gadget for $|s|=2,3,4$ (the bare 
 separation and BBBV's Theorem 3.5 are stated in the chapter and cited; no file tests a query
 bound.
 
-**Pictures (P4.1–P4.3), and the whole run.** The pairs box's ties **are**
-$f(x)=(x_1\oplus x_2,\,x_3)$, and Simon's promise holds for $s=110$ and not for $011$. The
-fold moves nothing else. Its band covers both answer-cords' ends and no ring. The
-answer-cords turn down at columns 5 and 6, cross nothing, and clear the other's rings. Run
-together, they land on rings that were already there, and one round gives the clues
+**Pictures (F28–F30), and the whole run.** The pairs box's ties **are**
+$f(x)=(x_1\oplus x_2,\,x_3)$, and Simon's promise holds for $s=110$ and not for $011$ (F28).
+The fold moves nothing else, and draws no mark (F29). F30 slides each answer-cord's rings
+together: three ghosts and an arc above each answer-cord, the least cord clearance of the
+chapter, 0.031 cm edge to edge (0.065 on centre lines), the upper arc against the first
+place's slanted tie. That figure is re-measured on the kit's strokes as `cloth.lua` emits
+them: the Lua's `CORDHALF` is at least a cord's drawn half-width, and the arcs clear every
+cord and tie body and its soft shadow by more than 0.02 cm. With `marks=off` it is round 3's P4.3, and one round gives the clues
 $000,001,110,111$, a quarter each, every one with $z\cdot s=0$. Over the whole dialogue the
 file checks the following:
 
-- there are fifteen pictures, all inside the four challenges, none after P4.3;
-- the keyed pictures are exactly P1.1, P1.2, P1.4, P2.1, P3.3, P3.4, P4.1 and P4.2;
-- every call is legal and in its place;
-- no picture shows the gamble;
+- there are 18 blocks, 20 calls and 30 frames, all inside the four challenges, none after F30;
+- the keyed frames are exactly F01, F02, F06, F08, F09, F24, F27, F28 and F29, plus F10 keyed
+  new (`tube`), with the predictions F03 and F25 exempt; a family's first true frame names it;
+- the marked frames are exactly F04, F05, F12–F15, F17, F18, F19 and F30, and every frame with
+  a step equals its `marks=off` twin but for the marks;
+- the log is 87 lines, 5 of them strip lines;
+- every frame is in its place, and no call raises a fault or shows the gamble;
+- each of the 90 fault sites is raised by its own call with a message of its own, and the `;`
+  bracket is order-free for all three macros and the three strips, every order run;
 - section 1c's form check passes on both files, "Let Bob draw" never appears, and there are
   three spoken "Referred." lines, all the Genie's.

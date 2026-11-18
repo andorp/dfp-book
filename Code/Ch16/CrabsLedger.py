@@ -291,17 +291,31 @@ def bow_net(B):
     (its bead's turn)/12; a Hadamard edge per tie; an output per loose cord (a capped cord
     has none: the cap's quarter is in the ring's turn), through its piece, a two-legged
     spider, if one is threaded on.  Outputs in the bells' order.  The counters by the
-    teapot are numbers, not part of the net."""
+    teapot are numbers, not part of the net.  Round 4's part-way states: a half riding a tie
+    is a two-legged spider of its colour on that tie, before its tube ("near" the ring it left)
+    or past it ("far"); an end-ring tied on a loose cord closes it, a one-legged green spider."""
     g = zx.Graph()
     v, outs = {}, []
     for w, b in enumerate(PC.BELLS):
         R = B.rings[b]
         if R["on"]:
             v[b] = g.add_vertex(VT.Z, w, 1, phase=Fraction(R["t"], 12))
+    riding = {PC.pairkey(h["from"], h["to"]): h for h in (B.onties or [])}
+    assert len(riding) == len(B.onties or [])
     for key in sorted(B.ties):
         a, c = key.split("-", 1)
-        if a in v and c in v:
+        if not (a in v and c in v):
+            continue
+        h = riding.pop(key, None)
+        if h is None:
             g.add_edge((v[a], v[c]), ET.HADAMARD)
+            continue
+        half = g.add_vertex(VT.X if h["c"] == "red" else VT.Z, 0.5, 1.5, phase=Fraction(h["t"], 12))
+        near, far = (ET.SIMPLE, ET.HADAMARD) if h["at"] == "near" else (ET.HADAMARD, ET.SIMPLE)
+        g.add_edge((v[h["from"]], half), near)
+        g.add_edge((half, v[h["to"]]), far)
+    assert not riding                                                   # every half rides a tie
+    ends = 0
     for w, b in enumerate(PC.BELLS):
         R = B.rings[b]
         if R["on"] and R["cord"]:
@@ -311,13 +325,18 @@ def bow_net(B):
                 p = g.add_vertex(VT.X if colour == "red" else VT.Z, w, 2, phase=Fraction(turn, 12))
                 g.add_edge((last, p))
                 last = p
-            o = g.add_vertex(VT.BOUNDARY, w, 3)
-            g.add_edge((last, o))
-            outs.append(o)
+            if R["cap"] is not None:
+                end = g.add_vertex(VT.Z, w, 3, phase=Fraction(R["cap"], 12))
+                g.add_edge((last, end))
+                ends += 1
+            else:
+                o = g.add_vertex(VT.BOUNDARY, w, 3)
+                g.add_edge((last, o))
+                outs.append(o)
     g.set_inputs(())
     g.set_outputs(tuple(outs))
     assert g.num_edges() == len([k for k in B.ties if all(x in v for x in k.split("-", 1))]) + \
-        sum(1 + bool(B.rings[b]["piece"]) for b in v if B.rings[b]["cord"])
+        len(B.onties or []) + sum(1 + bool(B.rings[b]["piece"]) for b in v if B.rings[b]["cord"])
     return g
 
 
@@ -341,25 +360,33 @@ def page_rows(block):
 
 
 def pictures():
-    """The Fourth Challenge's prop pictures (identity card, section 4), read from the
+    """The Fourth Challenge's prop pictures (identity card, sections 4 and 3e), read from the
     dialogue through tools/dfp_props.py and the transcription tools/props_ch16.py.  The ties
     below hold the transcription against this file's blackboard: a structural check of the
-    pictures, not a second proof."""
+    pictures, not a second proof.  Round 4 draws the capping in two moves (the end-rings tied on,
+    then slid in) and the pulling-out ring by ring, each frame's value the same, with the
+    pull-outs' numbers by the teapot."""
     check_bells()
     calls = DIALOGUE.check_layout("Fourth", sizes=[1, 1, 1, 1])
     assert [(c.macro, c.keyed, c.opt, c.args, c.caption) for c in calls] == [
         ("trayledger", True, "", ("the tray's rows",), "The tray's rows"),
         ("trayledger", False, "an over on the knot", ("the tray's rows",), "The knot's column swapped"),
-        ("bowcloth", False, "cap every loose cord", ("bare",), "No loose end left"),
-        ("bowcloth", False, "cap every loose cord, pull out the left-back, pull out the right-back", ("bare",),
-         "Pulled out to the last")]
+        ("bowclothsteps", False, "", ("bare", "cap the loose cords; slide the caps in"),
+         "The cloth net, bare; Closed with green rings; No loose end left"),
+        ("bowclothsteps", False, "after=cap every loose cord; from=off",
+         ("bare", "pull out the left-back; pull out the right-back"),
+         "The left-back ring lifted away; Pulled out to the last")]
     PC.check_captions(DIALOGUE, "Fourth", calls)
     PC.check_section(DIALOGUE, "Fourth", calls)
-    PC.check_anchors(DIALOGUE, "Fourth", ["P4.1", "P4.2", "P4.3", "P4.4"])
+    assert PC.check_anchors(DIALOGUE, "Fourth") == (4, 8)                # P4.3, P4.4, both files
+    frames = [PC.frame_chain(c) for c in calls]
+    assert [len(f) for f in frames] == [1, 1, 3, 2]                     # card 3e.6: 4 blocks, 7 frames
     ledger_h, cloth_h = round(PC.LFTOP - PC.LFBOT, 2), 2.32
     assert ledger_h == 2.61                                             # read from the Lua
     assert [[PC.height(c) for c in b] for b in DIALOGUE.blocks("Fourth")] == [[ledger_h], [ledger_h], [cloth_h], [cloth_h]]
-    p41, p42, p43, p44 = (PC.picture(c) for c in calls)
+    assert [R.frame for f in frames for R in f] == [ledger_h] * 2 + [cloth_h] * 5
+    (p41,), (p42,), b16, b17 = frames
+    p43, p44 = b16[-1], b17[-1]
     n, G = 5, graph_state(5, BOWTIE)
 
     # P4.1: the tray's rows -- red X, green Z, gold Y, blank I, every sign plain: K_1 ... K_5,
@@ -402,16 +429,37 @@ def pictures():
     # net with a green quarter-round cap on every output, exactly 1 + i
     assert p43.dump.split(" | ")[0] == ("lb=6 lf=6 knot=6 rb=6 rf=6 ties=knot-rb,knot-rf,lb-knot,lb-lf,lf-knot,rb-rf "
                                         "edge= aside=0")
+    assert p43.dump == PC.bowcloth("cap every loose cord", "bare").dump  # round 3's P4.3
     assert "+cord" not in p43.dump                                      # "No loose end left"
     closed = bow_net(p43.state)
     assert not closed.outputs()
     assert np.isclose(matrix_of(closed).ravel()[0], 1 + 1j)
     assert same_picture(closed, closed_net(n, BOWTIE, [Fraction(1, 2)] * n))
     assert not np.isclose(matrix_of(closed_net(n, BOWTIE, [Fraction(3, 2)] * n)).ravel()[0], 1 + 1j)   # quarter back: not
+    # B16 move by move (card 3e.6, item 7): the bare net; a green end-ring at a quarter round tied on
+    # every loose cord's free end; slid in.  The end-ring and its ring, one colour joined by a cord,
+    # are one ring with their turns added: frame 2 is frame 3 exactly
+    c0, c1, c2 = b16
+    assert c0.step is None and c0.dump == PC.bowcloth("", "bare").dump and not c0.marked
+    assert [c1.step, c2.step] == ["cap the loose cords", "slide the caps in"]
+    assert all(c1.state.rings[b]["cap"] == 6 and c1.state.rings[b]["cord"] and c1.state.rings[b]["t"] == 0
+               for b in PC.BELLS)                                       # "Closed with green rings"
+    assert same_picture(bow_net(c1.state), bow_net(c2.state))           # exactly, scalar included
+    assert not bow_net(c1.state).outputs()
+    assert not same_picture(bow_net(c0.state), bow_net(c1.state))       # tying the caps on is the step
+    import copy
+    back = copy.deepcopy(c1.state)                                      # an end-ring a quarter back: another number
+    back.rings["knot"]["cap"] = 18
+    assert not same_picture(bow_net(back), bow_net(c2.state))
+    assert c1.ghosts == [] and c1.arcs == [] and c1.marked
+    assert PC.check_ghosts(c1, c2) == ["the green end-ring (grid %s)" % g for g in ("0,0", "0,2", "3.5,2", "7,0", "7,2")]
+    assert [a.kind for a in c2.arcs] == ["slide"] * 4                   # the knot's cap slides straight up
+    assert PC.check_slides(c2) == 4                                     # each from its end-ring into its ring
     # P4.4: the left-back and the right-back pulled out -- three lone rings, the numbers 2,
     # 1 - i and 2, two counters aside; the value is the same, with the two pull-outs' numbers
     # (e^{i pi/4}/2 each)
     assert p44.dump.split(" | ")[0] == "lb=out lf=0 knot=18 rb=out rf=0 ties= edge= aside=2"
+    assert p44.dump == PC.bowcloth("cap every loose cord, pull out the left-back, pull out the right-back", "bare").dump
     lone = matrix_of(bow_net(p44.state)).ravel()[0]
     assert [1 + np.exp(1j * np.pi * p44.state.rings[b]["t"] / 12) for b in ("lf", "knot", "rf")] == \
         [2, 1 + np.exp(1j * np.pi * 18 / 12), 2]
@@ -422,6 +470,30 @@ def pictures():
     assert not np.isclose(lone * pull, 1 + 1j) and not np.isclose(lone, 1 + 1j)
     assert [b for b in PC.BELLS if not p44.state.rings[b]["on"]] == ["lb", "rb"]   # "Pulled out to the last"
     assert "ties= " in p44.dump
+    # B17 ring by ring (card 3e.6, item 7): frame 1, the left-back pulled out, its neighbours
+    # complemented (their tie taken up, each a quarter back), with its counter, is B16's last frame's
+    # value; frame 2, with its two, the same
+    d1, d2 = b17
+    assert d1.before == p43.state and d2.before == d1.state
+    assert d1.dump.split(" | ")[0] == "lb=out lf=0 knot=0 rb=6 rf=6 ties=knot-rb,knot-rf,rb-rf edge= aside=1"
+    assert not d1.state.rings["lb"]["on"] and d1.state.rings["rb"]["on"]   # "The left-back ring lifted away"
+    v16 = matrix_of(bow_net(p43.state)).ravel()[0]
+    for R in (d1, d2):
+        assert np.isclose(matrix_of(bow_net(R.state)).ravel()[0] * pull ** R.state.aside, v16), R.step
+    assert not np.isclose(matrix_of(bow_net(d1.state)).ravel()[0], v16)    # not without its counter
+    assert PC.check_ghosts(p43, d1) == ["the green ring (grid 2,0)"]
+    assert PC.check_ghosts(d1, d2) == ["the green ring (grid 5,0)"]
+    # every bead she turns by hand has its turn arc, one per turned ring (the Lua's final arc rule):
+    # along the bead's own way, or -- where a tie crosses it, as the knot's in frame 1 -- the same
+    # quarter turn drawn a quarter round the ring, where the linen is open
+    turned = [[b for b in PC.BELLS if R.before.rings[b]["on"] and R.state.rings[b]["on"]
+               and R.before.rings[b]["t"] != R.state.rings[b]["t"]] for R in b17]
+    assert turned == [["lf", "knot"], ["knot", "rf"]]
+    assert [len(R.arcs) for R in b17] == [len(t) for t in turned] == [2, 2]
+    assert all(a.kind == "swing" for R in b17 for a in R.arcs)
+    assert [["along" in a.side for a in R.arcs] for R in b17] == [[True, False], [True, True]]
+    assert "drawn 90 degrees on" in d1.arcs[1].side                     # the knot's arc, top to left
+    assert len(d1.shown.counters) == 1
     # the counters: two by the teapot, off the linen and inside the frame
     v = p44.shown
     assert len(v.counters) == 2 and p43.shown.counters == ()
@@ -429,7 +501,7 @@ def pictures():
         box = PC.counter_box(cx, cy)
         assert box[3] < v.linen[1] - PC.LINEN_SHADOW and box[1] > v.fbot - PC.ASIDE
     # fixed parts: the rings on the cloth stay at their places
-    for p in (p43, p44):
+    for p in b16 + b17:
         rings_in_place(p)
     assert not PC.TEX_ERRORS
 

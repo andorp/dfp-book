@@ -324,35 +324,53 @@ def master_names(g):
 
 
 def pictures():
-    """The Third Challenge's prop pictures (identity card, section 4), read from the
-    dialogue through tools/dfp_props.py and the transcription tools/props_ch14.py.  The
-    ties below hold the transcription against this file's blackboard and its master: a
-    structural check of the pictures, not a second proof."""
-    calls = DIALOGUE.check_layout("Third", sizes=[1, 1, 1, 1])
+    """The Third Challenge's prop pictures (identity card, sections 4 and 3e), read from the
+    dialogue through tools/dfp_props.py and the transcription tools/props_ch14.py: five blocks,
+    three strips and two single calls, eleven frames (F14-F24).  The ties below hold the
+    transcription against this file's blackboard and its master: a structural check of the
+    pictures, not a second proof."""
+    calls = DIALOGUE.check_layout("Third", sizes=[1, 1, 1, 1, 1])
+    ops = P32_OPS.split(", ")
     assert [(c.macro, c.keyed, c.opt, c.args, c.caption) for c in calls] == [
         ("tickcloth", True, "", ("two listeners",), "another listener above"),
-        ("tickcloth", False, P32_OPS, ("two listeners",), "read, and the far ends crossed"),
-        ("clockcase", True, "windows", ("knob up; granted",), "after the passage"),
+        ("tickclothsteps", False, "from=off", ("two listeners", "; ".join(ops[:3])),
+         "pushed through; run on to the far end; the upper listener read"),
+        ("tickclothsteps", False, "after=" + ", ".join(ops[:3]) + "; from=off", ("two listeners", "; ".join(ops[3:])),
+         "the correction laid; the upper pushed; the lower listener read; the far ends crossed"),
+        ("clockcasesteps", True, "windows", ("knob up", "granted"), "the seal whole, every pane plain; after the passage"),
         ("clockcase", True, "inside", ("knob up; granted; front open",), "the front open")]
     PC.check_captions(DIALOGUE, "Third", calls)
     PC.check_section(DIALOGUE, "Third", calls)
     case_h = round(PC.CFTOP - PC.CFBOT, 2)
     assert case_h == 2.72                                             # read from the Lua
-    assert [[PC.height(c) for c in b] for b in DIALOGUE.blocks("Third")] == [[2.2], [2.2], [case_h], [case_h]]
+    assert [[PC.height(c) for c in b] for b in DIALOGUE.blocks("Third")] == [[2.2], [2.2], [2.2], [case_h], [case_h]]
+    frames = [(fc, p) for c in calls for fc, (p, _) in zip(PC.frame_calls(c), PC.pictures(c))]
+    names = ["F%02d" % i for i in range(14, 25)]
+    assert len(frames) == len(names) == 11
+    F = dict(zip(names, [p for _, p in frames]))
+    FC = dict(zip(names, [fc for fc, _ in frames]))
+    for fc, p in frames:                                              # a strip frame IS its single call
+        assert PC.drawn(PC.picture(fc)) == PC.drawn(p) and PC.picture(fc).log == p.log, fc.text
+    assert [(fc.keyed, fc.opt) for fc in FC.values()] == [(True, "")] + [
+        (False, ("" if k == 0 else ", ".join(ops[:k]) + "; ") + "step=" + ops[k]) for k in range(7)] + [
+        (True, "windows"), (False, "windows; step=granted"), (True, "inside")]
 
-    # the anchors (card section 4), in dialog.md; the raw file's following paragraphs agree
-    a1, a2, a3, a4 = DIALOGUE.anchors("Third")
-    f1, f2, f3, f4 = DIALOGUE.following("Third")
+    # the anchors (card sections 4 and 3e.4), in dialog.md; the raw file's following paragraphs agree
+    a1, a2, a3, a4, a5 = DIALOGUE.anchors("Third")
+    f1, f2, f3, f4, f5 = DIALOGUE.following("Third")
     assert "it is the upper listener now, and the first the lower" in a1                           # D16
     assert "passing beneath the lower listener's cord, joined to it nowhere" in a1                 # D16
     assert f1.startswith("*[She pushes the lit wheel end along its cord")
-    assert "the lower's end passing over the other without touching it" in a2
-    assert f2.startswith("**Tortoise:** The half first, then the quarter.")
-    assert "The seal down the front's right-hand edge has parted of itself, in the middle." in a3  # D24
-    assert f3.startswith("**Achilles:** The first plain, the second lit, and the wheel lit.")
-    assert "the one going up passing over the one going down" in a4 and "Among the rows hang red hubs" in a4  # D26
-    assert f4.startswith("**Achilles:** A quarter round on the upper row's first ring.")
-    assert DIALOGUE.following("Third", DIALOGUE.raw) == [f1, f2, f3, f4]
+    assert ("taking a tube from the packet and sliding it onto the upper listener's end-ring, where it goes in "
+            "and is gone") in a2                                                                    # B09
+    assert f2.startswith("**Achilles:** And if the wheel turned three quarters?")
+    assert "the lower's end passing over the other without touching it" in a3                      # B10: P3.2's
+    assert f3.startswith("**Tortoise:** The half first, then the quarter.")
+    assert "The seal down the front's right-hand edge has parted of itself, in the middle." in a4  # D24
+    assert f4.startswith("**Achilles:** The first plain, the second lit, and the wheel lit.")
+    assert "the one going up passing over the one going down" in a5 and "Among the rows hang red hubs" in a5  # D26
+    assert f5.startswith("**Achilles:** A quarter round on the upper row's first ring.")
+    assert DIALOGUE.following("Third", DIALOGUE.raw) == [f1, f2, f3, f4, f5]
     section = DIALOGUE.section("Third")
     for phrase in (
             "She gathers the cloth clear", "close to the end-rings",                                     # D15
@@ -372,25 +390,31 @@ def pictures():
     for old in ("just past its tube", "Off to one side hang red hubs", "sliding a tube onto the upper listener's ring;"):
         assert old not in section, old
     # the Genie's lines are unchanged, in both files; and no picture sits among the lamp,
-    # the Genie and the meta-wishes up to `Granted.`, nor at the Escher moment
+    # the Genie and the meta-wishes up to `Granted.`, nor in the Escher moment (card 3e.6:
+    # from "And if the wheel turned three quarters?" to the end of the paragraph that begins
+    # "The lower listener heard a quarter"); B09 stands before it, B10 after it
     for path in (DIALOGUE.dialog, DIALOGUE.raw):
         sec = DIALOGUE.section("Third", path)
         assert tuple(re.findall(r"^\*\*Genie:\*\* (.*)$", sec, re.M)) == GENIE
         lamp = sec.index("**Achilles:** *[reaching up, and taking the lamp down from the shelf]*")
         granted = sec.index("**Genie:** Granted.")
-        escher = sec.index("*[Achilles looks up from the cloth, past the candle, to the print on the wall")
-        after_escher = escher
-        for _ in range(3):                                             # the moment's three paragraphs
-            after_escher = sec.index("\n\n", after_escher + 2)
+        escher = sec.index("**Achilles:** And if the wheel turned three quarters?")
+        heard = sec.index("**Tortoise:** The lower listener heard a quarter")
+        escher_end = sec.index("\n\n", heard)
+        assert escher < sec.index("*[Achilles looks up from the cloth, past the candle, to the print on the wall") < escher_end
         places = [sec.index(c.text) for c in calls]
         assert places == sorted(places)
         assert not any(lamp < x < granted for x in places)
-        assert not any(escher < x < after_escher for x in places)
-        assert places[0] < escher < places[1] < lamp < granted < places[2]   # P3.3, P3.4 after `Granted.`
+        assert not any(escher < x < escher_end for x in places)
+        assert places[1] < escher < places[2] < lamp < granted < places[3]   # B11 and P3.4 after `Granted.`
+        assert sec.index("**Genie:** Granted.") < sec.index("*[The case as it stands: knob up, every pane plain") < places[3]
 
-    p31, p32, p33, p34 = (PC.picture(c) for c in calls)
+    bead = lambda t: np.exp(2j * np.pi * t / 24)
+    things = lambda n: {(x["kind"], x["x"], x["y"]): x for x in F[n].scene["things"]}
 
-    # P3.1: the doubled listener laid -- the lower's turn a quarter, the upper's a half
+    p31, p32, p33, p34 = F["F14"], F["F21"], F["F23"], F["F24"]
+
+    # F14 (P3.1): the doubled listener laid -- the lower's turn a quarter, the upper's a half
     # (the wheel ticked twice for it), the wheel lit
     assert p31.dump == (
         "scene=two wheel=lit upper=green:0 lower=green:0 ct=lower-wheel:6 ct=upper-wheel:12 crossed=false | "
@@ -399,7 +423,7 @@ def pictures():
         "8:bob green 18 @6,1.5; 9:end red 12 @0,2; 10:ring green 3 @1,2; 11:ring green 6 @4,2; tie 2-7 []; "
         "tie 4-5 []; tie 5-10 []; tie 7-11 []; pendant 5-6 []; pendant 7-8 []; cord loose-1 [7,0 0,0]; "
         "cord loose-3 [7,1 0,1]; cord loose-9 [7,2 0,2]")
-    assert p31.labels == ("upper listener", "wheel cord", "hub", "bob", "tie")
+    assert PC.words(p31) == ("upper listener", "wheel cord", "hub", "bob", "tie") and p31.notes == []
     rings, cords = PC.cloth_drawn(p31)
     kind = {i: k for i, k, *_ in rings}
     least = 1.0
@@ -419,7 +443,69 @@ def pictures():
     assert [b for ck, a, b, pts, _ in cords if ck == "cord" and PC.crosses(upper_tie, pts)] == [3]
     assert kind[7] == "hub" and 1 < p31.scene["things"][6]["y"] < 2
 
-    # P3.2: read, and the far ends crossed: the upper red at a half (lit), the lower red at
+    # F15-F17: the wheel pushed through both turns, run on to the far end, the upper read.
+    # After the doubled push the lower holds a quarter and the upper a half (t = 6, 12):
+    # e^{2 pi i 2^k phi} for phi = 1/4, phase estimation's first stage for j = 1
+    assert F["F15"].after["cords"]["lower"]["t"] == 6 and F["F15"].after["cords"]["upper"]["t"] == 12
+    for name, k in (("lower", 0), ("upper", 1)):
+        assert np.isclose(bead(F["F15"].after["cords"][name]["t"]), np.exp(2j * np.pi * 2 ** k / 4))
+    assert not F["F15"].after["cts"] and F["F15"].scene["things"][2]["x"] == 4.5
+    assert F["F16"].scene["things"][2]["x"] == 7                        # the wheel's end-ring at the far end
+    up17 = F["F17"].after["cords"]["upper"]
+    assert (up17["c"], up17["t"]) == ("red", 12)                        # read: lit
+    # F18-F20: the correction (a quarter back on the lower, driven by the upper) laid, the
+    # lit upper pushed through it -- the lower back at rest -- and the lower read dark
+    (corr,) = F["F18"].after["cts"]
+    assert (corr["a"], corr["b"], corr["turn"]) == ("lower", "upper", -6)
+    assert F["F19"].after["cords"]["lower"]["t"] == (6 + corr["turn"] * (up17["t"] == 12)) % 24 == 0
+    low20 = F["F20"].after["cords"]["lower"]
+    assert (low20["c"], low20["t"]) == ("red", 0) and not F["F20"].after["crossed"] and F["F21"].after["crossed"]
+    # the moves' marks (card 3e.6, the readings): every ghost where its part stood the frame
+    # before and stands no more, the no-arc lines, every arc's side and logged gaps -- on the
+    # linen, and clear of every cord, tie and pendant by over 0.02 (F15's 0.081 the least;
+    # the centre-line figure, 0.042 more, beside it)
+    for n in names[1:8]:
+        assert F[n].notes[0] == "step " + PC.options(FC[n])["step"] + " -> " + F[n].head
+    for n in ("F17", "F18", "F20", "F21"):
+        op = PC.options(FC[n])["step"]
+        assert F[n].notes[1:] == ["no marks: " + op + " shows what it changed"] and F[n].mark_tikz == []
+    ghosts = {n: [(g[0], g[1]) for g in F[n].ghosts] for n in ("F15", "F16", "F19")}
+    assert ghosts == {
+        "F15": [("the wheel's end-ring", (0, 2)), ("the wheel cord's green ring", (1, 2)), ("the hub", (2, 1.5)),
+                ("the bob", (3, 1.5)), ("the lower's green ring", (1, 1)), ("the wheel cord's green ring", (4, 2)),
+                ("the hub", (5, 1.5)), ("the bob", (6, 1.5)), ("the upper's green ring", (4, 0))],
+        "F16": [("the wheel's end-ring", (4.5, 2))],
+        "F19": [("the upper's end-ring", (0, 0)), ("the upper cord's green ring", (1, 0)), ("the hub", (2, 0.5)),
+                ("the bob", (3, 0.5)), ("the lower's green ring", (1, 1))]}
+    for n, gs in ghosts.items():
+        prev = things(names[names.index(n) - 1])
+        for what, (gx, gy) in gs:
+            assert any((k[1], k[2]) == (gx, gy) for k in prev), (n, what)
+            assert not any((k[1], k[2]) == (gx, gy) for k in things(n)), (n, what)
+    noarc = ("no slide arc the lower's ring back into its end-ring: 0.168 cm, under the 0.200 a head and its gap "
+             "need; the ghost beside the ring it went into shows it")
+    assert noarc in F["F15"].notes and noarc in F["F19"].notes
+    sides = {"F15": ["beneath the row", "above the row"], "F16": ["above the row"], "F19": ["beneath the row"]}
+    least = 1.0
+    for n, ss in sides.items():
+        assert len(F[n].arcs) == len(F[n].clearances) == len(ss)
+        for arc, c, side in zip(F[n].arcs, F[n].clearances, ss):
+            assert arc.kind == "slide" and not arc.headless and side in c["what"]
+            assert c["linen"] > 0.01 and c["cord"] > 0.02 and c["ring"] > 0.02 and c["ghost"] > 0.01, (n, c)
+            assert np.isclose(c["cord centre"] - c["cord"], 0.042)
+            least = min(least, c["cord"])
+    assert round(least, 3) == 0.081
+    # each arc runs the way its part went: the rings back leftwards into their end-rings,
+    # the wheel's end-ring rightwards along its cord
+    (u15, w15), (w16,), (u19,) = F["F15"].arcs, F["F16"].arcs, F["F19"].arcs
+    assert u15.p1[0] < u15.p0[0] and w15.p1[0] > w15.p0[0] and w16.p1[0] > w16.p0[0] and u19.p1[0] > u19.p0[0]
+    for n in names[1:8]:
+        assert PC.drawn(PC.twin(FC[n])) == PC.drawn(F[n]) and PC.twin(FC[n]).mark_tikz == []
+    # F21 with marks=off is round 3's P3.2, the operations given in one bracket
+    assert PC.drawn(PC.twin(FC["F21"])) == PC.drawn(PC.run_frame("cloth", P32_OPS, "two listeners", False))
+    assert not PC.TEX_ERRORS
+
+    # F21 (P3.2): the far ends crossed: the upper red at a half (lit), the lower red at
     # rest (dark) -- through the crossing the first window shows the lower's: |j1 j2>|1>
     # with j = 1, the blackboard's phase estimation of the quarter-turn
     assert p32.dump == (
@@ -431,7 +517,7 @@ def pictures():
         assert cloth_reading(j) == (j1, j2)
         assert np.allclose(phase_estimation(Zph(2 * np.pi * j / 4), ket(1), 2), ket(j1, j2, 1))
     assert cloth_reading(1) == (0, 1) != (1, 0)                          # not read reversed
-    # the fixed parts, P3.1 -> P3.2: the lower's end-ring keeps its place; the upper's rests
+    # the fixed parts, F14 -> F21: the lower's end-ring keeps its place; the upper's rests
     # just past the correction's ring (x + 0.5); the wheel's runs on to the far end, its cord
     # kept as the zero-length record, which draws nothing; no ring is added but the
     # correction's, and it is gone again
@@ -453,16 +539,26 @@ def pictures():
     assert lower_cord == [[0, 1], [5, 1], [6, 0], [7, 0]]              # the lower's end goes up, over
     assert not PC.TEX_ERRORS
 
-    # P3.3: the passage, the knob up: windows dll -- the master's |0>|1>|1>; with the knob
+    # F22, F23: the case before the word and after it -- windows=--- then dll, the master's
+    # |0>|1>|1>; nothing marked (the step shows what it changed: the gleams, the parted seal)
+    assert F["F22"].dump == "knob=up granted=false windows=--- seal=whole front=shut" and F["F22"].notes == []
+    assert p33.notes == ["step granted -> " + p33.dump,
+                         "no marks: step=granted shows what it changed (the gleams, the parted seal)"]
+    assert p33.mark_tikz == [] and p33.before.windows is None
+    st = lambda K: (K.up, K.granted, K.open, K.windows)
+    assert st(F["F22"].after) == st(p33.before) == (True, False, False, None)
+    assert PC.drawn(PC.twin(FC["F23"])) == PC.drawn(PC.run_frame("case", "windows", "knob up; granted", True))
+    assert not PC.TEX_ERRORS
+    # F23 (P3.3): the passage, the knob up: windows dll -- the master's |0>|1>|1>; with the knob
     # down (not pictured) every pane plain, |000>
     assert p33.dump == "knob=up granted=true windows=dll seal=parted front=shut"
-    assert p33.labels == ("window", "wheel window", "plate", "seal")
-    lit = [int(w) for w in p33.state.windows]
+    assert p33.words == () and F["F22"].words == ("window", "wheel window", "plate", "seal")   # keyed on F22
+    lit = [int(w) for w in p33.after.windows]
     assert np.allclose(phase_estimation(Zph(2 * np.pi * PC.CASE_SECRET / 4), ket(1), 2), ket(*lit))
     down = PC.case_state("windows", "knob down; granted")
     assert PC.case_dump(down) == "knob=down granted=true windows=ddd seal=parted front=shut"
     assert np.allclose(phase_estimation(Zph(2 * np.pi * PC.CASE_SECRET / 4), ket(0), 2), ket(*map(int, down.windows)))
-    v = p33.shown
+    v = p33.view
     assert [g for _, _, _, g in v.windows] == [False, True, True] and len(v.seal) == 4   # parted, wrapped
     # the fixed parts: in every view and state the windows, the knob and the plate keep
     # their places; `granted` changes only the panes, the seal and the lock
@@ -474,12 +570,12 @@ def pictures():
     assert PC.case_view(PC.case_state("knob", "knob up")).knob[1] == PC.ROWY[2]          # level with the wheel window
     assert not PC.TEX_ERRORS
 
-    # P3.4: the inside -- its fourteen lengths ARE the master's fourteen edges, its collars
+    # F24 (P3.4): the inside -- its fourteen lengths ARE the master's fourteen edges, its collars
     # the master's two Hadamard edges, its beads the master's phases (vartheta = 1/2, the
     # quarter: a phase of p pi is a bead 12 p twenty-fourths round)
     assert p34.dump == "knob=up granted=true windows=dll seal=parted front=open"
-    assert p34.labels == ("collar", "bob", "hub", "window")
-    w = p34.shown
+    assert p34.words == ("collar", "bob", "hub", "window") and p34.notes == [] and p34.mark_tikz == []
+    w = p34.view
     g = master(Fraction(1, 2))
     names = master_names(g)
     edges = {frozenset((names[s], names[t])) for s, t in g.edges()}
@@ -518,6 +614,17 @@ def pictures():
     # the backs gleam where the panes gleam; nothing on the stud's row but the knob's cord
     assert [gl for _, gl in w.backs] == [False, True, True]
     assert not PC.TEX_ERRORS
+    # the counted frame is never marked: the inside refuses any step but `front open` (and
+    # draws that unmarked), and refuses a wrong rule
+    opened = PC.run_frame("case", "inside; step=front open", "knob up; granted", False)
+    assert not PC.TEX_ERRORS and opened.mark_tikz == [] and opened.arcs == []
+    assert opened.notes[1:] == ["no marks: the inside is the counted frame (the fourteen lengths), never marked"]
+    assert PC.drawn(opened) == PC.drawn(PC.run_frame("case", "inside", "knob up; granted; front open", False))
+    for step in ("granted", "knob down", "knob up", "front open"):
+        assert PC.faults(PC.run_frame, "case", "inside; step=" + step, "knob up; granted; front open", False)
+    assert PC.faults(PC.run_frame, "case", "inside; expects=granted", "knob up; granted; front open", False) == ["case-rule"]
+    assert PC.faults(PC.run_frame, "case", "windows; step=front open", "knob up; granted", False) == ["case-front-view"]
+    PC.TEX_ERRORS.clear()
 
 
 # --- the sketchbook ---------------------------------------------------------------------

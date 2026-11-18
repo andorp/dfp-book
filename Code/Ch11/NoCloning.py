@@ -126,26 +126,33 @@ def blackboard():
 # --------------------------------------------------------------------------
 # The prop pictures.  The dialogue draws the Tortoise's likeness loop, keyed: a
 # red point (a stone settled plain-low), the card, the mirror card, the mirror of a
-# green point (a stone settled crosswise), closed on itself; then the cards slid
-# face to face and lifted off, the loop and its points as before; then, a
-# close-up beside it, the same two stones after a faithful pressing: two separate
-# loops and a small plain loop,
-#   \copycloth[operations]{the likeness loop}{caption}   (pdf/props/ch11.tex)
-# tools/props_ch11.py transcribes the Lua (with L1-L5); the calls are read out of
-# dialog.md, never copied.
+# green point (a stone settled crosswise), closed on itself; then (round 4, "Show
+# the process") the slide as a strip of two -- the card slid along, up onto the
+# mirror card, face to face; then the two lifted off together, the loop and its
+# points as before -- each frame with its ghosts (and the first its slide arc);
+# then, a close-up beside it, the same two stones after a faithful pressing: two
+# separate loops and a small plain loop,
+#   \copycloth[operations; step=...]{the likeness loop}{caption},
+#   \copysteps[from=off]{the likeness loop}{steps}{captions}  (pdf/props/ch11.tex)
+# tools/props_ch11.py transcribes the Lua (proved against texlua); the calls are
+# read out of dialog.md, never copied.
 #
 # The ties (identity card, section 4), a structural check against this file's
 # blackboard, not a second proof.  The card is the press with its blank and works
 # plugged in, the isometry V = U( . (x) |0> (x) |A>); the mirror card is V^dagger,
 # threaded facing it output to output, so slid together they are V^dagger V = I --
 # the bare loop -- while the other way round, V V^dagger, is a projector and would
-# not come off.  A loop closing a point on a mirrored point is the likeness
-# s = <phi|psi>; the pressing's two separate loops multiply, s^2, and the small plain
-# loop is the works' likeness, a number of modulus at most 1 (comment only).
+# not come off: the cards come off only face to face (the Lua refuses "lift the cards
+# off" before "slide the card along").  A loop closing a point on a mirrored point is
+# the likeness s = <phi|psi>; the pressing's two separate loops multiply, s^2, and the
+# small plain loop is the works' likeness, a number of modulus at most 1 (comment only).
 # --------------------------------------------------------------------------
 DIALOGUE = Dialogue(__file__, macros=PC.MACROS)
 QUOTE = "A half against a quarter."
 LOOP = "the likeness loop"
+EDITS = (("The string does not move; only the card travels. The two cards touch",          # T1
+          "The string does not move; only the card travels, up onto the mirror card. The two cards touch"),
+         ("{the press and its mirror in the way}", "{the cards between the points}"))        # C1
 
 
 def cloth_loops(S):
@@ -160,45 +167,82 @@ def cloth_loops(S):
     return [rings for _, rings in sorted(out)]
 
 
+def r3(x):
+    """A mark's numbers to the Lua's three places (its log's)."""
+    if isinstance(x, tuple):
+        return tuple(r3(y) for y in x)
+    return round(x, 3) if isinstance(x, float) else x
+
+
 def pictures():
     assert f'"{QUOTE}"' in __doc__                               # quoted byte for byte
-    calls = DIALOGUE.check_layout("Second", sizes=[1, 1, 1])
-    p21, p22, p23 = calls
-    text, raw = DIALOGUE.read(DIALOGUE.dialog), DIALOGUE.read(DIALOGUE.raw)
-    spoken = PC.spoken_sentences(text) | PC.spoken_sentences(raw)
-    for c in calls:
-        assert words_only(c.caption, forbidden=PC.CAPTION_FORBIDDEN), c.caption
-        assert CLOTH.caption_ok(c.caption), c.caption
-        assert PC.normal_sentence(c.caption) not in spoken, c.caption   # the gigue: never said twice
-        assert PC.place_ok("Second", c), c.text
-    assert [[PC.height(c) for c in b] for b in DIALOGUE.blocks("Second")] == [[1.24], [1.24], [1.24]]
-    assert [c.macro for c in calls] == ["copycloth"] * 3
+    PC.check_lua()                                                # the Lua the transcription was proved on
+    PC.check_sites()                                              # its 55 fault sites, one for one
+    found = PC.check_section(DIALOGUE, "Second", sizes=[1, 1, 1], frames=[1, 2, 1])
+    PC.check_edits(DIALOGUE, "Second", EDITS)
+    calls = [c for b in found for c, _ in b]
+    p21, st22, p23 = calls
+    assert [[PC.height(c) for c, _ in b] for b in found] == [[1.24], [1.24], [1.24]]
+    assert [c.macro for c in calls] == ["copycloth", "copysteps", "copycloth"]
     assert [c.keyed for c in calls] == [True, False, False]
-    assert [(c.opt, c.args[0]) for c in calls] == [
-        ("", LOOP), ("slide the cards together", LOOP), ("after a faithful pressing", LOOP)]
-    assert [c.caption for c in calls] == [
-        "the press and its mirror in the way", "the cards gone, the points still on the loop",
+    assert not any(PC.is_prediction(c) for c in calls)
+    assert [PC.options(c) for c in calls] == [
+        {"bare": ""}, {"from": "off", "bare": ""}, {"bare": "after a faithful pressing"}]
+    assert [c.args[0] for c in calls] == [LOOP] * 3
+    assert st22.args[1] == "slide the card along; lift the cards off"
+    c21, c23 = PC.picture(p21), PC.picture(p23)
+    strip = PC.picture(st22)
+    (c22a, cap_a), (c22b, cap_b) = strip.pictures
+    assert [p21.caption, cap_a, cap_b, p23.caption] == [
+        "the cards between the points", "face to face", "the cards gone, the points still on the loop",
         "side by side, not touching"]
-    c21, c22, c23 = (PC.picture(c) for c in calls)
     a1, a2, a3 = DIALOGUE.anchors("Second")
     f1, f2, f3 = DIALOGUE.following("Second")
     section = DIALOGUE.section("Second")
+    text = DIALOGUE.read(DIALOGUE.dialog)
     assert QUOTE in section                                       # the docstring's line
     assert "gathers the bend off the cloth" in section            # D5: the last layout put away
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        here = [(n, q) for n, q, o in PC.quote_places(DIALOGUE, path) if o == "Second"]
+        assert here == [("THE CLOTH'S STEPS", "She slides the card along the string towards the mirror card ... "
+                         "The two cards touch, face to face, and she lifts them off the string together, as one, "
+                         "and puts them away in her shell")]
+    # the log the section writes (F07-F10)
+    L2 = "cols=8 rows=2 y=0..1 near=false folded=false; 1:ring red 0 @1,0; 2:ring green 0 @6,0; " \
+         "cord nil-nil closed [0,0 7,0 7,1 0,1]"
+    assert [l for c in calls for l in PC.describe(c)] == [
+        "copycloth: [] {the likeness loop} | " + c21.dump,
+        "copysteps: strip of 2 frames",
+        "copycloth: [step=slide the card along] {the likeness loop} | " + c22a.dump,
+        "copycloth: + step slide the card along -> " + c22a.dump,
+        "copycloth: + ghost card in dotted outline (0.78 of its size, on its own bottom edge, broken where the string passes) at (-0.129,-0.180) "
+        "(grid 3,0): slid along the loop onto the mirror card, face to face, at grid 3.7,0",
+        "copycloth: + slide arc the card along the loop to the mirror card, onto it, inside the loop below the "
+        "cards (the linen's top edge leaves no room above), (-0.234,-0.410) -> (0.032,-0.410)",
+        "copycloth: + every mark on the linen, the least gap to its edge 0.096",
+        "copycloth: [slide the card along; step=lift the cards off] {the likeness loop} | " + c22b.dump,
+        "copycloth: + step lift the cards off -> " + c22b.dump,
+        "copycloth: + ghost mirror card in dotted outline (0.78 of its size, on its own bottom edge, broken where "
+        "the string passes) at "
+        "(0.129,-0.180) (grid 4,0): lifted off with the card, face to face, into her shell",
+        "copycloth: + ghost card in dotted outline (0.78 of its size, on its own bottom edge, broken where the "
+        "string passes) at (0.052,-0.180) "
+        "(grid 3.7,0): lifted off with the mirror card, face to face, into her shell",
+        "copycloth: + every mark on the linen, the least gap to its edge 0.096",
+        "copycloth: [after a faithful pressing] {the likeness loop} | " + c23.dump]
 
-    # P2.1: one closed loop, keyed; along the top the red point, the card, the mirror
-    # card, the mirrored green point; the loop's bends beyond the points, never between
-    # the cards; the card faces the mirror card (the mirror card to its right, reversed)
-    assert c21.labels == ("point", "card", "mirror card")
-    assert c21.dump == ("scene=loop cards=true pressed=false | cols=8 rows=2 y=0..1 near=false "
-                        "folded=false; 1:ring red 0 @1,0; 2:ring green 0 @6,0; "
-                        "cord nil-nil closed [0,0 7,0 7,1 0,1] | card @3,0 | mirror card @4,0")
+    # P2.1 (F07): one closed loop, keyed; along the top the red point, the card, the
+    # mirror card, the mirrored green point; the loop's bends beyond the points, never
+    # between the cards; the card faces the mirror card (the mirror card to its right,
+    # reversed).  Caption C1: what the picture shows, no echo of the line after it
+    assert c21.labels == ("point", "card", "mirror card") and c21.marks == ()
+    assert c21.dump == "scene=loop cards=true pressed=false | " + L2 + " | card @3,0 | mirror card @4,0"
     (one,) = cloth_loops(c21.cloth)
     assert one == [("red", 1), ("green", 6)]
     (card, mirror) = c21.cards
     assert card[0] == "card" and mirror[0] == "mirror card"
-    assert one[0][1] < card[1] < mirror[1] < one[1][1]            # point, card, mirror card, point
-    assert card[2] == mirror[2] == 0 and card[3] < mirror[3]      # on the top run, the card left
+    assert one[0][1] < card[1] < mirror[1] < one[1][1]            # point, card, mirror card, point:
+    assert card[2] == mirror[2] == 0 and card[3] < mirror[3]      # the cards between the points, on the top run
     xs = [p[0] for p in c21.cloth["cords"][0]["pts"]]
     assert min(xs) < one[0][1] and max(xs) > one[1][1]            # the turns lie beyond the points
     before = text[:text.index(p21.text)].lower()
@@ -206,19 +250,79 @@ def pictures():
         assert w in before, w                                     # named before it is keyed
     assert "the two cards between them" in a1
     assert f1.startswith("**Tortoise:** That is how alike")
-    # P2.2: the cards slid face to face and lifted off: the same loop, the same points
-    assert c22.dump == c21.dump.split(" | card")[0].replace("cards=true", "cards=false")
-    assert cloth_loops(c22.cloth) == [one] and c22.cards == ()
-    assert "still face to face" in a2                             # D6
+    assert "the press and its mirror both in the way" in f1       # said there; the caption no longer echoes it
+
+    # B2.2, the slide in its two halves (the Lua's "slide the cards together" is "slide the
+    # card along, lift the cards off"), each frame a step from the one before.
+    fc = PC.frame_calls(st22)
+    assert [(c.opt, c.args[0], c.caption) for c in fc] == [
+        ("step=slide the card along", LOOP, "face to face"),
+        ("slide the card along; step=lift the cards off", LOOP, "the cards gone, the points still on the loop")]
+    for c, (fr, _) in zip(fc, strip.pictures):
+        assert PC.frame_of(PC.picture(c)) == PC.frame_of(fr)
+    # F08: the card slid along, up onto the mirror card (T1): the mirror card under, drawn
+    # first, the card over it CARDTOUCH short of its place, so the mirror card's far edge shows
+    assert c22a.before == c21.state and c22a.state == dict(c21.state, touching=True)
+    assert c22a.dump == "scene=loop cards=true pressed=false touching=true | " + L2 + " | mirror card @4,0 | card @3.7,0"
+    (under, over) = c22a.cards
+    assert (under[:3], over[:3]) == (("mirror card", 4, 0), ("card", 4 - PC.CARDTOUCH, 0)) and PC.CARDTOUCH == 0.3
+    assert under[1] - 0.5 < over[1] < under[1]                    # over it, short of its place
+    assert "up onto the mirror card" in a2 and "The two cards touch, face to face" in a2   # T1
+    g1, sl = c22a.marks
+    assert (g1.kind, g1.name, g1.how, r3(g1.at), g1.grid) == ("ghost", "card", "outline", (-0.129, -0.18), (3, 0))
+    assert (sl.kind, sl.name, r3((sl.pts[0], sl.pts[3]))) == ("slide", "card", ((-0.234, -0.41), (0.032, -0.41)))
+    assert sl.pts[1][1] < sl.pts[0][1] and sl.pts[3][0] > sl.pts[0][0]   # bowed down, below the cards, rightwards
+    assert sl.pts[0][1] < g1.at[1] - 0.15                         # below the card and its ghost
+    # the card's ghost: its own shape at GHOSTCARD of its size, standing on its own bottom edge
+    assert PC.GHOSTCARD == 0.78
+    # F09: both cards lifted off, face to face; the loop and its points as before
+    assert c22b.before == c22a.state and "touching" not in c22b.state
+    assert c22b.dump == "scene=loop cards=false pressed=false | " + L2
+    assert cloth_loops(c22b.cloth) == [one] and c22b.cards == ()
+    gm, gc = c22b.marks
+    assert [(m.kind, m.name, m.how, r3(m.at), m.grid) for m in (gm, gc)] == [
+        ("ghost", "mirror card", "outline", (0.129, -0.18), (4, 0)),
+        ("ghost", "card", "outline", (0.052, -0.18), (3.7, 0))]
+    assert (gm.grid, gc.grid) == ((under[1], 0), (over[1], 0))    # where they touched
+    assert "still face to face" in a2 and "only the cards are gone" in a2                 # D6
     assert f2.startswith("**Tortoise:** One loop.")
-    # P2.3: two separate loops, not touching, each a red point then a mirrored green one,
-    # and a little way off a small plain loop
+    # the marks-off twin of F09 is round 3's P2.2 to the byte: \copycloth[slide the cards together]
+    t = PC.twin(fc[1])
+    assert t.marks == () and PC.frame_of(t)[:3] == PC.frame_of(PC.copycloth("slide the cards together", LOOP))[:3]
+    t = PC.twin(fc[0])
+    assert t.marks == () and PC.frame_of(t)[:3] == PC.frame_of(PC.copycloth("slide the card along", LOOP))[:3]
+    # the marks inside the linen (the card's ghost the closest, against its top edge), and
+    # the arc clear of the loop's cord it rides beside
+    assert [r3(PC.mark_clearance(p)) for p in (c22a, c22b)] == [0.088, 0.088]
+    assert PC.cord_clearance(c22a) > 0.01 and PC.cord_clearance(c22b) is None
+    # each card's ghost is broken where the string passes (the clarity batch): drawn inside its
+    # box less a band CARDBREAK either side of the cord's centre line, wider than the cord's and
+    # the dotted line's half widths together, so the ghost never crosses the cord
+    assert PC.CARDBREAK == 0.055 and PC.CARDBREAK > (PC.CORD_WIDTH + PC.MARK_WIDTH["propchelevenghost"]) * PC.PT / 2
+    clips = PC.mark_clips(c22a) + PC.mark_clips(c22b)
+    assert [len(d) for _, d in clips] == [1, 1, 1] and all(d[0].startswith("\\draw[propchelevenghost") for _, d in clips)
+    ycord = PC.grid_xy(c22a, 3, 0)[1]
+    for (outer, band), (d,) in clips:
+        xs = [x for x, _ in PC.mark_points(d.split("] ", 1)[1].rstrip(";"))]
+        assert outer[0] == band[0] == "rect" and (band[1], band[3]) == (outer[1], outer[3])
+        assert band[1] < min(xs) and max(xs) < band[3]                             # across the whole ghost
+        assert np.isclose(band[2], ycord - PC.CARDBREAK) and np.isclose(band[4], ycord + PC.CARDBREAK)
+    # the cards come off only face to face; slid along once; not on the pressed loops
+    assert PC.faults(PC.copycloth, "lift the cards off", LOOP) == ["loop-lift-early"]
+    assert PC.faults(PC.copycloth, "slide the card along, slide the card along", LOOP) == ["loop-along-twice"]
+    assert PC.faults(PC.copycloth, "slide the card along, slide the cards together", LOOP) == ["loop-touching"]
+    assert PC.faults(PC.copycloth, "after a faithful pressing, slide the card along", LOOP) == ["loop-along-none"]
+    assert PC.frame_of(PC.copycloth("slide the card along, after a faithful pressing", LOOP))[0] == \
+        PC.frame_of(c23)[0]                                       # the pressing takes the cards either way
+
+    # P2.3 (F10): two separate loops, not touching, each a red point then a mirrored green
+    # one, and a little way off a small plain loop
     ls = cloth_loops(c23.cloth)
     assert [[c for c, _ in L] for L in ls] == [["red", "green"], ["red", "green"], []]
     boxes = [(min(p[0] for p in d["pts"]), max(p[0] for p in d["pts"])) for d in c23.cloth["cords"]]
     boxes.sort()
     assert all(boxes[i][1] < boxes[i + 1][0] for i in range(2))  # side by side, not touching
-    assert c23.cards == () and c23.frame == c21.frame == 1.24
+    assert c23.cards == () and c23.marks == () and c23.frame == c22a.frame == c21.frame == 1.24
     assert "a small plain loop" in a3
     assert f3.startswith("**Tortoise:** And that little one")
     assert PC.faults(PC.copycloth, "after a faithful pressing, slide the cards together", LOOP) == \
@@ -236,19 +340,21 @@ def pictures():
     assert not np.allclose(P8, np.eye(8)) and np.allclose(P8 @ P8, P8)
     assert np.linalg.matrix_rank(P8) == 2                         # the other way: a projector
     # the loop's value: s to the power of the loops that close a point on a mirrored
-    # point.  One loop with the cards (and without them): s; the pressing: s^2.
+    # point.  One loop with the cards (and without them, and with them touching): s;
+    # the pressing: s^2.
     psi, phi = random_state(rng), random_state(rng)
     s = np.vdot(phi, psi)
     assert not np.isclose(s.imag, 0) and 0 < abs(s) < 1
     n = lambda pic: sum(1 for L in cloth_loops(pic.cloth) if L)
-    assert (n(c21), n(c22), n(c23)) == (1, 1, 2)
+    assert (n(c21), n(c22a), n(c22b), n(c23)) == (1, 1, 1, 2)
     assert np.isclose(np.vdot(V @ phi, V @ psi), s ** n(c21))    # the cards in the way
-    assert np.isclose(np.vdot(phi, psi), s ** n(c22))             # the cards off
+    assert np.isclose(np.vdot(phi, V.conj().T @ (V @ psi)), s ** n(c22a))   # face to face: V^dagger V
+    assert np.isclose(np.vdot(phi, psi), s ** n(c22b))            # the cards off
     assert np.isclose(np.vdot(np.kron(phi, phi), np.kron(psi, psi)), s ** n(c23))   # pressed
     assert not np.isclose(s ** n(c23), s)                         # two loops are not one
     # the drawn stones: a red point (plain-low) and a green point (crosswise), 1/sqrt2
     s0 = np.vdot(ket(0), PLUS)
-    assert np.isclose(abs(s0 ** n(c22)) ** 2, 0.5) and np.isclose(abs(s0 ** n(c23)) ** 2, 0.25)
+    assert np.isclose(abs(s0 ** n(c22b)) ** 2, 0.5) and np.isclose(abs(s0 ** n(c23)) ** 2, 0.25)
 
 
 # --- pictures -----------------------------------------------------------------

@@ -10,12 +10,12 @@ import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools"))
 
 import itertools
-import math
-import re
 from fractions import Fraction
 
 import numpy as np
 from dfp import I2, Picture, ket, matrix_of, random_state, same_picture, verdict
+from dfp_props import Dialogue
+import props_ch01 as P
 
 X = np.array([[0, 1], [1, 0]], dtype=complex)      # NOT
 S0 = np.array([[1, 1], [0, 0]], dtype=complex)     # SET-0
@@ -64,183 +64,23 @@ def blackboard():
 
 
 # --------------------------------------------------------------------------
-# The pictures.  The dialogue draws the Tortoise's string with
-# \tagstring[place]{start}{tags}{caption} (pdf/props/ch01.tex; the rules are in
-# pdf/props/ch01.lua).  start is the end tag as tied; tags are hung left to
-# right, "over" for "turn it over" and "heads" for "heads up, whatever it was",
-# a "+" joining two tags slid together; place is how far the traveller has got.
-# The macro COMPUTES what the traveller looks like there; the dialogue never
-# writes a turned result.  parse_start, parse_tags, travel and tagstring below
-# are a line-for-line transcription of ch01.lua, so what is asserted here is
-# what the printed page shows.  The calls are read out of this challenge's
-# section of dialog.md, never copied, so an edit to the dialogue that breaks a
-# picture breaks here.
+# The pictures.  The dialogue draws the square of tracing paper close up with
+# \arrowsquare[view;opts]{matches}{caption}, and the square tied on to the
+# Tortoise's string with \tagstring{square}{tags}{caption} (pdf/props/ch01.tex;
+# the rules are in pdf/props/ch01.lua).  The macro COMPUTES the reaches from the
+# view and how many matches lie in each row; with marks=on, the arrow where it
+# lay before the turn; with expects=sum, the arrow's row as Achilles counts it,
+# drawn pale.  tools/props_ch01.py transcribes the Lua, all but the drawing; the
+# calls are read out of this challenge's section of dialog.md
+# (tools/dfp_props.py), never copied.  Every picture is checked against the
+# model below.
 # --------------------------------------------------------------------------
-DIALOG = pathlib.Path(__file__).resolve().parents[2] / "dialog.md"
-RAW = DIALOG.with_name("dialog.raw.md")
+DIALOGUE = Dialogue(__file__, macros=("tagstring", "tagwalk", "arrowsquare"))
 ORDINALS = ("First", "Second", "Third", "Fourth", "Fifth")
-# the regexes of identity.md, section 3 "Props and their pictures"
-TAGSTRING = r"\\tagstring(\*?)(?:\[([^\]]*)\])?\{([^}]*)\}\{([^}]*)\}\{([^}]*)\}"
-ARROWSQUARE = r"\\arrowsquare(\*?)(?:\[([^\]]*)\])?\{([^}]*)\}\{([^}]*)\}"
-MARKUP = {"tagstring", "arrowsquare", "quad", "qquad", "begin", "end", "textup"}
+QUOTE = __doc__.split('"')[1]
 
 
-def read(path):
-    """The file, its planning comments left out (they are notes, not pictures)."""
-    return re.sub(r"<!--.*?-->", "", path.read_text(encoding="utf-8"), flags=re.S)
-
-
-def section(path, ordinal):
-    """The '## <ordinal> Challenge' section, up to the next heading."""
-    text = read(path)
-    heads = list(re.finditer(r"^## " + ordinal + r" Challenge\b.*$", text, re.M))
-    assert len(heads) == 1, (path.name, ordinal)
-    rest = text[heads[0].end():]
-    after = re.search(r"^## ", rest, re.M)
-    return rest[:after.start()] if after else rest
-
-
-def picture(call):
-    """One call, parsed: a dict naming the macro and its arguments."""
-    m = re.fullmatch(TAGSTRING, call)
-    if m:
-        star, place, start, tags, caption = m.groups()
-        return dict(macro="tagstring", keyed=star == "*", place=place or "", start=start,
-                    tags=tags, caption=caption)
-    m = re.fullmatch(ARROWSQUARE, call)
-    assert m, call                                   # nothing malformed
-    star, view, matches, caption = m.groups()
-    return dict(macro="arrowsquare", keyed=star == "*", view=view or "", matches=matches,
-                caption=caption)
-
-
-def blocks(path, ordinal):
-    """The picture blocks of a section, in order, each the list of its calls."""
-    text = section(path, ordinal)
-    found = []
-    for para in re.split(r"\n[ \t]*\n", text):
-        if "\\tagstring" not in para and "\\arrowsquare" not in para:
-            continue
-        # a raw centre block that is a paragraph of its own, one line of calls
-        # joined by \quad or \qquad -- so never inside a *[...]* direction
-        m = re.fullmatch(r"\\begin\{center\}\n([^\n]*)\n\\end\{center\}", para.strip())
-        assert m, para
-        found.append([c.strip() for c in re.split(r"\\q?quad", m.group(1))])
-    calls = [c for b in found for c in b]
-    assert text.count("\\tagstring") + text.count("\\arrowsquare") == len(calls)
-    return found
-
-
-def words_only(caption):
-    """Words, commas and apostrophes: no digit, brace, symbol or lone letter,
-    and never a count of strings."""
-    return (re.fullmatch(r"[A-Za-z']+(?:,? [A-Za-z']+)*", caption) is not None
-            and all(len(w) > 1 or w == "a" for w in re.findall(r"[A-Za-z']+", caption))
-            and not re.search(r"\bstrings\b", caption))
-
-
-def check_layout(ordinal, sizes):
-    """The section's blocks: their sizes, markup and captions, and the very same
-    calls in dialog.raw.md.  Returns the parsed pictures, in order."""
-    found = blocks(DIALOG, ordinal)
-    assert [len(b) for b in found] == sizes, (ordinal, [len(b) for b in found])
-    assert blocks(RAW, ordinal) == found, ordinal       # identical in the raw dialogue
-    assert set(re.findall(r"\\([A-Za-z]+)", section(DIALOG, ordinal))) <= MARKUP
-    pics = [picture(c) for b in found for c in b]
-    for b in found:
-        assert len(b) <= 4
-        squares = [picture(c)["macro"] == "tagstring" and picture(c)["start"].strip() == "square"
-                   for c in b]
-        assert all(squares) or not any(squares), b      # a square-tied string keeps to its own line
-    for p in pics:
-        assert words_only(p["caption"]), p["caption"]
-        assert p.get("place", "").strip() != "off"      # [off] is not used
-    return pics
-
-
-def check_whole_dialogue():
-    """The five challenge sections, in order, and every picture of the dialogue
-    in one of them."""
-    text = read(DIALOG)
-    assert tuple(re.findall(r"^## (\w+) Challenge\b", text, re.M)) == ORDINALS
-    total = len(re.findall(TAGSTRING, text)) + len(re.findall(ARROWSQUARE, text))
-    assert text.count("\\tagstring") + text.count("\\arrowsquare") == total
-    assert total == sum(len(c) for o in ORDINALS for c in blocks(DIALOG, o))
-
-
-# --- ch01.lua, transcribed ---------------------------------------------------
-WORDNUM = {"zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6}
-POS = {"start": 0, "first": 1, "second": 2, "third": 3, "fourth": 4}
-
-
-def parse_start(spec):
-    spec = re.sub(r"\s", "", spec)
-    if spec in ("heads", "tails"):
-        return dict(kind="coin", face=spec)
-    if spec in ("none", ""):
-        return dict(kind="none")
-    if spec == "square":
-        return dict(kind="square", turned=False)
-    m = re.fullmatch(r"strip-(\w+)", spec)
-    if m:
-        k = m.group(1)
-        n = WORDNUM.get(k, int(k) if k.isdigit() else None)
-        if n is not None and 0 <= n <= 6:
-            return dict(kind="strip", dark=n, turned=False)
-    raise AssertionError("tagstring: unknown start " + spec)
-
-
-def parse_tags(spec):
-    """Groups of touching tags, and the tags one by one, left to right."""
-    groups, flat = [], []
-    for g in re.sub(r"\s", "", spec).split(","):
-        grp = []
-        for t in g.split("+"):
-            if t == "":
-                continue
-            assert t in ("over", "heads"), "tagstring: unknown tag " + t
-            grp.append(t)
-            flat.append(t)
-        if grp:
-            groups.append(grp)
-    return groups, flat
-
-
-def travel(st, tags, n):
-    """The traveller after the first n tags."""
-    s = dict(st)
-    for t in tags[:n]:
-        if s["kind"] == "coin":
-            if t == "over":
-                s["face"] = "tails" if s["face"] == "heads" else "heads"
-            else:
-                s["face"] = "heads"
-        elif s["kind"] in ("strip", "square"):
-            assert t == "over", "a 'heads up, whatever it was' tag cannot be done to a " + s["kind"]
-            s["turned"] = not s["turned"]
-    return s
-
-
-def tagstring(place, startspec, tagspec):
-    """props.ch01_tagstring, all but the drawing: its error checks, how many
-    tags the traveller has passed, and the traveller there."""
-    where = re.sub(r"\s", "", place) or "start"
-    assert where in POS or where in ("end", "off"), "tagstring: unknown place " + where
-    st = parse_start(startspec)
-    groups, tags = parse_tags(tagspec)
-    n = len(tags)
-    passed = n if where == "end" else POS.get(where, 0)
-    assert passed <= n, "tagstring: the traveller cannot be past tag %d of %d" % (passed, n)
-    travel(st, tags, n)                    # every tag is checked, wherever the traveller is
-    s = travel(st, tags, passed)
-    walked = where == "end" or passed > 0
-    if st["kind"] == "square" and where != "off":
-        assert not walked, "tagstring: the square is only drawn tied on at the start"
-    return dict(start=st, groups=groups, tags=tags, where=where, passed=passed, now=s)
-
-
-# --- the square, in the chapter's state model --------------------------------
-# The arrow pencilled from the near left-hand corner is ARROW = (3/5, 4/5),
+# --- the arrow, in the chapter's state model ---------------------------------
 # heads-ward first; with the matches for a ruler its reaches are five times its
 # entries and its length five times its norm.  "turn it over" is NOT, the
 # matrix blackboard() uses: the square turned over about the line from the
@@ -258,114 +98,157 @@ def carry_arrow(v, tags):
     return v
 
 
-def arrowsquare(view, rowspec):
-    """props.ch01_arrowsquare, all but the drawing: seen from behind or not,
-    the reaches drawn, and how many matches lie in each row."""
-    view = re.sub(r"\s", "", view)
-    if view in ("drawn", "", "twice", "home"):
-        back = False
+def as_achilles_counts(v):
+    """Achilles: "Three parts heads-ward and four tails-ward: seven parts in all.
+    Your arrow is seven matches long" -- the reaches added, as for a strip."""
+    along, up, _ = in_matches(v)
+    return along + up
+
+
+def check_close_up(sq, turns, rows):
+    """A close-up against the model: the arrow turned over `turns` times, the
+    reaches drawn and the matches in each laid row."""
+    v = np.linalg.matrix_power(X, turns) @ ARROW
+    along, up, length = in_matches(v)
+    assert sq.back == (turns % 2 == 1)                       # seen through the paper
+    assert np.allclose(sq.reaches, (along, up)) and sq.rows == frozenset(rows)
+    assert sq.count[:2] == (round(along) if "along" in rows else 0,
+                            round(up) if "up" in rows else 0)
+    if not sq.sum:
+        assert sq.count[2] == sq.arrow_row == (round(length) if "arrow" in rows else 0)
+    if sq.marks:
+        before = np.linalg.matrix_power(X, turns - 1) @ ARROW    # the arrow before the turn
+        assert np.allclose(sq.ghost, in_matches(before)[:2])
     else:
-        assert view == "over", "arrowsquare: unknown view " + view
-        back = True
-    rows = set()
-    for t in re.sub(r"\s", "", rowspec).split(","):
-        if t in ("along", "up", "arrow"):
-            rows.add(t)
-        elif t == "edges":
-            rows |= {"along", "up"}
-        elif t == "all":
-            rows |= {"along", "up", "arrow"}
-        else:
-            assert t in ("none", ""), "arrowsquare: unknown row " + t
-    a, b = (4, 3) if back else (3, 4)
-    count = dict(along=a if "along" in rows else 0, up=b if "up" in rows else 0,
-                 arrow=math.floor(math.sqrt(a * a + b * b) + 0.5) if "arrow" in rows else 0)
-    return dict(back=back, reaches=(a, b), rows=rows, count=count)
-
-
-def square_on_string(now):
-    """props.ch01_tagstring, the square tied on: its reaches as drawn."""
-    return (4, 3) if now["turned"] else (3, 4)
+        assert sq.ghost is None
+    return v
 
 
 def check_square_rule():
     """The macro's square against the model, on every view and every choice of
-    rows, and tied on under up to four turn-over tags."""
-    for view, turns in (("drawn", 0), ("", 0), ("home", 0), ("twice", 2), ("over", 1)):
-        v = np.linalg.matrix_power(X, turns) @ ARROW
-        along, up, length = in_matches(v)
+    rows, with and without the turn's marks; the rule `sum` against Achilles's
+    count; and the square tied on under up to four turn-over tags."""
+    for view, turns in (("drawn", 0), ("", 0), ("home", 2), ("twice", 2), ("over", 1)):
         for k in range(4):
             for rows in itertools.combinations(("along", "up", "arrow"), k):
                 for spec in (",".join(rows),) + (("none",) if k == 0 else ()):
-                    sq = arrowsquare(view, spec)
-                    assert sq["back"] == (turns % 2 == 1)         # seen through the paper
-                    assert np.allclose(sq["reaches"], (along, up))
-                    assert sq["count"]["along"] == (round(along) if "along" in rows else 0)
-                    assert sq["count"]["up"] == (round(up) if "up" in rows else 0)
-                    assert sq["count"]["arrow"] == (round(length) if "arrow" in rows else 0)
-        assert np.isclose(along ** 2 + up ** 2, 25) and np.isclose(length, 5)
-        assert not np.isclose(along + up, length)          # three and four are not seven
-    assert arrowsquare("", "edges") == arrowsquare("drawn", "along,up")
-    assert arrowsquare("", "all") == arrowsquare("drawn", "along,up,arrow")
+                    check_close_up(P.arrowsquare(view, spec), turns, rows)
+                    mopt = view + ";marks=on"
+                    if turns:
+                        assert P.faults(P.arrowsquare, mopt, spec) == []
+                        sq = P.arrowsquare(mopt, spec)
+                        assert sq.marks and check_close_up(sq, turns, rows) is not None
+                    else:
+                        assert P.faults(P.arrowsquare, mopt, spec)   # no turn, no marks
+                    sopt = view + ";expects=sum"
+                    if turns % 2 == 0 and "arrow" in rows:     # as drawn (home, twice too)
+                        assert P.faults(P.arrowsquare, sopt, spec) == []
+                        sq = P.arrowsquare(sopt, spec)
+                        assert sq.sum and not sq.marks
+                        check_close_up(sq, turns, rows)
+                        assert sq.count[2] == sq.arrow_row == as_achilles_counts(ARROW) == 7
+                    else:
+                        assert P.faults(P.arrowsquare, sopt, spec)
+    along, up, length = in_matches(ARROW)
+    assert np.isclose(along ** 2 + up ** 2, 25) and np.isclose(length, 5)
+    assert not np.isclose(along + up, length)          # three and four are not seven
+    assert P.arrowsquare("", "edges") == P.arrowsquare("drawn", "along,up")
+    assert P.arrowsquare("", "all") == P.arrowsquare("drawn", "along,up,arrow")
+    assert P.faults(P.arrowsquare, "expects=sum;marks=on", "all")
     for n in range(5):
-        t = tagstring("start", "square", ",".join(["over"] * n))
-        assert square_on_string(t["now"]) == (3, 4)          # drawn tied on, as tied
-        whole = travel(t["start"], t["tags"], n)             # what the tags would do
-        assert np.allclose(square_on_string(whole),
-                           in_matches(np.linalg.matrix_power(X, n) @ ARROW)[:2])
+        spec = ",".join(["over"] * n)
+        t = P.tagstring("start", "square", spec)
+        assert P.faults(P.tagstring, "start", "square", spec) == []
+        assert t.shown == {"kind": "square", "turned": False}        # drawn tied on, as tied
+        whole = P.travel(t.start, list(t.tags), n)                   # what the tags would do
+        reaches = (4, 3) if whole["turned"] else (3, 4)
+        assert np.allclose(reaches, in_matches(np.linalg.matrix_power(X, n) @ ARROW)[:2])
+        # the square is never walked, never marked, never predicted
+        if n:
+            for opt in ("first", "end", "first;marks=on", "end;expects=anyorder"):
+                assert P.faults(P.tagstring, opt, "square", spec)
 
 
 def pictures():
-    check_whole_dialogue()
+    P.check_lua()                                  # the Lua and .tex the transcription was proved on
     check_square_rule()
-    pics = check_layout("Fifth", [1, 1, 1, 2])
+    P.check_dialogue(DIALOGUE, ORDINALS)
+    assert QUOTE in DIALOGUE.section("Fifth")
 
-    # P5.1, the keyed square picture: the matches along the two edges.  P5.2:
-    # along the arrow too, "five, not seven".  P5.3: turned over, matches laid
-    # again.  Each row: turns, the rows of matches, keyed?, and the reaches and
-    # length identity.md section 3b reads (3/4/5 as drawn, 4/3/5 turned over).
-    close_ups = [(0, {"along", "up"}, True, (3, 4, 0)),
-                 (0, {"along", "up", "arrow"}, False, (3, 4, 5)),
-                 (1, {"along", "up", "arrow"}, False, (4, 3, 5))]
-    for p, (turns, rows, keyed, reading) in zip(pics[:3], close_ups):
-        assert p["macro"] == "arrowsquare" and p["keyed"] == keyed, p
-        sq = arrowsquare(p["view"], p["matches"])
-        assert sq["rows"] == rows and sq["back"] == (turns == 1), p
-        v = np.linalg.matrix_power(X, turns) @ ARROW                     # the model
-        assert np.allclose(sq["reaches"], in_matches(v)[:2]), p
-        c = sq["count"]
-        assert (c["along"], c["up"], c["arrow"]) == reading, p
-        if "arrow" in rows:
-            assert c["arrow"] == round(in_matches(v)[2]) == 5, p          # five
-            assert c["along"] + c["up"] == 7 != c["arrow"], p            # not seven
-            assert c["along"] ** 2 + c["up"] ** 2 == c["arrow"] ** 2, p  # 9 + 16 = 25
+    # Four moments.  Block 5.1, the keyed close-up: the matches along the two
+    # edges.  Block 5.2: the prediction, pale -- seven matches -- beside the
+    # arrow measured, five.  Block 5.3: the turn, marked (the square cleared of
+    # matches), then measured once more.  Block 5.4: the square tied on under two
+    # turn-over tags, and with them lifted off.
+    found = P.check_section(DIALOGUE, "Fifth", sizes=[1, 2, 2, 2], frames=[1, 2, 2, 2])
+    (_, [(start, _)]), = found[0]
+    (_, [(seven, caption)]), (_, [(five, _)]) = found[1]
+    (_, [(turn, _)]), (_, [(again, _)]) = found[2]
+    (c_tied, [(tied, _)]), (c_lifted, [(lifted, _)]) = found[3]
+    assert caption == "as Achilles expects"
 
-    # P5.4, one block of two: the square tied on by the arrow's corner with two
-    # turn-over tags on the string, and the same square with them lifted off.
-    # Nothing is walked: the square is drawn at the start, as drawn.
-    two = [["over"], ["over"]]
-    for p, groups in zip(pics[3:], (two, [])):
-        assert p["macro"] == "tagstring" and not p["keyed"], p
-        t = tagstring(p["place"], p["start"], p["tags"])
-        assert t["start"] == dict(kind="square", turned=False), p
-        assert t["groups"] == groups and t["where"] == "start" and t["passed"] == 0, p
-        assert square_on_string(t["now"]) == (3, 4), p
-        assert np.allclose(square_on_string(t["now"]), in_matches(ARROW)[:2]), p
-        # and had it been walked past both tags, it would arrive as it left
-        whole = travel(t["start"], t["tags"], len(t["tags"]))
-        assert np.allclose(square_on_string(whole),
-                           in_matches(carry_arrow(ARROW, t["tags"]))[:2]), p
-        assert square_on_string(whole) == (3, 4), p
+    check_close_up(start, 0, {"along", "up"})
+    assert start.keyed and start.labels == ("heads-ward", "tails-ward") and start.count == (3, 4, 0)
+    # the measure: five, not seven, and nine and sixteen make twenty-five
+    v = check_close_up(five, 0, {"along", "up", "arrow"})
+    assert five.count == (3, 4, 5) and not five.sum
+    assert five.count[0] + five.count[1] == 7 != five.count[2]
+    assert five.count[0] ** 2 + five.count[1] ** 2 == five.count[2] ** 2
+    assert round(in_matches(v)[2]) == five.count[2]
+    # the prediction: the named rule, his count, on the same square with the same
+    # rows laid -- seven along the arrow -- and not the five beside it.  The row
+    # of seven runs past the tip and off the paper, by a clear gap.
+    assert seven.sum and not seven.marks and seven.ghost is None
+    assert (seven.view, seven.rows, seven.reaches) == (five.view, five.rows, five.reaches)
+    check_close_up(seven, 0, {"along", "up", "arrow"})
+    assert seven.count == (3, 4, 7) and seven.count[2] == as_achilles_counts(ARROW)
+    assert seven.count[2] != five.count[2] and not np.isclose(as_achilles_counts(ARROW),
+                                                              in_matches(ARROW)[2])
+    assert seven.far_end - P.SIDE > 0.1                     # off the paper
+    assert five.arrow_row * 4 / 5 < P.SIDE                  # the five stay on it
+    # the turn: no matches (she cleared them), the arrow where it lay -- three
+    # and four -- marked, the reaches now four and three; then measured: still five
+    w = check_close_up(turn, 1, set())
+    assert turn.marks and turn.count == (0, 0, 0)
+    assert turn.ghost == (3, 4) and turn.reaches == (4, 3)
+    assert np.allclose(turn.ghost, in_matches(ARROW)[:2]) and np.allclose(w, X @ ARROW)
+    check_close_up(again, 1, {"along", "up", "arrow"})
+    assert again.count == (4, 3, 5) and not again.marks and again.back
+    # tied on, nothing walked: drawn as tied, under two tags and with them lifted
+    assert c_tied.macro == c_lifted.macro == "tagstring"
+    assert tied.tags == ("over", "over") and lifted.tags == ()
+    for t in (tied, lifted):
+        assert t.where == "start" and t.passed == 0 and not t.marks and t.expects is None
+        assert t.shown == {"kind": "square", "turned": False}
+        assert np.allclose((4, 3) if t.shown["turned"] else (3, 4), in_matches(ARROW)[:2])
+        # had it been walked past the tags, it would arrive as it left
+        whole = P.travel(t.start, list(t.tags), len(t.tags))
+        assert whole == t.start
+        assert np.allclose(carry_arrow(ARROW, t.tags), ARROW)
+    assert [p.dump for b in found for _, fr in b for p, _ in fr] == [
+        "arrowsquare: drawn reaches 3,4 matches 3,4,0",
+        "arrowsquare: drawn reaches 3,4 matches 3,4,7 expects sum",
+        "arrowsquare: drawn reaches 3,4 matches 3,4,5",
+        "arrowsquare: over reaches 4,3 matches 0,0,0 ghost 3,4",
+        "arrowsquare: over reaches 4,3 matches 4,3,5",
+        "tagstring: start square-34 -> square-34",
+        "tagstring: start square-34 -> square-34"]
 
-    # the keyed rule: the first close-up of the square in the dialogue -- this
-    # challenge's first picture -- is keyed, no other close-up is, and no
-    # picture of the square tied on is
-    text = read(DIALOG)
-    ups = list(re.finditer(ARROWSQUARE, text))
-    assert ups[0].group(0) == blocks(DIALOG, "Fifth")[0][0]
-    assert [m.group(1) == "*" for m in ups] == [True] + [False] * (len(ups) - 1)
-    tied = [m for m in re.finditer(TAGSTRING, text) if parse_start(m.group(3))["kind"] == "square"]
-    assert tied and not any(m.group(1) == "*" for m in tied)
+    # where they stand
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        paras = DIALOGUE.paragraphs("Fifth", path)
+        a_start, a_five, a_again, a_tied = DIALOGUE.anchors("Fifth", path)
+        assert a_start.endswith("A start.")
+        assert a_five.endswith("As a wager it's nonsense.")
+        # block 5.3 follows the measuring; the turn it marks is the paragraph before
+        assert a_again.endswith("turned over, it is still one arrow.")
+        turned = paras[paras.index(a_again) - 1]
+        for phrase in ("She clears the matches away and turns the square face-down",
+                       "The corner stays pinned where it was",
+                       "what swings across is the rest of the square",
+                       "through the paper the arrow shows, as long as ever"):
+            assert phrase in turned, phrase
+        assert a_tied.endswith("He slides the two tags together and lifts them off.]*")
 
 
 PHASES = (Fraction(1, 4), Fraction(1, 3), Fraction(3, 4))

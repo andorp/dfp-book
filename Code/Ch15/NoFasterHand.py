@@ -23,6 +23,7 @@ the four-drawer search attains exactly.
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools"))
 
+import itertools
 import re
 from fractions import Fraction
 
@@ -38,7 +39,10 @@ import props_ch15 as PC
 DIALOGUE = Dialogue(__file__, macros=PC.MACROS)
 
 # each section's picture blocks and their sizes (identity card, section 4)
-SIZES = {"First": [1, 1, 1], "Second": [1, 1, 1, 1], "Third": [1, 1, 1], "Fourth": [1, 1, 1, 1], "Fifth": [1]}
+SIZES = {"First": [1, 1, 1], "Second": [1] * 8, "Third": [1, 1, 1], "Fourth": [1] * 6, "Fifth": [1]}
+# the frames each block draws (a strip: one per step, and its before-frame unless from=off)
+FRAMES = {"First": [1, 1, 1], "Second": [4, 1, 1, 1, 4, 3, 3, 1], "Third": [2, 3, 1], "Fourth": [1, 1, 1, 1, 1, 2],
+          "Fifth": [1]}
 
 # the Old fragments the card's directions replaced: gone from both whole files (R7-Ch14)
 NEGATIVE_ANCHORS = (
@@ -239,9 +243,11 @@ def pictures():
     f1, = DIALOGUE.following("Fifth")
     assert "Unfolded, there is no new hole: the prick is the dot." in a1
     assert f1.startswith("**Achilles:** It hasn't moved.")
-    assert DIALOGUE.following("Fifth", DIALOGUE.raw) == [f1]
+    assert DIALOGUE.following("Fifth", DIALOGUE.raw) == [f1] and DIALOGUE.anchors("Fifth", DIALOGUE.raw) == [a1]
     p51, = (PC.picture(c) for c in calls)
 
+    assert "step" not in PC.options(calls[0]) and p51.opts.get("round4") is None      # plain, as at round 3
+    assert p51.mark_tikz == [] and p51.ghosts == [] and p51.arcs == []
     # P5.1: back at the first dot, no drawer marked, the turn-about's fold: the hand stays
     N = 64
     s = np.ones(N) / np.sqrt(N)
@@ -253,7 +259,7 @@ def pictures():
     assert np.isclose(p51.state.a, th) and np.isclose(p51.state.a, p51.state.tilt)
     assert "tip=%.2f" % (8 * np.sin(th)) == "tip=1.00"
     # its holes are P4.4's, none added: the prick is the dot
-    p44 = PC.picture(DIALOGUE.check_layout("Fourth", sizes=SIZES["Fourth"])[3])
+    p44 = PC.pictures(DIALOGUE.check_layout("Fourth", sizes=SIZES["Fourth"])[5])[-1][0]      # F34
     assert p51.state.holes == p44.state.holes and p51.shown.lines == p44.shown.lines
     assert any(np.isclose(h, th) for h in p51.state.holes)
     # and the marker, with no drawer marked, makes no fold: the Lua refuses one
@@ -270,20 +276,36 @@ def pictures():
     every = []
     for o in PC.ORDER:
         cs = DIALOGUE.check_layout(o, sizes=SIZES[o])
+        assert [len(PC.frame_calls(c)) for c in cs] == FRAMES[o]
         for c in cs:
             assert PC.place_ok(o, c), (o, c.text)                          # the forbidden places
             PC.picture(c)                                                  # no fault anywhere
         every += [(o, i, c) for i, c in enumerate(cs)]
+    # card 3e.6: 21 blocks, 35 frames, as the sums of the sections' (never as literals)
+    blocks = sum(len(v) for v in SIZES.values())
+    frames = sum(len(PC.frame_calls(c)) for _, _, c in every)
+    assert len(every) == blocks == total and frames == sum(sum(v) for v in FRAMES.values())
+    # every frame of the dialogue: stepped frames marked unless a prediction, and none keyed; the
+    # predictions pale, alone in their blocks; the strips unstarred (each family keyed earlier)
+    for o, i, c in every:
+        for f, (p, cap) in zip(PC.frame_calls(c), PC.pictures(c)):
+            opts = PC.options(f)
+            assert p.marked == ("step" in opts and "expects" not in opts) and not (p.marked and f.keyed)
+            assert (p.wrong is not None) == PC.is_prediction(f)
+            assert not (p.mark_tikz and p.wrong is not None)
+        assert not (PC.is_strip(c) and c.keyed)
     text = DIALOGUE.read(DIALOGUE.dialog)
     assert text.rindex(every[-1][2].text) > text.index("## Fifth Challenge")
     assert every[-1][2].text == calls[0].text
     # the keyed rule: the first picture of each kind keyed, and only those -- P1.1, P1.2,
     # P2.2, P3.3 and P4.1
-    DIALOGUE.keyed_first(PC.ORDER, kind=PC.keyed_kind)
-    assert [(o, i + 1) for o, i, c in every if c.keyed] == [("First", 1), ("First", 2), ("Second", 2),
+    DIALOGUE.keyed_first(PC.ORDER, kind=PC.keyed_kind, select=PC.judged)
+    assert [(o, i + 1) for o, i, c in every if c.keyed] == [("First", 1), ("First", 2), ("Second", 4),
                                                             ("Third", 3), ("Fourth", 1)]
     # a place a picture may not take: the case's front after the wish, in the First
-    assert not PC.place_ok("First", every[7][2]) and not PC.place_ok("Fifth", every[0][2])
+    third = len(SIZES["First"]) + len(SIZES["Second"])
+    assert every[third][0] == "Third" and not PC.place_ok("First", every[third][2])
+    assert not PC.place_ok("Fifth", every[0][2])
 
     for path in (DIALOGUE.dialog, DIALOGUE.raw):
         whole = DIALOGUE.read(path)                                        # planning comment stripped
@@ -311,6 +333,180 @@ def pictures():
         raw = path.read_text(encoding="utf-8")
         assert raw.count("Let Bob draw") == 0
         assert not re.search(r"(?i)(?<![\w])(fifteen|fifteenth|15)(?![\w])", raw)
+    check_faults()
+
+
+FAULT_CASES = [
+    # the bracket (oerr)
+    ("opt-unknown", "case", False, "front; colour=red", ""),
+    ("opt-twice", "case", False, "step=granted; step=granted", ""),
+    ("opt-bare-two", "case", False, "front; the front; step=granted", ""),
+    ("opt-onoff", "case", False, "step=granted; marks=maybe", ""),
+    ("marks-no-step", "case", False, "marks=on", ""),
+    ("expects-keyed", "pegs", True, "step=turn about; expects=does the finding", "even row"),
+    ("expects-marked", "pegs", False, "step=turn about; marks=on; expects=does the finding", "even row"),
+    ("marks-keyed", "pegs", True, "step=touch the second", "even row"),
+    # the case (cerr; oerr)
+    ("case-twice", "case", False, "", "granted; granted"),
+    ("case-ord", "case", False, "", "granted; fifth drawer open"),
+    ("case-locked", "case", False, "", "first drawer open"),
+    ("case-open-twice", "case", False, "", "granted; first drawer open; first drawer open"),
+    ("case-shut-ord", "case", False, "", "granted; fifth drawer shut"),
+    ("case-shut-shut", "case", False, "", "granted; first drawer shut"),
+    ("case-key-twice", "case", False, "", "granted; second drawer open; key taken; key taken"),
+    ("case-key-shut", "case", False, "", "granted; key taken"),
+    ("case-back-twice", "case", False, "back", "granted; second drawer open; key taken; back open; back open"),
+    ("case-back-nokey", "case", False, "back", "back open"),
+    ("case-clause", "case", False, "", "lid open"),
+    ("case-view", "case", False, "sideways", ""),
+    ("case-rule", "case", False, "step=granted; expects=surer", ""),
+    ("case-back-view", "case", False, "step=back open", "granted; second drawer open; key taken"),
+    ("case-front-view", "case", False, "back; step=granted", ""),
+    # the pegs (perr; oerr)
+    ("pegs-finish", "pegs", False, "touch the second, turn about the first, mark the average", "even row"),
+    ("pegs-ord", "pegs", False, "touch the fifth", "even row"),
+    ("pegs-average-zero", "pegs", False, "mark the average", "nothing, nothing, nothing, nothing"),
+    ("pegs-turn-list", "pegs", False, "turn about the fifth", "even row"),
+    ("pegs-turn-twice", "pegs", False, "touch the second, turn about the first, turn about the first", "even row"),
+    ("pegs-move", "pegs", False, "wiggle", "even row"),
+    ("pegs-leave", "pegs", False, "turn about", "three, three, three, nothing"),
+    ("pegs-row-twice-even", "pegs", False, "", "even row; even row"),
+    ("pegs-row-twice-list", "pegs", False, "", "even row; one, one, one, one"),
+    ("pegs-four", "pegs", False, "", "one, one, one"),
+    ("pegs-height", "pegs", False, "", "one, one, one, lots"),
+    ("pegs-clause", "pegs", False, "", "odd row"),
+    ("pegs-rule-step", "pegs", False, "step=touch the second; expects=does the finding", "even row"),
+    ("pegs-rule-row", "pegs", False, "touch the second; step=turn about; expects=does the finding", "even row"),
+    ("pegs-step-one", "pegs", False, "step=touch the second, touch the third", "even row"),
+    ("pegs-rule", "pegs", False, "step=turn about; expects=surer", "even row"),
+    ("pegs-rule-nostep", "pegs", False, "expects=does the finding", "even row"),
+    # the cloth (terr; oerr)
+    ("cloth-setting", "cloth", False, "", "odd setting"),
+    ("cloth-past", "cloth", False, "the upper through the tubes, the upper through the tubes", "even setting"),
+    ("cloth-order", "cloth", False, "the upper through the half-rings", "even setting"),
+    ("cloth-done", "cloth", False, "push through, push through", "even setting"),
+    ("cloth-push", "cloth", False, "pull", "even setting"),
+    ("cloth-rule", "cloth", False, "step=through the tubes; expects=surer", "even setting"),
+    ("cloth-step-one", "cloth", False, "step=through the tubes, through the half-rings", "even setting"),
+    ("cloth-step-through", "cloth", False, "step=push through", "even setting"),
+    # the sheet (herr; oerr)
+    ("sheet-nomark", "sheet", False, "no drawer marked, the marker's fold", "four drawers"),
+    ("sheet-steps", "sheet", False, "two step", "four drawers"),
+    ("sheet-nomark-twice", "sheet", False, "no drawer marked, no drawer marked", "four drawers"),
+    ("sheet-fold", "sheet", False, "crumple", "four drawers"),
+    ("sheet-twice-4", "sheet", False, "", "four drawers; four drawers"),
+    ("sheet-twice-64", "sheet", False, "", "four drawers; sixty-four drawers"),
+    ("sheet-clause", "sheet", False, "", "nine drawers"),
+    ("sheet-noroom", "sheet", True, "seven steps, a step", "sixty-four drawers"),
+    ("sheet-rule-step", "sheet", False, "step=the marker's fold; expects=surer", "four drawers"),
+    ("sheet-rule-rises", "sheet", False, "step=a step; expects=surer", "four drawers"),
+    ("sheet-step-one", "sheet", False, "step=two steps", "four drawers"),
+    ("sheet-rule", "sheet", False, "step=a step; expects=does the finding", "sixty-four drawers"),
+    ("sheet-rule-nostep", "sheet", False, "expects=surer", "sixty-four drawers"),
+    # the strips (oerr): steps, keyed, kind, scene, options, steps, captions
+    ("strip-unknown", "steps", False, "bogus", "", "", "a step", "a caption", ("strip-unknown", "strip-captions")),  # a pair
+    ("strip-bare", "steps", False, "pegs", "even row", "odd", "touch the second", "a; b"),
+    ("strip-star-from", "steps", True, "pegs", "even row", "from=off; marks=off", "touch the second", "a"),
+    ("strip-none", "steps", False, "pegs", "even row", "", "", "a"),
+    ("strip-commas", "steps", False, "cloth", "even setting", "from=off", "through the tubes, through the half-rings", "a"),
+    ("strip-long", "steps", False, "pegs", "even row", "", "touch the second; mark the average; turn about the first; "
+     "turn about the third", "a; b; c; d; e"),
+    ("strip-captions", "steps", False, "pegs", "even row", "", "touch the second", "a"),
+]
+
+
+def check_faults():
+    """Every fault site raised by its own call, alone (the strip faults by the strip alone, as TeX
+    raises them before any frame runs; one, strip-unknown, with the caption count it entails),
+    with a message of its own; the 68 sites are the Lua's, all of them; a refused step draws no
+    marks; the ';' bracket is order-free for all four macros and their strips, each order run, and
+    an item given twice is refused."""
+    seen = {}
+    for case in FAULT_CASES:
+        site = case[0]
+        if case[1] == "steps":
+            _, _, keyed, kind, scene, opt, stepspec, caps = case[:8]
+            want = case[8] if len(case) > 8 else (site,)
+            fn, args = PC.steps, (kind, keyed, scene, opt, stepspec, caps)
+        else:
+            _, kind, keyed, br, state = case[:5]
+            want = (site,)
+            fn, args = PC.run_frame, (kind, br, state, keyed)
+        assert tuple(dict.fromkeys(PC.faults(fn, *args))) == tuple(want), (site, PC.TEX_ERRORS)
+        msgs = {m for s, m in zip(PC.faults(fn, *args), PC.messages(fn, *args)) if s == site}
+        assert len(msgs) == 1 and not (msgs & set(seen)), site           # one message, its own
+        seen[msgs.pop()] = site
+    # the mutual-exclusion checks are made on the whole parse: every order of a refused bracket's
+    # items raises the same faults (and a strip's options, likewise)
+    orders = 0
+    for case in FAULT_CASES:
+        if case[1] == "steps":
+            _, _, keyed, kind, scene, opt, stepspec, caps = case[:8]
+            items, fn = opt.split("; "), lambda br: PC.faults(PC.steps, kind, keyed, scene, br, stepspec, caps)
+        else:
+            _, kind, keyed, br, state = case[:5]
+            items, fn = br.split("; "), lambda br: PC.faults(PC.run_frame, kind, br, state, keyed)
+        if len(items) < 2:
+            continue
+        want = sorted(fn("; ".join(items)))
+        for order in itertools.permutations(items):
+            assert sorted(fn("; ".join(order))) == want, (case[0], order)
+            orders += 1
+    assert orders >= 20
+    # a step the Lua refuses draws no marks; the same kind of step taken draws them
+    refused = 0
+    for case in FAULT_CASES:
+        if case[1] != "steps" and "step=" in case[3]:
+            PC.TEX_ERRORS.clear()
+            p = PC.run_frame(case[1], case[3], case[4], case[2])
+            if p.refused:
+                refused += 1
+                assert p.mark_tikz == [] and p.ghosts == [] and p.arcs == [], case[0]
+                assert "no marks: the step was refused" in p.notes, case[0]
+    assert refused >= 5
+    PC.TEX_ERRORS.clear()
+    for kind, br, state in (("pegs", "step=touch the second", "even row"), ("cloth", "step=through the tubes", "even setting"),
+                            ("sheet", "step=a step", "four drawers"), ("case", "step=first drawer shut",
+                                                                       "granted; first drawer open")):
+        assert PC.run_frame(kind, br, state, False).mark_tikz and not PC.TEX_ERRORS, kind
+    assert [c[0] for c in FAULT_CASES] == [k for k, _ in PC.TEX_SITES] and len(PC.ERROR_SITES) == 68
+    assert sum(PC.SITE_COUNTS.values()) == 68                            # 12 + 12 + 5 + 8 + 31
+    PC.check_sites()                                                     # five tex.error calls
+    PC.check_lua()                                                       # every chunk as transcribed, pinned
+    # the bracket is order-free: every order of a frame's items draws the same frame
+    for kind, state, items in (
+            ("case", "", ["front", "step=granted", "marks=off"]),
+            ("case", "granted; first drawer open", ["front", "step=first drawer shut", "marks=on"]),
+            ("pegs", "even row", ["touch the second", "step=turn about", "marks=on"]),
+            ("pegs", "even row; tick at half a notch", ["step=turn about", "expects=does the finding"]),
+            ("cloth", "tilted setting", ["through the tubes", "step=through the half-rings", "marks=on"]),
+            ("sheet", "four drawers", ["the marker's fold", "step=the turn-about's fold", "marks=off"]),
+            ("sheet", "sixty-four drawers", ["six steps", "step=a step", "expects=surer"])):
+        outs = set()
+        for order in itertools.permutations(items):
+            br = "; ".join(order)
+            assert PC.faults(PC.run_frame, kind, br, state, False) == [], br
+            p = PC.run_frame(kind, br, state, False)
+            outs.add((PC.drawn(p), tuple(p.mark_tikz), tuple(p.notes)))
+        assert len(outs) == 1, (kind, items)
+        twice = "; ".join(items + [items[-1]])
+        assert "opt-twice" in PC.faults(PC.run_frame, kind, twice, state, False), twice
+    for macro, scene, items, stepspec, caps in (
+            ("case", "granted", ["front", "from=off", "marks=on"], "first drawer open; first drawer shut", "a; b"),
+            ("pegs", "even row", ["after=touch the second", "from=off", "marks=off"], "mark the average; turn about", "a; b"),
+            ("cloth", "even setting", ["after=through the tubes", "from=off", "marks=on"], "through the half-rings", "a"),
+            ("sheet", "sixty-four drawers", ["after=six steps", "from=off", "marks=off"],
+             "the marker's fold; the turn-about's fold", "a; b")):
+        outs = set()
+        for order in itertools.permutations(items):
+            PC.TEX_ERRORS.clear()
+            S = PC.steps(macro, False, scene, "; ".join(order), stepspec, caps)
+            assert not PC.TEX_ERRORS, order
+            outs.add(tuple(S.frames))
+        assert len(outs) == 1, (macro, items)
+        twice = "; ".join(items + [items[-1]])
+        assert "opt-twice" in PC.faults(PC.steps, macro, False, scene, twice, stepspec, caps), twice
+    PC.TEX_ERRORS.clear()
 
 
 

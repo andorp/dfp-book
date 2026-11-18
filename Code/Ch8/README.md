@@ -40,23 +40,47 @@ lets the cradle come undone, which is exactly what cooks three CNOTs into a swap
 file assembles the eight-wire Octet, counts its edges in code, and checks that only its
 topology matters — the picture the chapter is named for.
 
-**The prop pictures.** The dialogue draws its props with two macros from
+**The prop pictures.** The dialogue draws its props with three macros from
 `pdf/props/ch08.tex` — the Crab's cords and curtain-rings, on the beam, loose in the hand
-or on the second hooks (`\ringcords`), and the Crab's press with its flip-slot
-(`\koekpan`). Their Lua rules are transcribed once, in `tools/props_ch08.py` (no matrices
-there): the turn words in twenty-fourths, every tangle the dialogue names, the computed
-views — `slid` (the turns added), `flipped` (the other colour, the same cords and turn),
-`pushed` (the ring's turn mirrored), `pressed` (what comes off onto the second hooks) —
-the slot close-up, and the Lua's twenty `tex.error` sites, each keyed. Each file reads the
-pictures of its own section of `dialog.md` through `tools/dfp_props.py`, checks their
-layout (3, 4, 4, 4, 2, 3 pictures; blocks `[1,2]`, `[1,1,2]`, `[1,1,2]`, `[1,1,2]`,
-`[1,1]`, `[1,1,1]`; the same in `dialog.raw.md`), their captions (words only; no ring
-called a spider or a turn a phase, never the pan's name; no quantity word under a drawn
-copy of the frame or beside a cord), the speech or direction each follows, and every
-reading against the scene at that moment — where the dialogue says a turn in words, the
-file parses those words and compares. Each file also **ties the transcription to its own
-rules**, contracting the drawn tangle in NumPy (a green ring a Z spider, a red ring an X
-spider, a turn $t$ the phase $2\pi t/24$): a structural check, not a second proof.
+or on the second hooks (`\ringcords`), the Crab's press with its flip-slot (`\koekpan`), and
+(round 4, *Show the process*) a step strip of rings, `\ringsteps[opts]{tangle}{steps}{captions}`,
+whose every frame starts from the state the one before left. Their Lua rules are transcribed
+once, in `tools/props_ch08.py` (no matrices there): the `;` bracket (a bare view word, then
+`key=value`), the turn words in twenty-fourths, the hooks a cord hangs from (`in at top and
+bottom`, …), every tangle the dialogue names, the computed views — `slid` (the turns added),
+`flipped` (the other colour, the same cords and turn), `pushed` (the ring's turn mirrored),
+`pressed` (what comes off onto the second hooks) — the steps (`add=` a cord to the first free
+hook of top, bottom, middle; `slide=`; `reshape=` the rings, then the cords), the motion marks
+(`marks=on`: a moved part's ghost, its arc, a pin on what is held), Achilles's two refuted rules
+(`expects=passes`, `expects=tighter`, drawn paler), the strip's expansion (`keyroom=on` on its
+later frames), the log lines the Lua writes, and all **62** `tex.error` sites in the Lua's
+order, each keyed and each held to its message template.
+
+The transcription was **proved against the Lua** before it was pinned: every call of both
+dialogue files, 2 289 aimed calls (every turn on the slide and the push, every hook set on both
+adds, a single ring's items in every order, each kind twice over too) and 30 000 random ones on each of seven seeds, run through
+`texlua` with `tex` stubbed and through the Python, agree record for record — every fault
+message, every log line, a strip's printed frames, every mark's TikZ line and every keyed
+label node. The real build's log (44 dump lines, both files) is the files' `describe()` line
+for line. `P.check_lua()`, called first in every file, holds `ch08.lua` chunk by chunk
+(`LUA_PINS`), the wrong rules' comment word for word (`WRONG_PIN`) and `ch08.tex` (`TEX_PINS`:
+the mark styles, the colours, the macros' expansion) to the text that proof was run on; a
+comment-only edit passes, except in the wrong rules' comment (pinned whole, as in Chapter 7)
+and to the Lua's quotes of the dialogue (each must stand in it).
+
+Each file reads the pictures of its own section of `dialog.md` through `tools/dfp_props.py`
+(`P.check_section`): its blocks (calls `[1,2]`, `[1,1,2]`, `[1,2,2]`, `[1,1,3]`, `[1,1]`,
+`[1,1,1]`; frames `[3,2]`, `[1,1,2]`, `[1,2,2]`, `[1,1,3]`, `[1,1]`, `[1,2,1]`; the same in
+`dialog.raw.md`), their captions (words only, frame by frame; no ring called a spider or a turn
+a phase, never the pan's name; no quantity word under a drawn copy of the frame or beside a
+cord), the speech or direction each follows, the round's direction and caption edits
+(`P.check_edits`: N1–N8, C1–C4, each new text once in its section and its old text gone, in
+both files), and every reading against the scene at that moment — where the dialogue says a
+turn or a hook in words, the file parses those words and compares. Each file also **ties the
+transcription to its own rules**, contracting the drawn tangle in NumPy (a green ring a Z
+spider, a red ring an X spider, a turn $t$ the phase $2\pi t/24$): a structural check, not a
+second proof. A prediction frame is checked against the challenge's own model of what
+Achilles said, and shown to differ from the true frame beside it.
 
 ---
 
@@ -78,15 +102,25 @@ The sketchbook compares two green spiders on a wire with one, **exactly** (`same
 rules out `one_green(a)` as the wrong sum, then derives the fusion with `spider_simp`: the two
 dots become one, whose phase is `(a + b) % 2`.
 
-*Pictures.* The grown ring on the beam (keyed: two in, three out, as the directions string
-it; bead at the top), then the two rings on one cord at a third and a quarter and the same
-cord slid: one ring at the far ring's place, its turn **14**, the dialogue's
-"a third and a quarter together" parsed to the same number. The tie: for all $24\times24$ pairs of turns,
-both colours, the slid ring is the fused spider **exactly**:
+*Pictures.* The lay strip on the beam (keyed on its first frame; the later frames keep the
+labels' room as phantoms, so the three stand level): the ring as the Crab found it, one cord
+in from the high left hook and two out to the high and low right hooks (N1); another in, to
+the **low left** hook; another out, to the right hook **between** the other two (N2) — each
+frame computed from the one before, the earlier cords kept on their hooks, no mark (a cord
+from the hand). Its last frame is round 3's keyed `\ringcords*[beam]{green ring, five cords}`
+**cord for cord**. Then the two rings on one cord at a third and a quarter and the same cord
+slid, marked: the near ring's ghost where it stood, the slide arc above the cord from it to
+the far ring, the far bead's ghost at a quarter and its arc clockwise to **14**, the dialogue's
+"a third and a quarter together" parsed to the same number, and a pin on the cord's far end,
+which "does not stir". The ties: every add, from every set of hooks, is the spider with one
+more leg; for all $24\times24$ pairs of turns, both colours, the slid ring is the fused spider
+**exactly**:
 
 ```python
-assert np.allclose(spider(1, 1, phase(t2)) @ spider(1, 1, phase(t1)), spider(1, 1, phase(r.t)))
-assert np.allclose(tangle_map(T), tangle_map(S))       # two rings on the cord = the slid one
+assert f03.drawn.cords == p11_round3.drawn.cords and f03.drawn.rings == p11_round3.drawn.rings
+assert f03.moved.hook == "middle" and ends(f03.drawn) == [L(0.42), L(-0.42), R(0.42), R(0), R(-0.42)]
+assert np.isclose((b0 - b1) % 360 + 2 * 0.07 / rad * 180 / np.pi, 15 * left.t)   # by the near turn
+assert np.allclose(tangle_map(b12.drawn), tangle_map(b13.drawn))          # fusion, the pictured turns
 ```
 
 ## II. The Other Colour — `Ch8/ColourChange.py`
@@ -107,13 +141,18 @@ equal to a red spider **exactly**, then derives the change with the *named* rule
 `color_change` — not `full_reduce`, whose first move (`to_gh`) *is* the colour-change and would
 read circular. After the rule the dot's type is `VT.X` and every edge is simple again.
 
-*Pictures.* The pan shut (keyed: rim, flip-slot, handle, second hooks), the slot close-up
-with the ring come clear **red** from green, and the four-cord ring before and after every
-cord went through: red, the same cords, the same turn. The tie: for every turn and both
-colours, on the two shapes drawn (a ring at a cord's end; two in, two out), a flip on every
-leg is the flipped ring exactly — and a flip on one leg alone never is:
+*Pictures.* The pan shut (keyed: rim, flip-slot, handle, second hooks; never marked — it
+works unseen), the slot close-up with the ring come clear **red** from green and, marked, the
+green ring's ghost where it sat **on the far side of the rim** (N4) and its way down through
+the slot — the ghost's whole disk above the rim's upper edge, the ring's below its lower edge,
+the arc crossing the rim inside the slot's opening, all measured on the drawn extent; then the
+four-cord ring before and after every cord went through (a surprise, kept as before and after,
+unmarked): red, the same cords, the same turn. The tie: for every turn and both colours, on
+the two shapes drawn, a flip on every leg is the flipped ring exactly — and a flip on one leg
+alone never is:
 
 ```python
+check_slot_marks(b22, "green")                          # ghost green, far side; swing through the slot
 assert np.allclose(Hout @ tangle_map(T) @ Hin, tangle_map(F))
 assert not np.allclose(kron(H, I2) @ T22, tangle_map(P.view_flipped(P.single(c, t, 2, 2))))
 ```
@@ -140,16 +179,21 @@ equality, not a hidden exact one. The sketchbook compares point-into-fork with t
 (up to scalar, exact factor $1/\sqrt2$ checked separately) and derives it with `full_reduce`;
 π-commutation is exact at phase 0 and only up-to-scalar at $\tfrac{7}{10}\pi$.
 
-*Pictures.* The red point and the green fork (the state Achilles predicts on), then — keyed,
-the first pressed picture — two red points on the right hooks and no green ring; the red
-half-turn before the green ring at a third (the dialogue's own words), then pushed: the
-traveller beyond, still a half, the ring at **16**. The ties: pressed point and fork is
-copy, $1/\sqrt2$, both colourings; pushed is π-commutation for every turn, both colourings,
-**up to a non-zero scalar** and equal only at turn 0 (at the pictured third the scalar is
-$e^{2\pi i/3}$):
+*Pictures.* The red point and the green fork (the state Achilles predicts on), then the
+prediction frame beside the true press: "as Achilles expects", drawn paler and never keyed,
+**one** red point on the upper right hook (his "comes out on one leg, unchanged", the file's
+own model of the rule), and — keyed, the first true pressed picture — **two** red points and
+no green ring; the red half-turn before the green ring at a third (the dialogue's own words),
+then pushed and marked: the traveller's ghost where it waited, its arc clear **over** the
+ring, the green bead's ghost at a third and its swing to **16** "round beneath the cord" (N5).
+The ties: pressed point and fork is copy, $1/\sqrt2$, both colourings; pushed is
+π-commutation for every turn, both colourings, **up to a non-zero scalar** and equal only at
+turn 0 (at the pictured third the scalar is $e^{2\pi i/3}$):
 
 ```python
-assert np.allclose(tangle_map(T).ravel(), tangle_map(D).ravel() / np.sqrt(2))   # copy
+assert np.allclose(tangle_map(b32.drawn).ravel(), passes(b31.drawn).ravel())   # the rule drawn
+assert len(b32.drawn.rings) == 1 and len(b33.drawn.rings) == 2                 # refuted
+assert s0 > bottom > s1 and P.turn_angle(g.t) > s0 and s1 > P.turn_angle(g2.t)  # 8 -> 16 by the bottom
 assert exact == [0]                                    # the push: equal only at no turn
 ```
 
@@ -175,15 +219,19 @@ double link is built with a phase-0 identity spider on one of the two paths.
 
 *Pictures.* The cradle on the beam (keyed: in, green, red, out), its four cross cords read
 out of the direction that strings them ("top green to top red; …") and matched to the
-transcription's; off the pan, the pair — red on the left gathering, green on the right
-issuing; the twice-tied pair, then nothing between. The ties: the transcribed cradle *is*
+transcription's — a counted frame: eight cords, four rings, no mark; off the pan, the pair —
+red on the left gathering, green on the right issuing; the twice-tied pair, the prediction
+frame ("Two cords must bind them twice as tightly": both cords kept, short and taut, the rings
+pulled close, paler, never keyed), then nothing between. The ties: the transcribed cradle *is*
 the file's `lhs`, the pressed pair its `rhs`, and the pair with the colours the other way
-round is not the cradle even up to a scalar; the twice-tied pair is half the untied one:
+round is not the cradle even up to a scalar; the twice-tied pair is half the untied one; the
+prediction keeps its two cords where the press leaves none:
 
 ```python
 assert np.allclose(tangle_map(b41.drawn), tangle_map(b42.drawn) / np.sqrt(2))   # bialgebra
 assert not _proportional(tangle_map(swapped), lhs)     # the colours change sides: the rule
-assert np.allclose(tangle_map(b43.drawn), tangle_map(b44.drawn) / 2)            # Hopf
+assert np.allclose(tangle_map(b43.drawn), tangle_map(b45.drawn) / 2)            # Hopf
+assert len(between(b44.drawn)) == 2 and len(between(b45.drawn)) == 0            # refuted
 ```
 
 ## V. Three Crossings, One Swap — `Ch8/SwapFromCNOTs.py`
@@ -214,6 +262,9 @@ assert np.allclose(tangle_map(T3), CNOT @ CNOTp @ CNOT / (2 * np.sqrt(2)))
 assert np.allclose(tangle_map(D), SWAP)
 ```
 
+The pan's results alone are drawn (it is never stripped), so neither picture carries a mark;
+the first caption is "its middle reversed" (C3).
+
 ## VI. Octet — `Ch8/Octet.py`
 
 "Eight cords. Eight, and not one of them spare — every one carrying its part, and the whole thing meaning nothing if you pull a single one out."
@@ -236,19 +287,30 @@ asserted. The last line redraws the Octet with its interior rings at scrambled c
 its cords strung in a different order, and finds the same tensor exactly: slide, bend and
 stretch the picture freely — only the connections count.
 
-*Pictures.* The cradle alone on the beam just before the count (its cords two in, four
-across, two out, as Achilles counts them), the reshaped cradle (every ring moved, every
-connection and hook kept) and, pressed from the crooked one, the very pair of the Fourth.
-The tie: the transcription's cradle, strung as a PyZX graph cord by cord, has exactly
-`octet()`'s eight edges under the card's wire map and is the same picture (`same_picture`);
-so is the reshaped one; the pressed pair is `pair()`. This file also checks the whole
-dialogue: twenty pictures, all inside the challenge sections, the starred form on exactly
-the first picture of each kind (the demonstration ring, the pan, the pressed copy, the
-frame), the views each challenge may use, and the Lua's twenty error sites, each raised by
-a call of its own:
+*Pictures.* The cradle alone on the beam just before the count, "untouched" (C4; its cords
+two in, four across, two out, as Achilles counts them); the reshape's strip, from P6.1 four
+paragraphs above (`from=off`) and without marks (`marks=off`, so no outline is threaded on a
+counted cord): the rings moved, each with its peg (N6), cords straight to them, and then the
+cords bent (N8; the read-out N7 dropped) — both frames keep the eight connections, the four
+rings and every hook end, and the last is round 3's reshaped cradle cord for cord; and, pressed
+from the crooked one, the very pair of the Fourth. The tie: the transcription's cradle, strung
+as a PyZX graph cord by cord, has exactly `octet()`'s eight edges under the card's wire map
+and is the same picture (`same_picture`); so is each frame of the reshape; the pressed pair is
+`pair()`. This file also checks the whole dialogue: 22 calls and 25 frames, all inside the
+challenge sections, at most four moments a section and four frames a block; the starred form
+on exactly the first true picture of each kind (the lay strip, the pan, the pressed copy, the
+frame — a prediction is never keyed); the views each challenge may use; the 44 dump lines; the
+marks (none on a frame on the beam, F01–F03, F15, F22–F24; every mark line in a dotted mark
+style, never dashed; arcs headed; marks only at the slide, the slot and the push); the quotes
+the Lua's comments take from the dialogue; what the code takes from `ch08.tex` (the brackets
+a call without one is handed, the strip's frame call) and the card's pinned numbers; and the Lua's 62 error sites, each raised by a call
+of its own (`reshaped` and `step-key`, which no macro call reaches, through the model's own
+functions) — a single ring's items checked after the whole list is read, so a mix or a
+repeat is the same fault whichever comes first, and a ring written in any order the same ring:
 
 ```python
-assert DIALOGUE.check_whole(ORDINALS) == 20
-assert roles(o) == unordered(P.connections(cradle.cords))   # the eight edges, by name
-assert same_picture(graph_of(T), o)                          # the frame is the Octet
+assert DIALOGUE.check_whole(ORDINALS) == 22 and len(frames) == 25 and len(dump) == 44
+assert [b[0] for b in bad] == list(P.ERROR_SITES) and len(set(P.ERROR_SITES)) == 62
+assert fr.marks == () and fr.mark_tikz == () and not fr.pale    # no mark on the counted frame
+assert g.num_edges() == 8 and same_picture(g, octet())          # the same eight wires
 ```

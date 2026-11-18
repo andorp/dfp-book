@@ -10,10 +10,11 @@ import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools"))
 
 import itertools
-import re
 
 import numpy as np
 from dfp import I2, Picture, ket, matrix_of, random_matrix, random_state, same_picture, verdict
+from dfp_props import Dialogue
+import props_ch01 as P
 
 X = np.array([[0, 1], [1, 0]], dtype=complex)      # NOT
 S0 = np.array([[1, 1], [0, 0]], dtype=complex)     # SET-0: "heads up, whatever it was"
@@ -66,183 +67,22 @@ def blackboard():
 
 # --------------------------------------------------------------------------
 # The pictures.  The dialogue draws the Tortoise's string with
-# \tagstring[place]{start}{tags}{caption} (pdf/props/ch01.tex; the rules are in
-# pdf/props/ch01.lua).  start is the end tag as tied; tags are hung left to
-# right, "over" for "turn it over" and "heads" for "heads up, whatever it was",
-# a "+" joining two tags slid together; place is how far the traveller has got.
-# The macro COMPUTES what the traveller looks like there; the dialogue never
-# writes a turned result.  parse_start, parse_tags, travel and tagstring below
-# are a line-for-line transcription of ch01.lua, so what is asserted here is
-# what the printed page shows.  The calls are read out of this challenge's
-# section of dialog.md, never copied, so an edit to the dialogue that breaks a
-# picture breaks here.
+# \tagstring[place;opts]{start}{tags}{caption} and a step strip of one walk
+# along it with \tagwalk[opts]{start}{tags}{caption; caption; ...} (pdf/props/ch01.tex;
+# the rules are in pdf/props/ch01.lua).  The macro COMPUTES the traveller at the
+# place, the ghost of the step just made (none where the tag changed nothing),
+# and with expects=<rule> the traveller a named wrong rule predicts, drawn pale.
+# tools/props_ch01.py transcribes the Lua, all but the drawing; the calls are
+# read out of this challenge's section of dialog.md (tools/dfp_props.py), never
+# copied.  Every frame is checked against the model below, which is the
+# blackboard's: heads the first entry, "over" NOT, "heads" SET-0.  The two
+# predictions are checked against this file's own models of what Achilles
+# says, and against the true frames beside them.
 # --------------------------------------------------------------------------
-DIALOG = pathlib.Path(__file__).resolve().parents[2] / "dialog.md"
-RAW = DIALOG.with_name("dialog.raw.md")
+DIALOGUE = Dialogue(__file__, macros=("tagstring", "tagwalk", "arrowsquare"))
 ORDINALS = ("First", "Second", "Third", "Fourth", "Fifth")
-# the regexes of identity.md, section 3 "Props and their pictures"
-TAGSTRING = r"\\tagstring(\*?)(?:\[([^\]]*)\])?\{([^}]*)\}\{([^}]*)\}\{([^}]*)\}"
-ARROWSQUARE = r"\\arrowsquare(\*?)(?:\[([^\]]*)\])?\{([^}]*)\}\{([^}]*)\}"
-MARKUP = {"tagstring", "arrowsquare", "quad", "qquad", "begin", "end", "textup"}
+QUOTE = __doc__.split('"')[1]
 
-
-def read(path):
-    """The file, its planning comments left out (they are notes, not pictures)."""
-    return re.sub(r"<!--.*?-->", "", path.read_text(encoding="utf-8"), flags=re.S)
-
-
-def section(path, ordinal):
-    """The '## <ordinal> Challenge' section, up to the next heading."""
-    text = read(path)
-    heads = list(re.finditer(r"^## " + ordinal + r" Challenge\b.*$", text, re.M))
-    assert len(heads) == 1, (path.name, ordinal)
-    rest = text[heads[0].end():]
-    after = re.search(r"^## ", rest, re.M)
-    return rest[:after.start()] if after else rest
-
-
-def picture(call):
-    """One call, parsed: a dict naming the macro and its arguments."""
-    m = re.fullmatch(TAGSTRING, call)
-    if m:
-        star, place, start, tags, caption = m.groups()
-        return dict(macro="tagstring", keyed=star == "*", place=place or "", start=start,
-                    tags=tags, caption=caption)
-    m = re.fullmatch(ARROWSQUARE, call)
-    assert m, call                                   # nothing malformed
-    star, view, matches, caption = m.groups()
-    return dict(macro="arrowsquare", keyed=star == "*", view=view or "", matches=matches,
-                caption=caption)
-
-
-def blocks(path, ordinal):
-    """The picture blocks of a section, in order, each the list of its calls."""
-    text = section(path, ordinal)
-    found = []
-    for para in re.split(r"\n[ \t]*\n", text):
-        if "\\tagstring" not in para and "\\arrowsquare" not in para:
-            continue
-        # a raw centre block that is a paragraph of its own, one line of calls
-        # joined by \quad or \qquad -- so never inside a *[...]* direction
-        m = re.fullmatch(r"\\begin\{center\}\n([^\n]*)\n\\end\{center\}", para.strip())
-        assert m, para
-        found.append([c.strip() for c in re.split(r"\\q?quad", m.group(1))])
-    calls = [c for b in found for c in b]
-    assert text.count("\\tagstring") + text.count("\\arrowsquare") == len(calls)
-    return found
-
-
-def words_only(caption):
-    """Words, commas and apostrophes: no digit, brace, symbol or lone letter,
-    and never a count of strings."""
-    return (re.fullmatch(r"[A-Za-z']+(?:,? [A-Za-z']+)*", caption) is not None
-            and all(len(w) > 1 or w == "a" for w in re.findall(r"[A-Za-z']+", caption))
-            and not re.search(r"\bstrings\b", caption))
-
-
-def check_layout(ordinal, sizes):
-    """The section's blocks: their sizes, markup and captions, and the very same
-    calls in dialog.raw.md.  Returns the parsed pictures, in order."""
-    found = blocks(DIALOG, ordinal)
-    assert [len(b) for b in found] == sizes, (ordinal, [len(b) for b in found])
-    assert blocks(RAW, ordinal) == found, ordinal       # identical in the raw dialogue
-    assert set(re.findall(r"\\([A-Za-z]+)", section(DIALOG, ordinal))) <= MARKUP
-    pics = [picture(c) for b in found for c in b]
-    for b in found:
-        assert len(b) <= 4
-        squares = [picture(c)["macro"] == "tagstring" and picture(c)["start"].strip() == "square"
-                   for c in b]
-        assert all(squares) or not any(squares), b      # a square-tied string keeps to its own line
-    for p in pics:
-        assert words_only(p["caption"]), p["caption"]
-        assert p.get("place", "").strip() != "off"      # [off] is not used
-    return pics
-
-
-def check_whole_dialogue():
-    """The five challenge sections, in order, and every picture of the dialogue
-    in one of them."""
-    text = read(DIALOG)
-    assert tuple(re.findall(r"^## (\w+) Challenge\b", text, re.M)) == ORDINALS
-    total = len(re.findall(TAGSTRING, text)) + len(re.findall(ARROWSQUARE, text))
-    assert text.count("\\tagstring") + text.count("\\arrowsquare") == total
-    assert total == sum(len(c) for o in ORDINALS for c in blocks(DIALOG, o))
-
-
-# --- ch01.lua, transcribed ---------------------------------------------------
-WORDNUM = {"zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6}
-POS = {"start": 0, "first": 1, "second": 2, "third": 3, "fourth": 4}
-
-
-def parse_start(spec):
-    spec = re.sub(r"\s", "", spec)
-    if spec in ("heads", "tails"):
-        return dict(kind="coin", face=spec)
-    if spec in ("none", ""):
-        return dict(kind="none")
-    if spec == "square":
-        return dict(kind="square", turned=False)
-    m = re.fullmatch(r"strip-(\w+)", spec)
-    if m:
-        k = m.group(1)
-        n = WORDNUM.get(k, int(k) if k.isdigit() else None)
-        if n is not None and 0 <= n <= 6:
-            return dict(kind="strip", dark=n, turned=False)
-    raise AssertionError("tagstring: unknown start " + spec)
-
-
-def parse_tags(spec):
-    """Groups of touching tags, and the tags one by one, left to right."""
-    groups, flat = [], []
-    for g in re.sub(r"\s", "", spec).split(","):
-        grp = []
-        for t in g.split("+"):
-            if t == "":
-                continue
-            assert t in ("over", "heads"), "tagstring: unknown tag " + t
-            grp.append(t)
-            flat.append(t)
-        if grp:
-            groups.append(grp)
-    return groups, flat
-
-
-def travel(st, tags, n):
-    """The traveller after the first n tags."""
-    s = dict(st)
-    for t in tags[:n]:
-        if s["kind"] == "coin":
-            if t == "over":
-                s["face"] = "tails" if s["face"] == "heads" else "heads"
-            else:
-                s["face"] = "heads"
-        elif s["kind"] in ("strip", "square"):
-            assert t == "over", "a 'heads up, whatever it was' tag cannot be done to a " + s["kind"]
-            s["turned"] = not s["turned"]
-    return s
-
-
-def tagstring(place, startspec, tagspec):
-    """props.ch01_tagstring, all but the drawing: its error checks, how many
-    tags the traveller has passed, and the traveller there."""
-    where = re.sub(r"\s", "", place) or "start"
-    assert where in POS or where in ("end", "off"), "tagstring: unknown place " + where
-    st = parse_start(startspec)
-    groups, tags = parse_tags(tagspec)
-    n = len(tags)
-    passed = n if where == "end" else POS.get(where, 0)
-    assert passed <= n, "tagstring: the traveller cannot be past tag %d of %d" % (passed, n)
-    travel(st, tags, n)                    # every tag is checked, wherever the traveller is
-    s = travel(st, tags, passed)
-    walked = where == "end" or passed > 0
-    if st["kind"] == "square" and where != "off":
-        assert not walked, "tagstring: the square is only drawn tied on at the start"
-    return dict(start=st, groups=groups, tags=tags, where=where, passed=passed, now=s)
-
-
-# --- the coin, in the chapter's state model ----------------------------------
-# heads is the first entry, as on the blackboard; "turn it over" is NOT and
-# "heads up, whatever it was" is SET-0, the very matrices blackboard() uses.
 HEADS = np.array([1, 0], dtype=complex)
 TAILS = np.array([0, 1], dtype=complex)
 FACE = {"heads": HEADS, "tails": TAILS}
@@ -263,71 +103,190 @@ def face_of(v):
     return names[0]
 
 
+def check_coin(pic, marks):
+    """A coin picture against the model: the face drawn is the model's after the
+    tags passed; with marks, the ghost is the model's after one tag fewer, and
+    there is none exactly when that tag left the coin as it was."""
+    assert pic.start["kind"] == "coin" and pic.expects is None
+    start, tags = FACE[pic.start["face"]], list(pic.tags)
+    now = carry(start, tags[:pic.passed])
+    assert pic.shown["face"] == face_of(now) and pic.marks == marks, pic.dump
+    if marks:
+        before = carry(start, tags[:pic.passed - 1])
+        assert (pic.ghost is None) == np.allclose(before, now), pic.dump
+        assert (pic.ghost is None) == pic.dump.endswith(" unchanged"), pic.dump
+        assert pic.ghost is None or pic.ghost["face"] == face_of(before), pic.dump
+    else:
+        assert pic.ghost is None, pic.dump
+    return now
+
+
+def lift_twins(tags):
+    """Achilles: "Twins. Off they come." -- as the turn-over pair came off.  The
+    Tortoise's way of lifting: find the leftmost two of the same tag side by side,
+    lift them, and look again (a pair gone may bring two more side by side).
+    Returns the pairs lifted (1-based places on the string as hung)."""
+    hanging, pairs = list(range(1, len(tags) + 1)), []
+    while True:
+        for a, b in zip(hanging, hanging[1:]):
+            if tags[a - 1] == tags[b - 1]:
+                pairs.append((a, b))
+                hanging.remove(a)
+                hanging.remove(b)
+                break
+        else:
+            return pairs
+
+
+def twins_expected(start, tags, passed):
+    """Where he expects the coin, just past the place-th tag as hung: it has walked
+    only the tags still hanging before that place.  None if the place falls
+    between the two tags of a pair that comes off (the rule cannot say)."""
+    pairs = lift_twins(tags)
+    if any(a <= passed < b for a, b in pairs):
+        return None, pairs
+    gone = {i for p in pairs for i in p}
+    return carry(start, [t for i, t in enumerate(tags[:passed], 1) if i not in gone]), pairs
+
+
+def any_order(start, tags, passed):
+    """Achilles: "the order along the string can't matter" -- so walking the same
+    tags in the other order (the string read from its right-hand end) does the
+    same."""
+    return carry(start, list(tags)[::-1][:passed])
+
+
 def check_coin_rule():
-    """The macro's coin against the model: every start, every string of up to
-    four tags, every place the coin can have got to."""
+    """The macro's coin against the model, and the rules `twins` and `anyorder`
+    against this file's models of what he says: every start, every string of up
+    to four tags, every place."""
+    differ = 0
     for start in FACE:
         for n in range(5):
             for tags in itertools.product(("over", "heads"), repeat=n):
+                spec = ",".join(tags)
                 for place in PLACES[:n + 1] + ("end",):
-                    t = tagstring(place, start, ",".join(tags))
-                    assert t["now"]["face"] == face_of(carry(FACE[start], tags[:t["passed"]]))
-
-
-def check_coin_pictures(ordinal, sizes, scene):
-    """The section's pictures against the scene, one row per picture:
-    (end tag as tied, the tags' groups on the string, where the coin is,
-    keyed?, the face identity.md section 3b reads).  Returns the model's
-    coin at each picture."""
-    check_whole_dialogue()
-    check_coin_rule()
-    pics = check_layout(ordinal, sizes)
-    assert len(pics) == len(scene), (ordinal, len(pics))
-    coins = []
-    for p, (start, groups, place, keyed, reading) in zip(pics, scene):
-        assert p["macro"] == "tagstring" and p["keyed"] == keyed, p
-        t = tagstring(p["place"], p["start"], p["tags"])
-        assert t["start"] == dict(kind="coin", face=start), p       # the end tag as tied
-        assert t["groups"] == groups and t["where"] == place, p
-        v = carry(FACE[start], t["tags"][:t["passed"]])              # the model
-        assert t["now"]["face"] == face_of(v) == reading, p         # macro = model = card
-        coins.append(v)
-    return coins
+                    check_coin(P.tagstring(place, start, spec), False)
+                    if place in PLACES[1:]:
+                        check_coin(P.tagstring(place + ";marks=on", start, spec), True)
+                    opt = place + ";expects=twins"
+                    errors = P.faults(P.tagstring, opt, start, spec)
+                    pic = P.tagstring(opt, start, spec)
+                    guess, pairs = twins_expected(FACE[start], tags, pic.passed)
+                    gone = {i for p in pairs for i in p}
+                    assert pic.lifted == gone and pic.hanging == tuple(
+                        i for i in range(1, n + 1) if i not in gone)
+                    if guess is None:
+                        inside = sorted((p for p in pairs if p[0] <= pic.passed < p[1]),
+                                        key=lambda p: p[1])     # one fault per pair, as closed
+                        assert errors == ["tagstring: expects=twins: the place falls inside a "
+                                          "pair that comes off (past tag %d, not past tag %d)" % p
+                                          for p in inside]
+                    else:
+                        assert errors == [] and pic.shown["face"] == face_of(guess)
+                    if n >= 2:
+                        opt = place + ";expects=anyorder"
+                        assert P.faults(P.tagstring, opt, start, spec) == []
+                        pic = P.tagstring(opt, start, spec)
+                        assert pic.expects == "anyorder" and pic.lifted is None
+                        assert pic.shown["face"] == face_of(any_order(FACE[start], tags, pic.passed))
+                        if place == "end":
+                            truth = P.tagstring("end", start, spec).shown
+                            differ += pic.shown != truth
+                    else:
+                        assert P.faults(P.tagstring, place + ";expects=anyorder", start, spec)
+    # the string read from the right parts from the string read from the left on
+    # 24 of the 56 walks (the 28 strings of two to four tags, from either start):
+    # the order is part of what the string says
+    assert differ == 24, differ
 
 
 def pictures():
-    # P3.1: the twins, walked from tails.  P3.2: "turn it over" then "heads up,
-    # whatever it was", from heads.  P3.3: the same two tags, places swapped.
-    # P3.4: swapped, walked from tails.
-    twins, as_hung, swapped = [["heads"], ["heads"]], [["over"], ["heads"]], [["heads"], ["over"]]
-    rows = [("tails", twins, "end", False, "heads"),
-            ("heads", as_hung, "end", False, "heads"),
-            ("heads", swapped, "end", False, "tails"),
-            ("tails", swapped, "end", False, "tails")]
-    p1, p2, p3, p4 = check_coin_pictures("Third", [1, 1, 1, 1], rows)
-    # "along a bare string it would have arrived tails!": the twins can't come off
-    assert not np.allclose(p1, TAILS)
+    P.check_lua()                                  # the Lua and .tex the transcription was proved on
+    check_coin_rule()
+    P.check_dialogue(DIALOGUE, ORDINALS)
+    assert QUOTE in DIALOGUE.section("Third")
+
+    # Four moments.  Block 3.1: the prediction, pale -- the twins lifted off --
+    # beside the step strip of the first walk past "heads up, whatever it was"
+    # tags.  Block 3.2: "turn it over" then "heads up", as hung.  Block 3.3: the
+    # same two tags swapped, the prediction "the order can't matter" beside the
+    # true frame.  Block 3.4: swapped, from tails.
+    found = P.check_section(DIALOGUE, "Third", sizes=[2, 1, 2, 1], frames=[3, 1, 2, 1])
+    (c_twins, c_walk), _, (c_any, c_swapped), _ = DIALOGUE.blocks("Third")
+    assert c_twins.macro == "tagstring" and c_walk.macro == "tagwalk"
+    (_, [(twins, caption)]), (_, walk) = found[0]
+    (first, _), (second, _) = walk
+    assert caption == "as Achilles expects"
+    assert [p.where for p, _ in walk] == ["first", "second"]
+    assert twins.tags == first.tags == second.tags == ("heads", "heads")
+    assert twins.start == first.start == {"kind": "coin", "face": "tails"}
+
+    # the true walk: laid heads up at the first (ghost tails); at the second it
+    # is heads up already -- the tag changes nothing, and no marks are drawn
+    p1 = check_coin(second, True)
+    assert np.allclose(check_coin(first, True), S0 @ TAILS) and first.ghost["face"] == "tails"
+    assert second.marks and second.ghost is None and np.allclose(p1, S0 @ S0 @ TAILS)
+    assert np.allclose(S0 @ (S0 @ TAILS), S0 @ TAILS)                # the step did nothing
+    # the prediction: both twins lifted, and nothing else -- the string bare where
+    # they hung -- and the coin, read at the same place, arrives tails, "along a
+    # bare string"; the true frame beside it is heads
+    assert twins.expects == "twins" and not twins.marks
+    assert twins.lifted == {1, 2} and twins.hanging == ()
+    assert twins.where == second.where and twins.passed == second.passed == 2
+    guess, pairs = twins_expected(TAILS, twins.tags, twins.passed)
+    assert pairs == [(1, 2)] and np.allclose(guess, TAILS) and np.allclose(guess, carry(TAILS, []))
+    assert twins.shown["face"] == face_of(guess) == "tails" != second.shown["face"]
+    # the place is read on the string as hung; one that falls inside the pair is a fault
+    assert P.faults(P.tagstring, "first;expects=twins", "tails", "heads,heads") == [
+        "tagstring: expects=twins: the place falls inside a pair that comes off "
+        "(past tag 1, not past tag 2)"]
+    assert P.faults(P.tagstring, "end;expects=twins", "tails", "heads,heads") == []
+    # "along a bare string it would have arrived tails!": the twins can't come off,
     # and one of them lifted, the other does what the pair did
-    assert np.allclose(carry(TAILS, ["heads"]), p1)
+    assert not np.allclose(p1, TAILS) and np.allclose(carry(TAILS, ["heads"]), p1)
+
+    (_, [(as_hung, _)]), = found[1]
+    (_, [(anyorder, caption)]), (_, [(swapped, _)]) = found[2]
+    (_, [(from_tails, _)]), = found[3]
+    assert caption == "as Achilles expects"
+    p2, p3, p4 = (check_coin(p, False) for p in (as_hung, swapped, from_tails))
+    assert as_hung.tags == ("over", "heads") and swapped.tags == from_tails.tags == ("heads", "over")
+    assert as_hung.start == swapped.start == {"kind": "coin", "face": "heads"}
+    assert from_tails.start == {"kind": "coin", "face": "tails"}
     # same tags, same start, the other face
+    assert sorted(as_hung.tags) == sorted(swapped.tags) and as_hung.tags == swapped.tags[::-1]
     assert np.allclose(p2, HEADS) and np.allclose(p3, TAILS)
+    assert np.allclose(p2, S0 @ X @ HEADS) and np.allclose(p3, X @ S0 @ HEADS)
     # "Both starts arrive alike!"
     assert np.allclose(p3, p4)
+    # the prediction: the order can't matter -- the swapped tags walked in the
+    # order they were first hung, which is block 3.2's state; the true frame
+    # beside it, at the same place, is the other face.  The mix-up the
+    # convention rules out is exactly this: the string read from the right.
+    assert anyorder.expects == "anyorder" and not anyorder.marks
+    assert anyorder.where == swapped.where == "end" and anyorder.tags == swapped.tags
+    guess = any_order(HEADS, swapped.tags, anyorder.passed)
+    assert anyorder.shown["face"] == face_of(guess) == face_of(p2) == "heads"
+    assert anyorder.shown != swapped.shown
+    assert [p.dump for b in found for _, fr in b for p, _ in fr] == [
+        "tagstring: second coin-tails -> coin-tails expects twins lifted 1,2",
+        "tagstring: first coin-tails -> coin-heads ghost coin-tails",
+        "tagstring: second coin-tails -> coin-heads unchanged",
+        "tagstring: end coin-heads -> coin-heads",
+        "tagstring: end coin-heads -> coin-heads expects anyorder",
+        "tagstring: end coin-heads -> coin-tails",
+        "tagstring: end coin-tails -> coin-tails"]
 
-    # The mix-up the convention rules out: the string read from the right.  On
-    # the swapped string that reading gives heads, not the tails the page shows.
-    pics = check_layout("Third", [1, 1, 1, 1])
-    hung = [tagstring(p["place"], p["start"], p["tags"]) for p in pics]
-    assert sorted(hung[1]["tags"]) == sorted(hung[2]["tags"])      # the very same two tags
-    assert hung[1]["tags"] == hung[2]["tags"][::-1]                 # in the other order
-    assert face_of(carry(HEADS, hung[2]["tags"][::-1])) != hung[2]["now"]["face"]
-    # and so it does on many strings: of the 31 strings of up to four tags,
-    # each walked from both starts (62 walks), the two readings part on 24
-    differ = sum(face_of(carry(FACE[start], tags[::-1]))
-                 != tagstring("end", start, ",".join(tags))["now"]["face"]
-                 for start in FACE for n in range(5)
-                 for tags in itertools.product(("over", "heads"), repeat=n))
-    assert differ == 24, differ
+    # where they stand: the unmarked second frame follows "and he leaves it"
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        a_twins, a_hung, a_swapped, a_tails = DIALOGUE.anchors("Third", path)
+        assert "at the second it is heads up already, and he leaves it" in a_twins
+        assert a_twins.endswith("The pair can't come off.")
+        assert a_hung.endswith("It arrives heads.")
+        assert a_swapped.endswith("one order leaves you dry, the other wet.")
+        assert a_tails.startswith("**Achilles:** *[with \"tails up\" tied on")
+        assert "}%\n\\tagwalk[from=off]" in P.block_texts(DIALOGUE, "Third", path)[0]
 
 
 def row_of(*tags):

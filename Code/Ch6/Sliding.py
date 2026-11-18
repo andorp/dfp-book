@@ -14,8 +14,12 @@ from itertools import product
 
 import numpy as np
 from dfp import CAP, CUP, I2, Picture, kron, matrix_of, random_matrix, same_picture, verdict
-from dfp_props import Dialogue, words_only
+from dfp_props import Dialogue
 import props_ch06 as P
+
+D12 = ("*[The Crab, with the string about to come near his boxes again, draws the right walnut box "
+       "back towards the window, clear of it, and eases its partner a little aside to the left, "
+       "towards the company.]*")
 
 
 def blackboard():
@@ -50,21 +54,27 @@ def blackboard():
 # --------------------------------------------------------------------------
 # The pictures.  The dialogue draws the bead on the string bent round the left
 # walnut box, with the napkin and the Crab's glass, with
-#   \beadstring[place]{pose}{caption}         (pdf/props/ch06.tex)
+#   \beadstring[opts]{pose}{caption}   and its step strip
+#   \beadsteps[opts]{pose}{steps}{captions}           (pdf/props/ch06.tex)
 # The Lua COMPUTES the bead's picture at each place from the string's
 # direction of travel there (its point along or against the travel, its notch
 # on the string's left or right, both fixed when it was threaded), the napkin
 # drawing (the bead as threaded), and the looking-glass bead behind the glass
-# (point changed side, notch not).  tools/props_ch06.py transcribes it; the
-# calls are read out of this challenge's section of dialog.md, never copied.
+# (point changed side, notch not).  A step (slide=) is written on the place the
+# bead has before it; the Lua draws the bead after it, its ghost where it was,
+# and an arc along the string.  A prediction (expects=unchanged) draws the bead
+# by Achilles's rule, paler.  tools/props_ch06.py transcribes it; the calls are
+# read out of this challenge's section of dialog.md, never copied.
 #
 # A pose is (axis, notch): unit vectors on the page, x to the right, y up
 # (towards the window).  The dialogue's pose, as threaded on the far leg:
 # point to the bend (left), notch to the window (up).
 # --------------------------------------------------------------------------
-DIALOGUE = Dialogue(__file__, macros=("musicboxes", "walnutstring", "beadstring", "crabledger"))
+DIALOGUE = Dialogue(__file__, macros=("musicboxes", "walnutstring", "beadstring", "crabledger",
+                                      "boxsteps", "walnutsteps", "beadsteps", "ledgersteps"))
 LEFT, RIGHT, UP, DOWN = (-1, 0), (1, 0), (0, 1), (0, -1)
 THREADED = ((-1, 0), (0, 1))                       # point to the bend, notch to the window
+POSE = "point to the bend, notch to the window"
 
 
 def slide_table():
@@ -78,6 +88,13 @@ def slide_table():
     return table
 
 
+def quarter_turn(pose):
+    """The bead turned a quarter round on the cloth, as the string turns under it going
+    into the bend (anticlockwise: the far leg runs left, the bend's foot runs down)."""
+    (ax, ay), (nx, ny) = pose
+    return (-ay, ax), (-ny, nx)
+
+
 def check_transcription(A):
     """The Lua's bead against the blackboard (a structural check, not a second
     proof).  On the four poses the two moves -- slide round the bend, look in
@@ -85,6 +102,8 @@ def check_transcription(A):
     the long axis}; under slide <-> transpose and glass <-> dagger it is the
     group {A, A^T, A^dagger, conj(A)} of the generic A: two words give the same
     pose exactly when they give the same matrix."""
+    P.check_sites()
+    P.check_lua()
     slide = slide_table()
     for pose, after in slide.items():                   # the slide is a half-turn:
         assert after == (P.scale(-1, pose[0]), P.scale(-1, pose[1]))   # point and notch round together
@@ -112,48 +131,168 @@ def check_transcription(A):
     # slide, then glass: point kept, notch turned -- "lay it down on its face" -- the conjugate
     flip, M = run(("slide", "glass"))
     assert flip == (THREADED[0], P.scale(-1, THREADED[1])) and np.allclose(M, A.conj())
-    # the macro's own rules
-    assert P.faults(P.beadstring, "", "point to the bend") != []            # the notch missing
-    assert P.faults(P.beadstring, "", "notch to the window") != []          # the point missing
-    assert P.faults(P.beadstring, "", "point up, notch to the window") != []
-    assert P.faults(P.beadstring, "on the box", "point to the bend, notch to the window") != []
+    # the slide in two steps: a quarter-turn into the bend, a quarter-turn out of it
+    for alpha, side in product((1, -1), (1, -1)):
+        far, bend, near = (P.pose_at(p, alpha, side) for p in ("far leg", "in the bend", "near leg"))
+        assert quarter_turn(far) == bend and quarter_turn(bend) == near == slide[far]
+    # the wrong rules, as the Lua's comment states them: `unchanged` draws the near-leg bead
+    # with the far-leg bead's point and notch; `mirrored` as its own image in the glass
+    for alpha, side in product((1, -1), (1, -1)):
+        far = P.pose_at("far leg", alpha, side)
+        assert P.rule_unchanged(alpha, side) == far
+        assert P.rule_mirrored(alpha, side) == P.glass_image(far)
+    # the macro's own rules, in the Lua's words
+    assert P.faults(P.beadstring, "", "point to the bend") == [
+        "beadstring: give the point and the notch as threaded"]             # the notch missing
+    assert P.faults(P.beadstring, "", "notch to the window") == [
+        "beadstring: give the point and the notch as threaded"]             # the point missing
+    assert P.faults(P.beadstring, "", "point up, notch to the window") == [
+        "beadstring: the bead as threaded is 'point to the bend' or 'point away from the bend', "
+        "and 'notch to the window' or 'notch to the company' (got 'point up')",
+        "beadstring: give the point and the notch as threaded"]
+    assert P.faults(P.beadstring, "on the box", POSE) == [
+        "beadstring: the place is far leg, in the bend, near leg, back, napkin or glass (got "
+        "'on the box')"]
+    # the steps: a slide along the string only, never to where the bead is, never back
+    # from the far leg; a prediction only of the near leg, unkeyed, with no step
+    assert P.faults(P.beadstring, "napkin; slide=near leg", POSE) == [
+        "beadstring: slide= moves the bead on the string, not on the napkin"]
+    assert P.faults(P.beadstring, "slide=napkin", POSE) == [
+        "beadstring: slide=in the bend, near leg or back (not 'napkin')"]
+    assert P.faults(P.beadstring, "near leg; slide=near leg", POSE) == [
+        "beadstring: slide=near leg: the bead is there already"]
+    assert P.faults(P.beadstring, "slide=back", POSE) == [
+        "beadstring: slide=back: the bead is there already"]    # (the far leg IS back)
+    assert P.faults(P.beadstring, "far leg; expects=unchanged", POSE) == [
+        "beadstring: expects=unchanged predicts how the bead arrives: the near leg"]
+    assert P.faults(P.beadstring, "near leg; expects=turned", POSE) == [
+        "beadstring: unknown rule 'turned' (unchanged, mirrored)"]
+    assert P.faults(P.beadstring, "near leg; expects=unchanged", POSE, True) == [
+        "beadstring: an expects picture is not keyed"]
+    assert P.faults(P.beadstring, "far leg; slide=near leg; expects=mirrored", POSE) == [
+        "beadstring: an expects picture carries no step"]
+    assert P.faults(P.beadstring, "near leg; marks=off", POSE) == [
+        "beadstring: marks= go with a step"]
+    # back again: a slide from the near leg to the far one ("I slid it round", undone)
+    back = P.clean(P.beadstring, "near leg; slide=back", POSE)
+    assert back.place == "back" and back.bead == THREADED
+    # `mirrored` is not drawn (card 3e.7, Q4: at its refutation the glass still stands on
+    # the napkin, which the full view cannot show); its frame would differ from the true
+    # near-leg bead in the notch alone
+    m = P.clean(P.beadstring, "near leg; expects=mirrored", POSE)
+    true = P.clean(P.beadstring, "near leg", POSE)
+    assert m.bead == (RIGHT, UP) and true.bead == (RIGHT, DOWN)
+    assert m.bead[0] == true.bead[0] and m.bead[1] != true.bead[1]
 
 
 def pictures(A):
     check_transcription(A)
-    p41, p42, p43 = DIALOGUE.check_layout("Fourth", sizes=[1, 1, 1])
-    for c in (p41, p42, p43):
-        assert c.macro == "beadstring"
-        assert words_only(c.caption, forbidden=P.NOT_IN_CAPTIONS), c.caption
-        assert "chain" not in c.caption.lower()
-        assert c.opt not in ("in the bend", "back", "napkin")          # not drawn (card, 3b)
-        assert c.args == ("point to the bend, notch to the window",)   # one bead, one threading
-    b41, b42, b43 = (P.picture(c) for c in (p41, p42, p43))
+    found = P.check_section(DIALOGUE, "Fourth", sizes=[1, 2, 1], frames=[1, 3, 1])
+    (p41, [(b41, cap41)]), = found[0]
+    (p42e, [(b42e, cap42e)]), (p42, [(b42b, cap42b), (b42, cap42)]) = found[1]
+    (p43, [(b43, cap43)]), = found[2]
+    assert [c.macro for c in (p41, p42e, p42, p43)] == \
+        ["beadstring", "beadstring", "beadsteps", "beadstring"]
+    assert (cap41, cap42e, cap42b, cap42, cap43) == \
+        ("going in", "as Achilles expects", "round the bend", "coming out", "point to point")
+    for c in (p41, p42e, p42, p43):
+        assert c.args[0] == POSE                                       # one bead, one threading
+        assert c.args == ((POSE,) if c.macro == "beadstring" else (POSE, c.args[1]))
+    frames = (b41, b42e, b42b, b42, b43)
+    assert not any(b.place in ("back", "napkin") for b in frames)     # not drawn (card, 3b)
+    # Q4, ruled: no frame for `mirrored`
+    assert not any(P.options(c).get("expects") == "mirrored" for c in (p41, p42e, p42, p43))
 
-    a1, a2, a3 = P.anchors(DIALOGUE, "Fourth")
-    assert "Point towards the bend. Notch towards the window." in a1
-    assert "a point at its left-hand end, a bite out of the flank on the window side" in a1
-    assert a2.endswith("Look how it comes out.")
-    assert a3.endswith("Read it to me.") and "point to point behind the glass" in a3
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        a1, a2, a3 = DIALOGUE.anchors("Fourth", path)
+        assert "Point towards the bend. Notch towards the window." in a1
+        assert "a point at its left-hand end, a bite out of the flank on the window side" in a1
+        assert a2.endswith("Look how it comes out.")
+        assert a3.endswith("Read it to me.") and "point to point behind the glass" in a3
     section = DIALOGUE.section("Fourth")
+    # the direction and the caption edited this round (D5, C2), in both files
+    P.check_edits(DIALOGUE, "Fourth", [
+        ("She bends the string once round the left walnut box, so that",
+         "She takes the string up and bends it once round the left walnut box, so that"),
+        ("}{in the glass}", "}{point to point}"),
+        (None, D12)])
+    # D12: the walnut pair moved for the bead, in words, before any bead picture -- a direction
+    # of its own between Achilles's "Lopsided twice over." and the Tortoise's "Twice over"
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        paras = DIALOGUE.paragraphs("Fourth", path)
+        i = paras.index(D12)
+        assert paras[i - 1].endswith("Lopsided twice over.")
+        assert paras[i + 1].startswith("**Tortoise:** Twice over is what we shall need.")
+        assert i < min(j for j, q in enumerate(paras) if DIALOGUE.is_block(q))   # before F16
+    # ... and every bead frame on the cloth (F16-F19) draws the pair where D12 leaves it: the
+    # right box drawn back towards the window, the left eased to the left, towards the
+    # company -- each away from where the Third's pictures stood them -- the string bent round
+    # the left box, and both boxes clear of it (drawn extents, string widths subtracted)
+    third = [p for b in DIALOGUE.blocks("Third") for c in b for p, _ in P.pictures(c)]
+    assert {tuple((d.x, d.y) for _, d in p.drawn) for p in third} == {((-P.WX, P.WY), (P.WX, P.WY))}
+    tl, ty = -P.WX, P.WY                                                 # the Third's left box
+    for b in (b41, b42e, b42b, b42):
+        (right, left), = {tuple((d.x, d.y) for _, d in b.drawn)}
+        assert (right, left) == P.BEADBOXES == ((0.30, 2.10), (-0.64, 1.08))
+        assert right[1] > ty and left[0] < tl and left[1] < ty          # window; left; company
+        assert np.hypot(left[0] - P.BCX, left[1] - P.BCY) < P.BR        # inside the bend
+        string = P.sample_path(b.strands[0][1])
+        for _, d in b.drawn:
+            assert P.gap_rect(string, *d.body) - P.STRING_W / 2 > 0.05  # clear of the string
+    assert b43.closeup and b43.drawn == []                              # the glass: no boxes
 
     # P4.1: going in, keyed -- on the far leg, point left (to the bend), notch up (the window);
     # the napkin's drawing records exactly that
-    assert p41.keyed and b41.place == "far leg"
+    assert p41.keyed and b41.place == "far leg" and not b41.marked
     assert b41.labels == ("the window", "far leg", "near leg", "the company")
     assert b41.bead == (LEFT, UP) == THREADED and b41.drawing == b41.bead
     assert "Point to the left, notch to the window." in section    # Achilles's prediction ...
 
-    # P4.2: coming out, on the near leg -- point right, notch down (the company): a half-turn
-    assert not p42.keyed and b42.place == "near leg"
-    assert b42.bead == (RIGHT, DOWN) and b42.bead == slide_table()[b41.bead]
+    # 4.2, as Achilles expects: the near-leg bead drawn by the `unchanged` rule -- the
+    # far-leg bead's point and notch, paler, unkeyed, nothing moving
+    assert P.options(p42e)["expects"] == "unchanged" and b42e.rule == "unchanged"
+    assert not p42e.keyed and not b42e.marked and b42e.step is None
+    assert b42e.place == "near leg" and b42e.bead == P.rule_unchanged(1, -1) == b41.bead
+    assert {sc for sc, _ in b42e.drawn} == {sc for sc, _ in b42e.strands} == {"pale"}
+    # 4.2, the strip: it starts where P4.1 left the bead (the far leg) -- the slide round the
+    # bend, then out along the near leg, each frame the state after its step
+    assert P.options(p42)["from"] == "off" and not p42.keyed
+    assert [(s.opts, s.state) for s in P.frames_of(p42)] == \
+        [("far leg; slide=in the bend", POSE), ("in the bend; slide=near leg", POSE)]
+    assert (b42b.place, b42.place) == ("in the bend", "near leg")
+    # in the bend: turned a quarter round (point to the company, notch to the left, outside
+    # the bend) -- half-way to the transpose
+    assert b42b.bead == (DOWN, LEFT) == quarter_turn(b41.bead)
+    # coming out, on the near leg -- point right, notch down (the company): a half-turn
+    assert b42.bead == (RIGHT, DOWN) == quarter_turn(b42b.bead)
+    assert b42.bead == slide_table()[b41.bead]
     assert b42.bead != b41.bead                                      # ... is wrong
-    assert P.handedness(b42.bead) == P.handedness(b41.bead)          # turned, not mirrored
+    assert b42e.bead[0] != b42.bead[0] and b42e.bead[1] != b42.bead[1]   # the prediction, refuted
+    assert b42e.bead_at == b42.bead_at                               # drawn where it arrives
+    assert P.handedness(b42.bead) == P.handedness(b42b.bead) == P.handedness(b41.bead)
     assert "pointing to the *right*" in section                      # the axis, read aloud
     assert np.allclose(kron(A, I2) @ CUP, kron(I2, A.T) @ CUP)       # the slide is the transpose
+    # the marks: the bead's ghost where it was, as it was; an arc along the string, at a
+    # fixed distance outside it, round the bend behind the box, clear of the napkin and of
+    # both walnut boxes
+    string = P.sample_path(P.bead_path())
+    for b, before, name in ((b42b, b41, "slide far leg to in the bend, along the string outside the bend"),
+                            (b42, b42b, "slide in the bend to near leg, along the string outside the bend")):
+        assert b.step[0] == "slide" and b.pins == []
+        (g,) = b.ghosts
+        assert (g.what, g.state, g.place) == ("bead", before.bead, before.bead_at)
+        (arc,) = b.arcs
+        assert arc.name == name
+        pts = arc.points
+        off = [min(np.hypot(x - u, y - v) for u, v in string) for x, y in pts[::4]]
+        assert np.allclose(off, P.BOFF, atol=1e-3)                    # keeps to the string
+        assert all(np.hypot(x - P.BCX, y - P.BCY) > P.BR for x, y in pts if x < P.BCX)  # outside it
+        assert P.gap_rect(pts, *P.NAPKIN_FULL) - P.SWING_W / 2 > 0
+        assert min(P.gap_rect(pts, *d.body) for _, d in b.drawn) - P.SWING_W / 2 > 0
+    assert b42b.ghosts[0].place[1] > P.BCY and b42.bead_at[1] < P.BCY  # from the far leg to the near
 
     # P4.3: in the glass -- the drawing point left, notch up; the image point right, notch STILL up
-    assert b43.closeup and b43.drawing == (LEFT, UP)
+    assert b43.closeup and b43.drawing == (LEFT, UP) and not b43.marked
     assert b43.image == (RIGHT, UP) and b43.point_to_point
     assert "In the glass the point is turned about: pointing right." in section
     assert "And the notch is... towards the window." in section
@@ -162,6 +301,28 @@ def pictures(A):
     assert b43.image != b42.bead and b43.image[0] == b42.bead[0] and b43.image[1] != b42.bead[1]
     assert P.handedness(b43.image) == -P.handedness(b41.bead)        # handedness changed
     assert not np.allclose(A.conj().T, A.T)                           # mirror is not the slide
+
+    # the log the pictures write, line for line as the build writes it
+    head = "beadstring: {} | point to the bend, notch to the window"
+    drawing = "beadstring: + drawing point left notch window"
+    assert P.section_dumps(found) == [
+        head.format("far leg") + " | keyed", drawing,
+        "beadstring: + bead far leg point left notch window",
+        head.format("near leg") + " | expects unchanged", drawing,
+        "beadstring: + bead near leg point left notch window (by the unchanged rule)",
+        "beadsteps: strip of 2 frames",
+        head.format("in the bend"),
+        "beadstring: + step slide far leg to in the bend", drawing,
+        "beadstring: + ghost bead far leg point left notch window",
+        "beadstring: + bead in the bend point company notch left",
+        "beadstring: + arc slide far leg to in the bend, along the string outside the bend",
+        head.format("near leg"),
+        "beadstring: + step slide in the bend to near leg", drawing,
+        "beadstring: + ghost bead in the bend point company notch left",
+        "beadstring: + bead near leg point right notch company",
+        "beadstring: + arc slide in the bend to near leg, along the string outside the bend",
+        head.format("glass"), drawing,
+        "beadstring: + image point right notch window"]
 
 
 # A generic one-wire box for the sketchbook: a chain of three phase nodes,

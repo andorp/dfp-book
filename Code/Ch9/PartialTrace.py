@@ -49,9 +49,13 @@ def blackboard():
 # --------------------------------------------------------------------------
 # The prop pictures.  The dialogue draws the black slab, a plain pair on it,
 # the near stone tipped and folded,
-#   \blackslab[operations]{scene}{caption}                 (pdf/props/ch09.tex)
-# tools/props_ch09.py transcribes the Lua; the calls are read out of this
-# challenge's section of dialog.md, never copied.
+#   \blackslab[<operations>; step=<operation>; marks=off; expects=along]{scene}{caption}
+# (pdf/props/ch09.tex).  tools/props_ch09.py transcribes the Lua; the calls are
+# read out of this challenge's section of dialog.md, never copied.  Round 4
+# ("Show the process"): the tip and the fold are drawn as steps, each from the
+# state before it, with its marks (the stone's ghost where it stood, the swing
+# round its right side, toward Achilles's end); and before the true fold, paler,
+# what Achilles's "along" rule foresaw -- something of the far stone going too.
 #
 # The state model (identity card, section 3): the plain pair is two stones each
 # cut alone -- a product of two pure states, far (the slab's left, the top wire)
@@ -62,25 +66,37 @@ def blackboard():
 # --------------------------------------------------------------------------
 DIALOGUE = Dialogue(__file__, macros=P.MACROS)
 QUOTE = 'That fold is "cover the other half."'
+EDITS = [("tips the near stone down toward the glass; its reflection",                 # T1
+          "tips the near stone down toward the glass, over toward Achilles's end; its reflection"),
+         ("{the near stone tipped}", "{near stone tipped}"),                            # C3
+         ("{folded away, the far stone unstirred}", "{folded away, far stone unstirred}")]   # C4
 
 
 def pictures():
     assert QUOTE in __doc__                                      # quoted byte for byte
-    calls = DIALOGUE.check_layout("Third", sizes=[3])
-    p31, p32, p33 = calls
-    for c in calls:
-        assert words_only(c.caption, forbidden=P.CAPTION_FORBIDDEN), c.caption
-        assert P.place_ok("Third", c), c.text
-    (block,) = DIALOGUE.blocks("Third")
-    assert len({P.height(c) for c in block}) == 1                # no block mixes frames
-    assert [c.macro for c in calls] == ["blackslab"] * 3
-    assert [c.keyed for c in calls] == [True, False, False]
-    assert [c.args for c in calls] == [("plain pair",)] * 3       # one scene, one motion
-    assert [c.opt for c in calls] == ["", "tip near stone", "fold near stone"]
-    b31, b32, b33 = (P.picture(c) for c in calls)
+    P.check_lua()
+    P.check_sites()
+    found = P.check_section(DIALOGUE, "Third", sizes=[4], frames=[4])
+    P.check_edits(DIALOGUE, "Third", EDITS)
+    calls = [c for b in found for c, _ in b]
+    p31, p32, e33, p34 = calls
+    assert [c.macro for c in calls] == ["blackslab"] * 4
+    assert [c.keyed for c in calls] == [True, False, False, False]
+    assert [c.args for c in calls] == [("plain pair",)] * 4       # one scene, one motion
+    assert [P.is_prediction(c) for c in calls] == [False, False, True, False]
+    assert [P.options(c) for c in calls] == [
+        {"bare": ""}, {"step": "tip near stone", "bare": ""},
+        {"expects": "along", "bare": "tip near stone, fold near stone"},
+        {"step": "fold near stone", "bare": "tip near stone"}]
+    b31, b32, w33, b34 = (P.picture(c) for c in calls)
     (a1,) = DIALOGUE.anchors("Third")
     (f1,) = DIALOGUE.following("Third")
-    assert QUOTE in DIALOGUE.section("Third")                     # the docstring's line
+    sec = DIALOGUE.section("Third")
+    assert QUOTE in sec                                           # the docstring's line
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        here = [(n, o) for n, _, o in P.quote_places(DIALOGUE, path) if o == "Third"]
+        assert sorted(here) == [("THE SLAB'S STEPS", "Third")] * 2 + [
+            ("THE SLAB'S WRONG RULES", "Third")] * 4
 
     # the model: two stones each cut alone, non-real; far on the top wire
     rng = np.random.default_rng(931)
@@ -98,20 +114,55 @@ def pictures():
     assert "the far one at the slab's far end and the near one at Achilles's" in a1
     assert "each cut alone" in a1
     far1, near1 = b31.shown.things
-    assert (far1.name, near1.name) == ("far stone", "near stone") and far1.x < near1.x
+    assert (far1.name, near1.name) == ("far stone", "near stone") and (far1.x, near1.x) == (-0.8, 0.8)
     assert all((t.kind, t.gloss, t.refl, t.mode) == ("stone", "restless", "tight", "standing")
                for t in (far1, near1))
     assert b31.labels == ("far", "near", "black slab") and b31.shown.frame == P.LOW_FRAME
+    assert b31.marks == ()
 
-    # P3.2: the near stone tipped -- it and its reflection meeting at the surface
+    # B3.2: the near stone tipped, a step from P3.1 -- it and its reflection meeting at
+    # the surface; its ghost standing where it stood, in dotted outline (the tipped stone
+    # covers the lower half of its old place); the swing round its right side, the side
+    # toward Achilles's end (T1), the slab's right
+    assert b32.before.items == b31.state.items                    # the state before: P3.1's
     far2, near2 = b32.shown.things
     assert near2.mode == "tipped" and near2.x == near1.x and far2 == far1
+    ghost, swing = b32.marks
+    assert (ghost.kind, ghost.name, ghost.how, ghost.at) == ("ghost", "near stone", "outline", (0.8, 0))
+    (x0, y0), _, _, (x1, y1) = swing.pts
+    assert swing.kind == "swing" and (P.f(x0), P.f(y0), P.f(x1), P.f(y1)) == (
+        "1.000", "0.236", "1.055", "0.035")
+    assert near1.x + P.HALFW["stone"] < x0 < x1 < P.SLAB_ENDS[1]     # right of the stone, on the slab
+    assert y0 > P.HEIGHT["stone"] and 0 < y1                       # from above its top to the surface
+    assert "over toward Achilles's end" in a1 and P.SLAB_ENDS[1] > 0   # Achilles's end: the right
+    assert P.twin(p32).shown == P.blackslab("tip near stone", "plain pair").shown   # round 3's P3.2
+    assert P.twin(p32).marks == ()
 
-    # P3.3: folded -- the near stone gone, the far stone's entry exactly P3.1's
-    (far3,) = b33.shown.things
+    # B3.4: folded, a step from the tipped stone -- the near stone gone, the far stone's
+    # entry exactly P3.1's; its ghost (in full) above the surface, gone into its
+    # reflection: no arc
+    assert b34.before.items == b32.state.items                    # the state before: B3.2's
+    (far3,) = b34.shown.things
     assert far3 == far1                                           # unstirred, to the letter
-    assert b33.shown.frame == b31.shown.frame and b33.shown.ends == b31.shown.ends
+    assert b34.shown.frame == b31.shown.frame and b34.shown.ends == b31.shown.ends
     assert "simply gone, folded into its own mirror" in a1
+    (ghost,) = b34.marks
+    assert (ghost.kind, ghost.name, ghost.how, ghost.at) == ("ghost", "near stone", "tipped", (0.8, 0))
+    assert b34.mark("swing") == []
+    assert P.twin(p34).shown == P.blackslab("fold near stone", "plain pair").shown   # round 3's P3.3
+    assert P.twin(p34).shown == P.blackslab("tip near stone, fold near stone", "plain pair").shown
+
+    # the prediction, paler, before the true fold: Achilles's "along" -- something of
+    # the far stone goes with the fold, so it is drawn TIPPED down to its reflection;
+    # the model keeps it exactly (tr_near leaves rho_far), and so does the true frame
+    assert ("Fold mine away and something of the far one must go with it — they stood on one "
+            "slab together.") in sec and sec.index("something of the far one") < sec.index(a1)
+    (wfar,) = w33.shown.things
+    assert w33.expects == "along" and w33.pale and w33.marks == () and w33.labels == ()
+    assert (wfar.name, wfar.x, wfar.gloss, wfar.refl) == (far1.name, far1.x, far1.gloss, far1.refl)
+    assert (wfar.mode, far3.mode) == ("tipped", "standing")       # refuted: unstirred
+    assert np.allclose(kept, rho_far) and wfar != far1            # the model draws far1, not this
+    assert calls.index(e33) == calls.index(p34) - 1 == 2           # right before the truth
 
     # the Lua refuses the moves the chapter rules out: the far stone is never folded
     # (only a stone of one's own is covered), and a folded stone is gone for good
@@ -121,6 +172,10 @@ def pictures():
     assert P.faults(P.blackslab, "fold near stone, tip near stone", "plain pair") == ["gone"]
     assert P.faults(P.blackslab, "tip near stone, fold near stone", "plain pair") == []
     assert P.faults(P.blackslab, "fold near stone", "restless stone") == ["single"]
+    assert P.faults(P.blackslab, "step=tip far stone", "plain pair") == ["far-stone"]
+    assert P.faults(P.blackslab, "tip near stone; step=tip near stone", "plain pair") == ["tipped"]
+    assert P.faults(P.blackslab, "expects=along", "plain pair") == ["wrong-along"]   # nothing folded yet
+    assert P.faults(P.blackslab, "step=fold near stone; expects=along", "plain pair") == []
     assert "near slope" in f1 and f1.startswith("*[")             # the roof, after the block
 
 

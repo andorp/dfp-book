@@ -100,10 +100,15 @@ def blackboard():
 # The prop pictures.  The dialogue draws the whole tale laid flat on the
 # Tortoise's cloth -- the S: in with the message, round Alice's reading (the
 # fourth bend's red and green on its incoming leg), back, round the pair, and
-# out to Bob -- and then pulled straight,
-#   \ringstring[operations]{scene}{caption}              (pdf/props/ch10.tex)
-# tools/props_ch10.py transcribes the Lua (the string's layout read by the
-# shared cloth kit, tools/props_cloth.py); the calls are read out of this
+# out to Bob -- and then (round 4, "Show the process") one block in the spoken
+# order: Achilles's prediction, paler (rule "apart": the string parted at the
+# pair's bend, Bob's length bare), then the pull as a strip of two, drawn in and
+# pulled straight, each frame with its rings' ghosts and slide arcs,
+#   \ringstring[operations; step=...; expects=...]{scene}{caption},
+#   \stringsteps[from=off]{scene}{steps}{captions}        (pdf/props/ch10.tex)
+# tools/props_ch10.py transcribes the Lua (proved against texlua; check_lua
+# holds it to the Lua and the .tex it was proved on; the string's layout read by
+# the shared cloth kit, tools/props_cloth.py); the calls are read out of this
 # challenge's section of dialog.md, never copied.
 #
 # The state model (identity card, section 3, state model 6): the ring sequence
@@ -125,27 +130,77 @@ def applied(colours):
     return R
 
 
+def head(c):
+    """A call's bracket as its log line writes it (the Lua's trim of what TeX hands it):
+    the items in the order the dialogue writes them, which the picture never depends on."""
+    return PC.trim(PC.bracket(c) or "")
+
+
+def r3(x):
+    """A mark's numbers to the Lua's three places (its log's)."""
+    if isinstance(x, tuple):
+        return tuple(r3(y) for y in x)
+    return round(x, 3) if isinstance(x, float) else x
+
+
+def ring_cols(pic):
+    """(column, row, colour) of every ring the cloth draws, in the kit's order."""
+    return [(t["x"], t["y"], t["c"]) for t in pic.cloth["things"]]
+
+
 def pictures():
     assert f'"{QUOTE}"' in __doc__                               # quoted byte for byte
-    calls = DIALOGUE.check_layout("Second", sizes=[1, 1])
-    p21, p22 = calls
-    for c in calls:
-        assert words_only(c.caption, forbidden=PC.CAPTION_FORBIDDEN), c.caption
-        assert PC.place_ok("Second", c), c.text
-    for b in DIALOGUE.blocks("Second"):
-        assert len({PC.height(c) for c in b}) == 1                # no block mixes frames
-    assert [c.macro for c in calls] == ["ringstring"] * 2
-    assert [c.keyed for c in calls] == [False, False]             # the string was keyed at P1.3
-    assert [(c.opt, c.args[0]) for c in calls] == [("", "the tale, both up"), ("pull", "the tale, both up")]
-    assert [c.caption for c in calls] == ["in, round, back, round and out", "pulled straight"]
-    s21, s22 = (PC.picture(c) for c in calls)
+    PC.check_lua()                                                # the Lua the transcription was proved on
+    PC.check_sites()                                              # its 73 fault sites, one for one
+    found = PC.check_section(DIALOGUE, "Second", sizes=[1, 2], frames=[1, 3])
+    calls = [c for b in found for c, _ in b]
+    p21, w22, st22 = calls
+    assert [c.macro for c in calls] == ["ringstring", "ringstring", "stringsteps"]
+    assert not any(c.keyed for c in calls)                        # the string was keyed at P1.3
+    assert [PC.is_prediction(c) for c in calls] == [False, True, False]
+    assert [PC.options(c) for c in calls] == [
+        {"bare": ""}, {"step": "pull", "expects": "apart", "bare": ""}, {"from": "off", "bare": ""}]
+    assert [c.args[0] for c in calls] == ["the tale, both up"] * 3   # one scene, written as laid
+    assert st22.args[1] == "pull halfway; pull"
+    s21, w = PC.picture(p21), PC.picture(w22)
+    strip = PC.picture(st22)
+    (f07, c07), (f08, c08) = strip.pictures
+    assert [c.caption for c in calls[:2]] == ["in, round, back, round and out", "as Achilles expects"]
+    assert (c07, c08) == ("drawn in", "pulled straight")
     a1, a2 = DIALOGUE.anchors("Second")
     f1, f2 = DIALOGUE.following("Second")
-    assert QUOTE in DIALOGUE.section("Second")                    # the docstring's line
+    sec = DIALOGUE.section("Second")
+    assert QUOTE in sec                                           # the docstring's line
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        here = [(n, q) for n, q, o in PC.quote_places(DIALOGUE, path) if o == "Second"]
+        assert sorted({n for n, _ in here}) == ["THE STRING'S STEPS", "THE STRING'S WRONG RULES"] \
+            and len(here) == 4
+    # the log the block writes (F05-F08), the strip's line before its frames'
+    assert [l for c in calls for l in PC.describe(c)] == [
+        "ringstring: [] {the tale, both up} | tale S; incoming leg from the bend [red green]",
+        "ringstring: [" + head(w22) + "] {the tale, both up} | " + w.dump,
+        "ringstring: + expects apart (the whole picture paler)",
+        "ringstring: + step pull -> " + w.dump,
+        "stringsteps: strip of 2 frames",
+        "ringstring: [step=pull halfway] {the tale, both up} | " + f07.dump,
+        "ringstring: + step pull halfway -> " + f07.dump,
+        "ringstring: + ghost alice green ring as a halo at (-0.300,-0.180) (grid 2,0), another ring "
+        "arrived on its place: it went to grid 1,0",
+        "ringstring: + ghost alice red ring in dotted outline at (0.000,-0.180) (grid 3,0): it went to grid 2,0",
+        "ringstring: + slide arc alice green riding with the string, below the string, (-0.327,-0.305) -> "
+        "(-0.519,-0.305)",
+        "ringstring: + slide arc alice red riding with the string, below the string, (-0.027,-0.305) -> "
+        "(-0.219,-0.305)",
+        "ringstring: [pull halfway; step=pull] {the tale, both up} | " + f08.dump,
+        "ringstring: + step pull -> " + f08.dump,
+        "ringstring: + ghost alice green ring in dotted outline at (-0.600,-0.180) (grid 1,0): it went to grid 1,1",
+        "ringstring: + ghost alice red ring in dotted outline at (-0.300,-0.180) (grid 2,0): it went to grid 2,1",
+        "ringstring: + slide arc alice green riding with the string, (-0.600,-0.283) -> (-0.600,-0.616)",
+        "ringstring: + slide arc alice red riding with the string, (-0.300,-0.283) -> (-0.300,-0.616)"]
 
     # P2.1: the tale laid flat, an S -- Alice's rings on the incoming leg, red close in
     # by the bend, green further out: exactly the fourth little bend's two rings, kept back
-    assert s21.dump == "tale S; incoming leg from the bend [red green]"
+    assert s21.dump == "tale S; incoming leg from the bend [red green]" and s21.marks == ()
     assert PC.bends_of(s21.cloth) == 2 and len(s21.cloth["cords"]) == 1 and s21.frame == 1.78
     p13 = DIALOGUE.blocks("First")[2][0]
     assert p13.args == ("the four bends",)
@@ -155,16 +210,86 @@ def pictures():
     assert "round the pair, and out to Bob" in a1
     assert f1.startswith("**Achilles:** Let me work it through.")
 
-    # P2.2: pulled straight -- the bends gone, the rings riding with the string, green
-    # nearer the message, red nearer Bob, both left of the middle; the same frame and grid
-    assert s22.dump == "tale straight; from the message end [alice green, alice red]"
-    assert PC.bends_of(s22.cloth) == 0 and len(s22.cloth["cords"]) == 1
-    assert (s22.frame, s22.cloth["cols"], s22.cloth["rows"]) == (s21.frame, 7, 3)   # no longer, no shorter
-    assert [t["x"] for t in s22.cloth["things"]] == [1, 2]                     # left of the middle (3)
-    assert [t["c"] for t in s22.cloth["things"]] == ["green", "red"]
-    assert "only the bends are gone" in a2
+    # B2.2, in the spoken order: the prediction, then the process, then the result.
+    # The prediction, paler, never keyed, never marked: rule "apart" -- the pair used up,
+    # the string parts at the pair's bend when it is pulled: the message's length
+    # straight with Alice's rings, Bob's length apart at his end, bare
+    assert "Nothing reaches Bob until the letter does." in sec
+    assert sec.index("Nothing reaches Bob until the letter does.") < sec.index(a2)   # said before the pull
+    assert (w.expects, w.pale, w.marks, w.labels) == ("apart", True, (), ())
+    assert w.mark_tikz == ("\\begin{scope}[transparency group, opacity=0.500]",)   # the whole, paler
+    assert w.dump == ("tale apart; the message's length from the message end [alice green, alice red]; "
+                      "Bob's length bare")
+    assert w.before.shape == "S" and w.state.shape == "apart"
+    # the strip: frame k is the single call [<the steps before>; step=<k>], frame by frame
+    fc = PC.frame_calls(st22)
+    assert [(c.opt, c.args[0], c.caption) for c in fc] == [
+        ("step=pull halfway", "the tale, both up", "drawn in"),
+        ("pull halfway; step=pull", "the tale, both up", "pulled straight")]
+    for c, (fr, _) in zip(fc, strip.pictures):
+        assert PC.frame_of(PC.picture(c)) == PC.frame_of(fr)
+    # drawn in: as a step from P2.1's state -- the two bends slid towards each other
+    # (Alice's from column 4 to 3, the pair's from 1 to 2), the rings riding with the
+    # string in their order, never passing: green 2 -> 1, red 3 -> 2
+    assert f07.before.shape == "S" and f07.before.alice == s21.state.alice
+    assert f07.dump == "tale drawn in; incoming leg from the bend [red green]"
+    assert PC.ringpos(f07.before) == {"alice red": ("red", 3, 0, False), "alice green": ("green", 2, 0, False)}
+    assert PC.ringpos(f07.state) == {"alice red": ("red", 2, 0, False), "alice green": ("green", 1, 0, False)}
+    assert ring_cols(f07) == [(1, 0, "green"), (2, 0, "red")]
+    assert "the bend at Alice's end and the bend of the pair slide towards each other" in a2
+    assert "The rings ride with the string, never lifted and never passing each other." in a2
+    # its marks: the green's ghost a halo (the red now lies on its place), the red's in
+    # outline; the two slide arcs both below the string (the cloth's top edge leaves no room
+    # above it for an arc and its head), each bowed down, each heading left as the string
+    # draws in, end to end and apart (each ring rides one column)
+    g1, g2, sl1, sl2 = f07.marks
+    assert [(m.kind, m.name, m.how, r3(m.at), m.grid) for m in (g1, g2)] == [
+        ("ghost", "alice green", "halo", (-0.3, -0.18), (2, 0)),
+        ("ghost", "alice red", "outline", (0.0, -0.18), (3, 0))]
+    assert [(m.kind, m.name) for m in (sl1, sl2)] == [("slide", "alice green"), ("slide", "alice red")]
+    assert r3((sl1.pts[0], sl1.pts[3])) == ((-0.327, -0.305), (-0.519, -0.305))
+    assert r3((sl2.pts[0], sl2.pts[3])) == ((-0.027, -0.305), (-0.219, -0.305))
+    assert g1.at[1] > sl1.pts[0][1] and g1.at[1] > sl2.pts[0][1]   # both below the string
+    assert all(np.isclose(m.pts[1][1], m.pts[0][1] - 0.06) and np.isclose(m.pts[2][1], m.pts[0][1] - 0.06)
+               for m in (sl1, sl2))                                # bowed down 0.06
+    assert sl1.pts[0][0] < sl2.pts[3][0]                           # end to end, apart: no overlap
+    assert all(m.pts[3][0] < m.pts[0][0] for m in (sl1, sl2))      # both leftward, with the string
+    # pulled straight: as a step from the drawn-in state -- the bends gone, the rings
+    # dropped onto the straight row in their columns, green 1, red 2 (left of the middle)
+    assert f08.before.shape == "half" and f08.state.shape == "straight"
+    assert f08.dump == "tale straight; from the message end [alice green, alice red]"
+    assert PC.bends_of(f08.cloth) == 0 and len(f08.cloth["cords"]) == 1
+    assert ring_cols(f08) == [(1, 1, "green"), (2, 1, "red")]
     assert "a green ring nearer the message and a red ring nearer Bob" in a2
-    assert f2.startswith("**Achilles:** It's at Bob's end.")
+    assert "only the bends are gone" in a2
+    g1, g2, sl1, sl2 = f08.marks
+    assert [(m.how, r3(m.at), m.grid) for m in (g1, g2)] == [
+        ("outline", (-0.6, -0.18), (1, 0)), ("outline", (-0.3, -0.18), (2, 0))]
+    assert [r3((m.pts[0], m.pts[3])) for m in (sl1, sl2)] == [
+        ((-0.6, -0.283), (-0.6, -0.616)), ((-0.3, -0.283), (-0.3, -0.616))]   # straight down, curved
+    assert all(m.pts[1][0] > m.pts[0][0] for m in (sl1, sl2))      # bowed, not a straight line
+    # the marks-off twin of the straight frame is round 3's P2.2 to the byte
+    t = PC.twin(fc[1])
+    assert t.marks == () and PC.frame_of(t) == PC.frame_of(PC.ringstring("pull", "the tale, both up"))
+    # look, not length: one frame, one grid; the ends keep their columns 0 and 6
+    assert s21.frame == w.frame == f07.frame == f08.frame == 1.78
+    for pic in (s21, w, f07, f08):
+        assert (pic.cloth["cols"], pic.cloth["rows"]) == (7, 3)
+        ends = sorted({x for d in pic.cloth["cords"] for x, _ in (d["pts"][0], d["pts"][-1])})
+        assert ends[0] == 0 and ends[-1] == 6
+    assert "The string is no longer and no shorter than it was" in a2
+    # the prediction is refuted by the result: the message runs straight through to Bob's
+    # end -- one taut line, not two lengths; the reactions agree on the rings (the pale
+    # frame keeps them at Alice's) and name the reach
+    assert len(w.cloth["cords"]) == 2 and len(f08.cloth["cords"]) == 1
+    assert [r.c for r in w.state.seq] == [r.c for r in f08.state.seq] == ["green", "red"]
+    assert w.dump != f08.dump
+    assert f2.startswith("**Achilles:** It's at Bob's end. The message runs straight through to him")
+    assert "Her rings. A spin and a flip. It's there, but turned" in sec
+    # apart is said of the S pulled only; and pull halfway draws in the S once
+    assert PC.faults(PC.ringstring, "step=pull halfway; expects=apart", "the tale, both up") == ["wrong-apart"]
+    assert PC.faults(PC.ringstring, "pull halfway; step=pull halfway", "the tale, both up") == ["halfway-again"]
+    assert PC.faults(PC.ringstring, "step=pull; expects=apart", "the tale, both up", True) == ["expects-keyed"]
 
     # the pulled tale IS the branch: for each of the four answers the rings, read from
     # the message end as the order of application, are X^m2 Z^m1 (a green, then a red:
@@ -178,6 +303,9 @@ def pictures():
     for p in PC.PATTERNS:
         m1, m2 = PC.bits(p)
         pulled = PC.apply_string(PC.scene_state("the tale, " + PC.patname(p)), "pull")
+        halfway = PC.apply_string(PC.apply_string(PC.scene_state("the tale, " + PC.patname(p)), "pull halfway"),
+                                  "pull")
+        assert PC.dump(halfway) == PC.dump(pulled)                # drawn in first: the same straight tale
         seq = PC.sequence(pulled)
         assert seq == list(reversed(PC.legrings(p)))              # green first, if any
         O = applied(seq)
@@ -191,6 +319,12 @@ def pictures():
         bob += np.outer(branch, branch.conj())
     # Bob's early peek, before the letter: a coin, high or low a half each, whatever was sent
     assert np.allclose(bob, I2 / 2) and np.allclose(np.real(np.diag(bob)), [0.5, 0.5])
+    # "apart" is wrong in the mathematics too: the message's branch is AT Bob's wire, not
+    # cut off from it -- Bob's wire depends on psi in every branch
+    psi2 = random_state(rng)
+    b1 = (kron(bell(1, 1).conj().reshape(1, 4), I2) @ kron(psi, BELL).ravel()).ravel()
+    b2 = (kron(bell(1, 1).conj().reshape(1, 4), I2) @ kron(psi2, BELL).ravel()).ravel()
+    assert not np.allclose(np.outer(b1, b1.conj()), np.outer(b2, b2.conj()))
     # the pull is drawn once: the Lua refuses a second pull, and rings meeting on the S
     assert PC.faults(PC.ringstring, "pull, pull", "the tale, both up") == ["pull-twice"]
     assert PC.faults(PC.ringstring, "kin to kin", "the tale, both up") == ["meet-early"]

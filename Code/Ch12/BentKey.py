@@ -11,6 +11,7 @@ fed a fair coin, and in the picture the cup and Alice's reader fuse into her sen
 (iv) with both at the circular setting the pair ALWAYS disagrees,
 p = 1/2 [kA != kB], where the BB84 round at the circular setting always agrees.
 """
+import re
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools"))
 
@@ -130,6 +131,59 @@ QUOTE = "Round the bend, your question reaches my end as its reflection."
 STOP = {"upright": PLAIN, "crosswise": CROSS, "twist": CIRC}     # the collar's stops, the settings
 
 
+def engraved(p):
+    """The key's engraved marks as drawn on the page (round 5: keymarks, after both bodies),
+    read off the picture's layers by composing each scope's shift, rotate, scale and yscale
+    in TikZ's order: [(ink, mark, line width in pt, the mark's origin, its points), ...], the
+    reflection's three first.  The mark is told by its points: 2 a stroke, 4 a cross, more
+    the curl."""
+    out, stack = [], [np.eye(3)]
+    for line in p.layers:
+        if line.startswith("\\begin{scope}"):
+            M = np.eye(3)
+            opts = re.finditer(r"(shift)=\{\(([-\d.]+),([-\d.]+)\)\}|(rotate)=([-\d.]+)|\b(y?scale)=([-\d.]+)", line)
+            for m in opts:
+                key, a, b = m.group(1) or m.group(4) or m.group(6), m.group(2) or m.group(5) or m.group(7), m.group(3)
+                if key == "shift":
+                    T = np.array([[1, 0, float(a)], [0, 1, float(b)], [0, 0, 1]])
+                elif key == "rotate":
+                    c, s = np.cos(np.radians(float(a))), np.sin(np.radians(float(a)))
+                    T = np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]])
+                elif key == "scale":
+                    T = np.diag([float(a), float(a), 1])
+                else:
+                    T = np.diag([1, float(a), 1])
+                M = M @ T
+            stack.append(stack[-1] @ M)
+        elif line == "\\end{scope}":
+            stack.pop()
+        else:
+            m = re.match(r"\\draw\[(\w+), line width=([\d.]+)pt[^\]]*\] (.*);$", line)
+            pts = [tuple(map(float, q)) for q in re.findall(r"\(([-\d.]+),([-\d.]+)\)", m.group(3))]
+            page = [tuple((stack[-1] @ np.array([x, y, 1]))[:2]) for x, y in pts]
+            mark = {2: "stroke", 4: "cross"}.get(len(pts), "curl")
+            out.append((m.group(1), mark, float(m.group(2)), tuple((stack[-1] @ np.array([0, 0, 1]))[:2]), page))
+    assert len(stack) == 1
+    return out
+
+
+def winding(origin, pts):
+    """The turning of a drawn spiral about its origin, in degrees: negative is clockwise on the
+    page, the way the sun goes round."""
+    ang = np.unwrap([np.arctan2(y - origin[1], x - origin[0]) for x, y in pts])
+    return np.degrees(ang[-1] - ang[0])
+
+
+def tex_rgb(name):
+    """A colour of ch12.tex, as its RGB triple."""
+    (rgb,) = re.findall(r"\\definecolor\{" + name + r"\}\{RGB\}\{(\d+),(\d+),(\d+)\}", PC.TEX.read_text())
+    return np.array([float(v) for v in rgb])
+
+
+def grey(rgb):
+    return float(np.dot([0.299, 0.587, 0.114], rgb))
+
+
 def box_clear(box, pts, reach):
     """The least distance from a polyline's ink (half-width reach) to a box
     (x0, y0, x1, y1), sampled finely along the polyline."""
@@ -145,31 +199,164 @@ def box_clear(box, pts, reach):
 
 def pictures():
     assert f'"{QUOTE}' in __doc__                                # quoted byte for byte
-    calls = DIALOGUE.check_layout("Fourth", sizes=[2, 2])
-    p41, p42, p43, p44 = calls
+    calls = DIALOGUE.check_layout("Fourth", sizes=[1, 1, 1])                # round 4: two strips, a prediction
+    b41, b42a, b42 = calls
     assert [(c.macro, c.keyed, c.opt, c.args, c.caption) for c in calls] == [
-        ("keycloth", True, "", ("the lamp's bend",), "bent round where the lamp stands"),
-        ("keycloth", False, "pull straight", ("the lamp's bend",), "pulled, the bend run out"),
-        ("sparkey", True, "", ("the cross",), "the cross, unchanged beneath"),
-        ("sparkey", False, "", ("the curl",), "the curl, winding the other way beneath")]
+        ("keyclothsteps", True, "", ("the lamp's bend", "pull straight"), "bent round where the lamp stands; pulled, the bend run out"),
+        ("sparkey", False, "expects=same setting", ("the curl",), "as Achilles expects"),
+        ("sparksteps", True, "", ("the curl", "the cross; the stroke; the curl"),
+         "as he found it; back to the cross; on to the stroke; round again, winding the other way beneath")]
     PC.check_captions(DIALOGUE, "Fourth", calls)
     PC.check_section(DIALOGUE, "Fourth", calls)
-    assert [[PC.height(c) for c in b] for b in DIALOGUE.blocks("Fourth")] == [[1.78, 1.78], [PC.KEY_FRAME] * 2]
+    assert [[PC.height(c) for c in b] for b in DIALOGUE.blocks("Fourth")] == [[1.78], [PC.KEY_FRAME], [PC.KEY_FRAME]]
 
-    a1, a2 = DIALOGUE.anchors("Fourth")
-    f1, f2 = DIALOGUE.following("Fourth")
+    a1, a2a, a2 = DIALOGUE.anchors("Fourth")
+    f1, f2a, f2 = DIALOGUE.following("Fourth")
     for phrase in ("where each short cord ends", "the table's own line, from his key through the lamp to hers",
                    "The rings are drawn apart towards the edges, riding on their cords"):       # D12
         assert phrase in a1, phrase
     assert f1.startswith("**Achilles:** A sending ring and a reading ring on the same cords")      # S1
+    # B4.2a (round 4): the prediction stands where Achilles still holds the rule -- after he has
+    # heard every curl round disagree and blames the line, after "Look at your collar in the
+    # tray.", before he bends down and looks (card section 3e.1, Q-E); B4.2 then after the look
+    assert "Every one wrong!" in DIALOGUE.paragraphs("Fourth")[DIALOGUE.paragraphs("Fourth").index(a2a) - 1]
+    assert a2a == "**Tortoise:** Nothing is on the line. Look at your collar in the tray."
+    assert f2a.startswith("*[Achilles bends down to the lacquer.") and f2a == a2
     assert "only the curl changes hands" in a2
+    assert "He turns it onward, the same way round, to the curl again" in a2                  # T1
+    assert "He turns it on past the cross" not in a2
     assert f2.startswith("**Tortoise:** Round the bend, your question reaches my end as its reflection.")
-    assert DIALOGUE.following("Fourth", DIALOGUE.raw) == [f1, f2]
+    assert DIALOGUE.following("Fourth", DIALOGUE.raw) == [f1, f2a, f2]
+    assert DIALOGUE.anchors("Fourth", DIALOGUE.raw) == [a1, a2a, a2]
     section = DIALOGUE.section("Fourth")
     for phrase in ("on one cord", "both run out to the left", "one pair of cords"):          # S1, D12
         assert phrase not in section, phrase
+    assert section.index(b42a.text) < section.index(b42.text)                    # prediction, then the look
 
-    c41, c42, k43, k44 = (PC.picture(c) for c in calls)
+    # the frames, as TeX runs them
+    assert [(f.keyed, PC.bracket(f), f.args[0]) for f in PC.frame_calls(b41)] == [
+        (True, "", "the lamp's bend"), (False, "step=pull straight", "the lamp's bend")]
+    assert [(f.keyed, PC.bracket(f), f.args[0]) for f in PC.frame_calls(b42)] == [
+        (True, "", "the curl"), (False, "step=the cross", "the curl"), (False, "step=the stroke", "the cross"),
+        (False, "step=the curl", "the stroke")]
+    (c41, _), (c42, _) = PC.pictures(b41)
+    k20 = PC.picture(b42a)
+    (k21, _), (k22, _), (k23, _), (k24, _) = PC.pictures(b42)
+    k43, k44 = k22, k24                                          # round 3's P4.3 (the cross) and P4.4 (the curl)
+
+    # F19: pulled straight -- each ring's ghost where it stood, no arc (the Lua: beneath the
+    # row the mirror cord leaves each ring inwards, no room for a head)
+    assert c42.before == c41.state and c42.step == "pull straight"
+    assert PC.ghost_places(c42) == [((-0.42, -0.18), 0.09), ((0.42, -0.18), 0.09)] and PC.arc_ends(c42) == []
+    assert c42.log[-1] == ("keycloth: + no arc: beneath the row the mirror cord leaves each ring inwards, "
+                           "leaving room for a head and no arc")
+    ghosts = [g for g, _ in PC.ghost_places(c42)]                # where the rings stood, on the pulled frame's grid
+    assert np.allclose(ghosts, [PC.cloth_cm(c42, r["x"], r["y"]) for r in c41.cloth["things"]], atol=5e-4)
+    assert not np.allclose(ghosts, [PC.cloth_cm(c42, r["x"], r["y"]) for r in c42.cloth["things"]], atol=5e-4)
+    assert round(PC.mark_clearance(c42), 3) == 0.082 and PC.mark_clearance(c41) is None
+    assert PC.frame_of(PC.twin(PC.frame_calls(b41)[1])) == PC.frame_of(PC.keycloth("pull straight", "the lamp's bend"))
+
+    # F20: the prediction, Achilles's rule "same setting" drawn: at the curl, the reflection's
+    # curl turned back over (winding as the curl above), the key's body and the lacquer paler
+    # (card 3e.8 E1: the marks are drawn after the pale group closes, unpaled), unmarked,
+    # unkeyed.  Its dump head still gives the true winding; the '+' line gives what is drawn.
+    assert PC.is_prediction(b42a) and not PC.judged(b42a) and k20.rule == "same setting"
+    assert k20.dump == "stop twist; top curl; above curl sunwise; beneath curl against the sun"
+    assert k20.log[1] == ("sparkey: + expects same setting: the reflection's curl winds as the curl above "
+                          "(the body and the lacquer paler, the marks not)")
+    assert k20.shown["above"] == k20.shown["beneath"] == "sunwise"                  # the wrong rule ...
+    assert k21.shown["beneath"] == "against the sun" != k20.shown["beneath"]        # ... the true frame differs
+    assert k20.mark_tikz == ("\\begin{scope}[transparency group, opacity=0.500]", "\\end{scope}")
+    assert [s for s in k20.scopes if "yscale=-1" in s] == ["\\begin{scope}[shift={(0.000,0.237)}, rotate=0.000, yscale=-1]"]
+    assert [s.replace(", yscale=-1", "") for s in k20.scopes] == list(k21.scopes)   # only the reflection's curl differs
+    assert k20.labels == () and PC.arc_lines(k20) == []
+    # E1 (card 3e.8), the curl's winding legible at print size.  The marks lie outside the pale
+    # group: it opens and closes first, and every engraved line comes after it, unpaled
+    assert k20.layers[:2] == k20.mark_tikz and not any("opacity" in l for l in k20.layers[2:])
+    assert all("transparency" not in l for l in k21.layers) and len(engraved(k21)) == len(engraved(k20)) == 6
+    for k in (k20, k21):
+        marks = engraved(k)
+        assert [(ink, m) for ink, m, *_ in marks] == [("propchtwelvemarkglint", m) for m in ("stroke", "cross", "curl")] + \
+            [("propchtwelveengrave", m) for m in ("stroke", "cross", "curl")]      # the reflection's in the glint
+        assert [w for _, _, w, *_ in marks] == [1.1, 1.1, 0.75] * 2
+        (_, _, _, o_up, up), = [x for x in marks if x[:2] == ("propchtwelveengrave", "curl")]
+        (_, _, _, o_dn, dn), = [x for x in marks if x[:2] == ("propchtwelvemarkglint", "curl")]
+        rel_up, rel_dn = np.subtract(up, o_up), np.subtract(dn, o_dn)
+        # the curl 0.18 cm across at print size (the picture is drawn in cm, unscaled), its stroke
+        # and its cross the same size class; its winding sunwise above, a turn and a half
+        assert 2 * max(np.hypot(*q) for q in rel_up) >= 0.18 and 2 * PC.MARKR * PC.KEYSC >= 0.18
+        assert np.isclose(winding(o_up, up), -540, atol=1)
+        if k is k20:      # Achilles's rule: the reflection's curl is the very glyph above
+            assert np.allclose(rel_dn, rel_up, atol=2e-3) and np.isclose(winding(o_dn, dn), -540, atol=1)
+        else:             # the mirror: the same glyph flipped top to bottom, winding against the sun
+            assert np.allclose(rel_dn, rel_up * [1, -1], atol=2e-3) and np.isclose(winding(o_dn, dn), 540, atol=1)
+            assert not np.allclose(rel_dn, rel_up, atol=2e-3)
+    # the glint against what lies beneath it: the reflection's collar, the brass dimmed into the
+    # lacquer (C(): 40 per cent brass); in F20 paled at PALE over the white page (the frame's
+    # bounding path draws nothing).  Grey-level contrast at least 60/255 everywhere on the ring
+    glint, lacquer = tex_rgb("propchtwelvemarkglint"), tex_rgb("propchtwelvelacquer")
+    for b in ("propchtwelvebrasslight", "propchtwelvebrass", "propchtwelvebrassdark"):
+        dim = 0.4 * tex_rgb(b) + 0.6 * lacquer
+        pale = PC.PALE * dim + (1 - PC.PALE) * 255
+        assert grey(glint) - grey(dim) >= 60 and grey(glint) - grey(pale) >= 60, b
+    assert grey(glint) - grey(PC.PALE * (0.4 * tex_rgb("propchtwelvebrasslight") + 0.6 * lacquer) + (1 - PC.PALE) * 255) < 70
+    # every spoken reaction, checked against the rule (card section 3e.1's table): stated; the
+    # upright and crosswise rounds agree (as the rule says, and as the true frames show: the
+    # mirror agrees there); the three curl rounds all disagree; still held after them (he
+    # blames the line); the pale frame; refuted in the lacquer; recanted
+    paras = DIALOGUE.paragraphs("Fourth")
+    at = lambda s: next(i for i, q in enumerate(paras) if s in q)
+    said = lambda i: [re.match(r"\*\*(\w+):\*\* (Yes|No)\.$", q).group(2) for q in paras[i + 1:i + 3]]
+    i_rule = at("**Achilles:** Then that's settled: same setting, same answer, whichever way it's done.")
+    i_up, i_cross = at("Two collars turn back from the cross to the upright stroke"), at("Two collars go to the cross.")
+    i_curl = at("Each turns a collar on past the cross until it stops at the little curl.")
+    curl_rounds = [said(i_curl)] + [said(i) for i in range(i_curl + 3, at("Every one wrong!")) if paras[i] == "*[The lever.]*"]
+    assert said(i_up) == ["Yes", "Yes"] and said(i_cross) == ["No", "No"]
+    assert len(curl_rounds) == 3 and all(a != b for a, b in curl_rounds)        # same setting, never the same answer
+    i_held, i_pale = at("Is it the lamp? Or has somebody put something on the line?"), paras.index(b42a.text.join(
+        ["\\begin{center}\n", "\n\\end{center}"]))
+    i_look = at("the curl beneath turns against the curl above")
+    i_oh = at("**Achilles:** ...Oh. Then if you'd read your windows the other way about, we'd have agreed every time.")
+    assert i_rule < i_up < i_cross < i_curl < i_held < i_pale < i_look < i_oh
+    assert paras[i_pale + 2] == b42.text.join(["\\begin{center}\n", "\n\\end{center}"])
+    # the rule agrees with the true key at the stroke and the cross: the Lua refuses it there
+    for stop in ("the stroke", "the cross"):
+        assert PC.faults(PC.sparkey, stop, False, "expects=same setting") == ["key-rule-stop"]
+        assert PC.key_visible(stop)["beneath"] == "same"
+
+    # F21-F24: as he found it (keyed, unmarked), then three turns, each a third of a turn against
+    # the sun, its swing arc round the collar from where the stop now set stood to just short of
+    # the index (the angle read off the drawn arc, the sense off its travel)
+    assert k21.labels == ("yes", "no", "collar", "reflection") and PC.arc_lines(k21) == []
+    cy, r = 0.36 * PC.KEYSC, PC.KEYRO * PC.KEYSC + 0.12
+    for k, frm, to in ((k22, "the curl", "the cross"), (k23, "the cross", "the stroke"), (k24, "the stroke", "the curl")):
+        assert k.before == PC.key_stop(frm) and k.step == to and k.labels == ()
+        (line,) = PC.arc_lines(k)
+        _, _, pts = PC._mark_line(line)
+        ang = [np.degrees(np.arctan2(y - cy, x)) for x, y in pts]
+        assert all(np.isclose(np.hypot(x, y - cy), r, atol=1e-3) for x, y in pts)          # round the collar
+        mark = PC.MARKOF[PC.key_stop(to)]
+        assert np.isclose((ang[0] - 90) % 360, PC.key_visible(frm)["angles"][mark], atol=0.05)   # from where it stood (3 decimals)
+        assert np.isclose(ang[-1], 90 - 24, atol=0.05)                                               # to short of the index
+        assert all(b > a for a, b in zip(ang, ang[1:]))                                     # counter-clockwise ...
+        assert "a third of a turn against the sun" in k.log[2]                              # ... is against the sun
+        assert sorted(PC.key_visible(to)["angles"].values()) == [0, 120, 240]
+        # the drawn arc: inside the frame, above the lacquer, outside the brass rim
+        # (round 5: the collar's rim widened to KEYRO, so the arc stands 0.040 from the frame's edge)
+        assert round(PC.mark_clearance(k), 3) == 0.030 and k.log[3].endswith(
+            "the least gap to its edge 0.040; clear of the collar's rim by 0.090 (centre lines)")
+        assert round(min(p[1] for p in pts) - PC.LACQUER_TOP, 3) == 0.060               # centre line
+        assert round(PC.lacquer_clearance(k), 3) == 0.049                                # drawn extent
+        assert min(np.hypot(x, y - cy) for x, y in pts) - PC.KEYRO * PC.KEYSC > 0.09
+        # with marks=off, the frame is the single key at its new stop (round 3's P4.3, P4.4)
+        assert PC.frame_of(PC.twin(PC.frame_calls(b42)[[k22, k23, k24].index(k) + 1])) == \
+            PC.frame_of(PC.sparkey(to, False))
+    # a full turn backwards, so the sun's way is the other: a turn with the sun brings the
+    # stroke, the cross, the curl to the index (the order of their angles, ascending)
+    assert [PC.MARKOF[PC.key_stop(s)] for s in ("the curl", "the cross", "the stroke", "the curl")] == \
+        ["curl", "cross", "stroke", "curl"]
+    assert PC.frame_of(k21) == PC.frame_of(PC.sparkey("the curl", True))
+
     # P4.1: the lamp's bend (after L3), the rings a little way in from the edges
     assert c41.dump == ("scene=bend rings=green-green pulled=false | cols=7 rows=3 y=0..2 near=false folded=false; "
                         "1:ring green 0 @1.6,0; 2:ring green 0 @4.4,0; cord 1-2 [1.6,0 1.9,1 1.9,2 4.1,2 4.1,1 4.4,0]; "
@@ -217,7 +404,7 @@ def pictures():
     # P4.3 | P4.4: the key close to -- the cross the same beneath, the curl the other way
     assert k43.dump == "stop crosswise; top cross; above cross same; beneath cross same"
     assert k44.dump == "stop twist; top curl; above curl sunwise; beneath curl against the sun"
-    assert k43.labels == ("yes", "no", "collar", "reflection") and k44.labels == ()
+    assert k43.labels == k44.labels == ()                       # unkeyed now: the strip keys its first frame
     for k in (k43, k44):                                         # computed from the drawn marks
         v = k.shown
         assert k.dump == f"stop {v['stop']}; top {v['top']}; above {v['top']} {v['above']}; " \

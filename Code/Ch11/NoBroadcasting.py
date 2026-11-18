@@ -129,16 +129,18 @@ def blackboard():
 
 
 # --------------------------------------------------------------------------
-# The prop pictures.  The dialogue draws, in one motion, the Tortoise's doubled
-# fork: the first string along the top with the fork on it, the mirror string
-# along the bottom, upside down and running the same way, with the fork's
-# reflection (keyed: fork, string, mirror string); the second copy's end folded
-# over onto its reflection's, one cord from fork to mirror fork turned round at
-# the right; and the forks slid together along it into one ring with four cords,
-# two in from the left, two out to the right,
-#   \copycloth[operations]{the fork and its mirror}{caption}   (pdf/props/ch11.tex)
-# tools/props_ch11.py transcribes the Lua (with L1-L5); the calls are read out of
-# dialog.md, never copied.
+# The prop pictures.  The dialogue draws, in one motion -- a strip of three (round 4,
+# "Show the process"), its first frame keyed -- the Tortoise's doubled fork: the first
+# string along the top with the fork on it, the mirror string along the bottom, upside
+# down and running the same way, with the fork's reflection (keyed: fork, string,
+# mirror string); the second copy's end folded over onto its reflection's, one cord
+# from fork to mirror fork turned round at the right (a step with no mark: the fold is
+# the cord itself); and the forks slid together along it into one ring with four
+# cords, two in from the left, two out to the right (a step: each fork's ghost and a
+# slide arc from each, inside its wedge, to the ring),
+#   \copysteps*{the fork and its mirror}{steps}{captions}     (pdf/props/ch11.tex)
+# tools/props_ch11.py transcribes the Lua (proved against texlua); the calls are
+# read out of dialog.md, never copied.
 #
 # The ties (identity card, section 4), a structural check against this file's
 # blackboard, not a second proof.  The mirror string is the first string reflected
@@ -160,38 +162,67 @@ def reflected(d):
     return (end(d.get("a")), end(d.get("b")), tuple((p[0], 2 - p[1]) for p in d["pts"]))
 
 
+def r3(x):
+    """A mark's numbers to the Lua's three places (its log's)."""
+    if isinstance(x, tuple):
+        return tuple(r3(y) for y in x)
+    return round(x, 3) if isinstance(x, float) else x
+
+
 def pictures():
     assert f'"{QUOTE}"' in __doc__                               # quoted byte for byte
-    calls = DIALOGUE.check_layout("Third", sizes=[3])
-    p31, p32, p33 = calls
-    text, raw = DIALOGUE.read(DIALOGUE.dialog), DIALOGUE.read(DIALOGUE.raw)
-    spoken = PC.spoken_sentences(text) | PC.spoken_sentences(raw)
-    for c in calls:
-        assert words_only(c.caption, forbidden=PC.CAPTION_FORBIDDEN), c.caption
-        assert CLOTH.caption_ok(c.caption), c.caption
-        assert PC.normal_sentence(c.caption) not in spoken, c.caption   # the gigue: never said twice
-        assert PC.place_ok("Third", c), c.text
-    assert [[PC.height(c) for c in b] for b in DIALOGUE.blocks("Third")] == [[1.78, 1.78, 1.78]]
-    assert [c.macro for c in calls] == ["copycloth"] * 3
-    assert [c.keyed for c in calls] == [True, False, False]
-    assert [(c.opt, c.args[0]) for c in calls] == [
-        ("", MIRROR), ("fold the second copy", MIRROR),
-        ("fold the second copy, slide the forks together", MIRROR)]
-    assert [c.caption for c in calls] == [
-        "as the slab would show it", "fork to mirror fork", "the forks slid into each other"]
-    c31, c32, c33 = (PC.picture(c) for c in calls)
+    PC.check_lua()                                                # the Lua the transcription was proved on
+    PC.check_sites()                                              # its 55 fault sites, one for one
+    found = PC.check_section(DIALOGUE, "Third", sizes=[1], frames=[3])
+    ((st31, frames),) = found[0]
+    assert (st31.macro, st31.keyed, PC.options(st31)) == ("copysteps", True, {"bare": ""})
+    assert st31.args == (MIRROR, "fold the second copy; slide the forks together")
+    (c31, cap1), (c32, cap2), (c33, cap3) = frames
+    assert (cap1, cap2, cap3) == ("as the slab would show it", "fork to mirror fork", "the forks slid into each other")
+    # frame k is the single call: the scene as set (keyed: the strip's star keys its first
+    # frame only), then [<the steps before>; step=<k>]
+    fc = PC.frame_calls(st31)
+    assert [(c.keyed, c.opt, c.args[0], c.caption) for c in fc] == [
+        (True, "", MIRROR, cap1), (False, "step=fold the second copy", MIRROR, cap2),
+        (False, "fold the second copy; step=slide the forks together", MIRROR, cap3)]
+    for c, (fr, _) in zip(fc, frames):
+        assert PC.frame_of(PC.picture(c)) == PC.frame_of(fr)
+    assert PC.height(st31) == c31.frame == c32.frame == c33.frame == 1.78
     (a1,) = DIALOGUE.anchors("Third")
     (f1,) = DIALOGUE.following("Third")
     section = DIALOGUE.section("Third")
+    text = DIALOGUE.read(DIALOGUE.dialog)
     assert QUOTE in section                                       # the docstring's line
     paras = DIALOGUE.paragraphs("Third")
-    k = paras.index(next(q for q in paras if p31.text in q))
+    k = paras.index(next(q for q in paras if st31.text in q))
     assert "upside down, and running the same way" in paras[k - 2]           # D7, two before
     assert "gathers the loops off the cloth into her shell" in paras[k - 2]  # the last layout put away
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        here = [(n, q) for n, q, o in PC.quote_places(DIALOGUE, path) if o == "Third"]
+        assert here == [("THE CLOTH'S STEPS", "She slides the forks together along it. Green meets green; the two "
+                         "rings run into each other and are one.")]
+    # the log the strip writes (F11-F13)
+    assert PC.describe(st31) == [
+        "copysteps: strip of 3 frames",
+        "copycloth: [] {the fork and its mirror} | " + c31.dump,
+        "copycloth: [step=fold the second copy] {the fork and its mirror} | " + c32.dump,
+        "copycloth: + step fold the second copy -> " + c32.dump,
+        "copycloth: + no mark: the fold is the cord itself, turned round at the right; no cord is ghosted",
+        "copycloth: [fold the second copy; step=slide the forks together] {the fork and its mirror} | " + c33.dump,
+        "copycloth: + step slide the forks together -> " + c33.dump,
+        "copycloth: + ghost fork ring in dotted outline at (-0.300,-0.180) (grid 2,0): slid along the fold and run "
+        "into the mirror fork: one ring at grid 3,1",
+        "copycloth: + ghost mirror fork ring in dotted outline at (-0.300,-1.260) (grid 2,2): slid along the fold "
+        "and run into the fork: one ring at grid 3,1",
+        "copycloth: + slide arc the fork along the fold into the one ring, inside the wedge between the cords from "
+        "the ring to the forks' places, (-0.385,-0.327) -> (-0.210,-0.680)",
+        "copycloth: + slide arc the mirror fork along the fold into the one ring, inside the wedge between the "
+        "cords from the ring to the forks' places, (-0.385,-1.113) -> (-0.210,-0.760)",
+        "copycloth: + every mark on the linen, the least gap to its edge 0.090"]
 
-    # P3.1: the fork and its reflection, keyed; both strings run left to right, the
+    # F11 (P3.1): the fork and its reflection, keyed; both strings run left to right, the
     # mirror string the first reflected top to bottom (D7)
-    assert c31.labels == ("fork", "string", "mirror string")
+    assert c31.labels == ("fork", "string", "mirror string") and c31.marks == ()
     rings = [(r["kind"], r["c"], r["x"], r["y"]) for r in c31.cloth["things"]]
     assert rings == [("ring", "green", 2, 0), ("ring", "green", 2, 2)]
     top = [d for d in c31.cloth["cords"] if all(p[1] < 1 for p in d["pts"])]
@@ -201,28 +232,51 @@ def pictures():
     # running the SAME way: reflected left for right instead, the strings would not match
     assert {(d.get("a"), d.get("b"), tuple((6 - p[0], 2 - p[1]) for p in d["pts"])) for d in top} != \
         {(d.get("a"), d.get("b"), tuple(map(tuple, d["pts"]))) for d in bottom}
-    before = text[:text.index(p31.text)].lower()
+    before = text[:text.index(st31.text)].lower()
     for w in c31.labels:
         assert w in before, w                                     # named before it is keyed
-    # P3.2: the second copy's end folded onto its reflection's: one cord from fork to
-    # mirror fork, turned round at the RIGHT, beyond where the loose copies ended
+    # F12 (P3.2): the second copy's end folded onto its reflection's: one cord from fork to
+    # mirror fork, turned round at the RIGHT, beyond where the loose copies ended.  No mark
+    # (a dotted curve beside the turn would read as a second fold; no cord is ghosted)
+    assert c32.before == c31.state and c32.step == "fold the second copy"
+    assert (c32.marks, c32.mark_tikz) == ((), ())
     fold = [d for d in c32.cloth["cords"] if d.get("a") == 1 and d.get("b") == 2]
     assert len(fold) == 1 and len(c32.cloth["cords"]) == 5
     loose_end = max(p[0] for d in c31.cloth["cords"] for p in d["pts"] if 0 < p[1] < 2)
     turn = max(p[0] for p in fold[0]["pts"])
     assert turn > loose_end > 2                                   # at the right: an end onto an end
     assert c32.cloth["things"] == c31.cloth["things"]             # the forks keep their place
-    # P3.3: the forks slid together: one green ring with four cords, two in from the
+    t = PC.twin(fc[1])                                            # round 3's P3.2 to the byte
+    assert t.marks == () and PC.frame_of(t)[:3] == PC.frame_of(PC.copycloth("fold the second copy", MIRROR))[:3]
+    # F13 (P3.3): the forks slid together: one green ring with four cords, two in from the
     # left (the stone's and its reflection's), two out to the right (the kept copy's)
+    assert c33.before == c32.state
     (ring,) = c33.cloth["things"]
     assert (ring["kind"], ring["c"], ring["x"], ring["y"]) == ("ring", "green", 3, 1)
     far = [d["pts"][-1][0] if d["pts"][0] == [3, 1] else d["pts"][0][0] for d in c33.cloth["cords"]]
     assert sorted(far) == [0, 0, 6, 6] and all(d.get("b") == 1 or d.get("a") == 1 for d in c33.cloth["cords"])
     assert c33.dump.endswith("1:ring green 0 @3,1; cord loose-1 [0,0 2,0 3,1]; cord loose-1 [6,0 4,0 3,1]; "
                              "cord loose-1 [0,2 2,2 3,1]; cord loose-1 [6,2 4,2 3,1]")
+    # its marks: each fork's ghost where it stood, and a slide arc from each, inside the
+    # wedge between the cords from the ring to the forks' places, to the ring's left; the
+    # two mirror images of each other top to bottom, their heads apart
+    g1, g2, s1, s2 = c33.marks
+    assert [(m.kind, m.name, m.how, r3(m.at), m.grid) for m in (g1, g2)] == [
+        ("ghost", "fork", "outline", (-0.3, -0.18), (2, 0)), ("ghost", "mirror fork", "outline", (-0.3, -1.26), (2, 2))]
+    assert [(m.kind, m.name, r3((m.pts[0], m.pts[3]))) for m in (s1, s2)] == [
+        ("slide", "fork", ((-0.385, -0.327), (-0.21, -0.68))), ("slide", "mirror fork", ((-0.385, -1.113), (-0.21, -0.76)))]
+    ry = PC.grid_xy(c33, 3, 1)[1]
+    assert all(np.isclose(a[0], b[0]) and np.isclose(a[1] - ry, ry - b[1]) for a, b in zip(s1.pts, s2.pts))
+    assert s1.pts[3][1] - s2.pts[3][1] > 0.06 and s1.pts[3][0] < PC.grid_xy(c33, 3, 1)[0]   # apart, short of the ring
+    t = PC.twin(fc[2])                                            # round 3's P3.3 to the byte
+    assert t.marks == () and PC.frame_of(t)[:3] == PC.frame_of(
+        PC.copycloth("fold the second copy, slide the forks together", MIRROR))[:3]
+    # inside the linen, and clear of every cord (the wedge's two the closest)
+    assert r3(PC.mark_clearance(c33)) == 0.082 and PC.cord_clearance(c33) > 0.05
     assert "still go out" in a1
     assert f1.startswith("**Tortoise:** Stone and reflection in")
     assert PC.faults(PC.copycloth, "slide the forks together", MIRROR) == ["mirror-slide-early"]
+    assert PC.faults(PC.copycloth, "fold the second copy; step=fold the second copy", MIRROR) == ["mirror-fold-twice"]
 
     # the ties.  Copy, then fold the second copy onto its reflection (a trace): as a
     # map on vec(rho) (e, ebar; top wire first) it is the four-legged green ring

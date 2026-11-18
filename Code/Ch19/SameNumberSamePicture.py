@@ -16,6 +16,7 @@ Wang, Theorem 5.2; Carette, Jeandel, Perdrix and Vilmart, Corollary 1).
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools"))
 
+import re
 from fractions import Fraction
 
 import numpy as np
@@ -122,6 +123,18 @@ THIRD_DUMPS = (
     "through,backwards,halves,passed" + _HEAD + "corner=21 6; 1:ring red 6 @2,0; 2:ring red 18 @6,0; "
     "3:ring green 12 @7,0; 4:ring green 12 @8,0; cord loose-loose [0,0 10,0]",
     "through,backwards,halves,passed,bare,one" + _HEAD + "corner=3; cord loose-loose [0,0 10,0]")
+THIRD_FRAMES = (
+    ("Achilles's dare", True, None, THIRD_DUMPS[0]),
+    ("Tubes into the ring", False, "drawn through",
+     "through" + _HEAD + "corner=; 1:ring red 6 @2,0; 2:ring green 6 @4,0; 3:ring green 6 @8,0; tube @6,0 a0; "
+     "cord loose-loose [0,0 10,0]"),
+    ("Read backwards", False, None, THIRD_DUMPS[1]),
+    ("Greens together", False, "halves",
+     "through,backwards,halves" + _HEAD + "corner=21; 1:ring red 6 @2,0; 2:ring green 12 @5,0; 3:ring red 6 @6,0; "
+     "4:ring green 12 @8,0; cord loose-loose [0,0 10,0]"),
+    ("Green slid past red", False, "half passed", THIRD_DUMPS[2]),
+    ("Rings gone", False, "bare cord", "through,backwards,halves,passed,bare" + _HEAD + "corner=21 6; cord loose-loose [0,0 10,0]"),
+    ("A new slip", False, "one slip", THIRD_DUMPS[3]))
 DARE_STEPS = ("drawn through", "card backwards", "halves", "half passed", "bare cord", "one slip")
 
 
@@ -133,27 +146,132 @@ def with_slips(dump):
     return g
 
 
+def nearest(pt, places):
+    """The place nearest a mark's end, and how far: (distance, place)."""
+    return min((float(np.hypot(pt[0] - q[0], pt[1] - q[1])), tuple(q)) for q in places)
+
+
+def mark_bounds(R, g):
+    """Every mark on its drawn extent (the stroke's half width, a ghost's outline included) inside
+    the picture's box by at least 0.01 cm (the spec's margin rule); every arc bowed at least the
+    Lua's floor (MINSAG) and clear of the cloth's pieces by its clearance (MINCLEAR); no mark of
+    any other kind (no pin; a ghost, a slide arc or a lift arc only)."""
+    fb, ft, half = g._g["fbot"], g._g["ftop"], PC.C.FRAME_WIDTH / 2
+    gap = lambda x, y, r: min(x - r + half, half - x - r, y - r - fb, ft - y - r)
+    for a in R.arcs:
+        assert a.kind in ("slide", "swing") and a.sag >= PC.MINSAG - 1e-9 and a.fit[0] >= PC.MINCLEAR - 1e-9, a.what
+        assert min(gap(x, y, PC.MARKHALF) for x, y in a.pts) >= 0.01, a.what
+    for q in R.ghosts:
+        assert gap(q[0], q[1], q[2] + PC.GHOSTHALF) >= 0.01, q.what
+    assert len(R.mark_tikz) >= len(R.arcs) + len(R.ghosts)
+    draws = [t for t in R.mark_tikz if t.startswith("\\draw")]
+    assert bool(draws) == bool(R.arcs or R.ghosts) and all(re.match(r"\\draw\[propcnineteen(ghost|slide|swing)[,\]]", t) for t in draws)
+    for style in ("ghost", "slide", "swing"):                              # grey, thin, dotted (ch19.tex)
+        assert re.search(r"propcnineteen" + style + r"/\.style=\{(densely )?dotted, black!\d\d, line width=0\.\d+pt\}",
+                         PC.TEX_TEXT), style
+
+
+# the dare's marks, step by step (the Lua's comment, pinned): (arcs as (from column, to column),
+# ghosted columns); the lift arc of one slip runs from the second slip onto the first
+DARE_MARKS = {"through": ([(1, 2), (3, 2)], []),          # each tube hops into the ring; no tube ghosted
+              "backwards": None,                           # no marks (her work-bag, her box, her packet)
+              "halves": ([(4, 5), (7, 8)], [4, 7]),        # each left-hand green into the right-hand one
+              "passed": ([(5, 7)], [5]),                   # the half past the red ring to just beyond it
+              "bare": ([(2, 6), (7, 8)], [2, 6, 7, 8]),    # E2: left into right, the reds and the green halves
+              "one": "lift"}                               # E3: the slip a quarter round onto the slip an eighth back
+
+
+def dare_marks(R):
+    S0, S1 = PC.dare_scene(R.before), PC.dare_scene(R.after)
+    g = PC.G(S1, PC.DOPTS, PC.DWHO)
+    mark_bounds(R, g)
+    key = PC._key_of(PC.DKEYS, R.after)
+    want = DARE_MARKS[key]
+    if want is None:
+        assert not R.marked and R.arcs == R.ghosts == [] and R.notes[-1] == "no marks: " + PC.DMARKLESS[key]
+        return
+    assert R.marked
+    col = lambda x: min((abs(x - g.X(c)), c) for c in range(S1["cols"]))     # (distance, column)
+    if want == "lift":
+        assert S0["corner"] == [21, 6] and S1["corner"] == [3]           # an eighth back and a quarter round: one slip
+        (a,) = R.arcs
+        (q,) = R.ghosts                                                    # the first's place holds the new slip
+        s1, s2 = PC.slipxy(g, 1), PC.slipxy(g, 2)
+        assert a.kind == "swing" and np.allclose(q[:2], s2)
+        assert np.isclose(a.frm[0], s2[0]) and np.isclose(a.to[0], s1[0]) and a.frm[1] > 0 and a.to[1] > 0
+        return
+    arcs, ghosted = want
+    got = []
+    for a in R.arcs:
+        (d0, c0), (d1, c1) = col(a.frm[0]), col(a.to[0])
+        assert a.kind == "slide" and d0 < 0.1 and d1 < 0.1 and a.frm[1] > g.Y(0) and a.to[1] > g.Y(0), a.what
+        got.append((c0, c1))
+    assert got == arcs, (key, got)
+    assert sorted(round(q[0], 6) for q in R.ghosts) == sorted(round(g.X(c), 6) for c in ghosted), key
+    old = {t["x"] for t in S0["things"]} | {t["x"] for t in S0["tubes"]}
+    new = {t["x"] for t in S1["things"]}
+    assert all(a in old and b in new | set(ghosted) for a, b in arcs)       # into a piece after, or one this step ghosts
+    assert set(ghosted) <= {t["x"] for t in S0["things"]} - new
+    if key == "bare":
+        assert all(a < b for a, b in arcs)                                 # E2: each time left into right
+    if key in ("halves", "bare"):                                          # like moves: every one or none, alike
+        assert np.isclose(R.arcs[0].sag, R.arcs[1].sag)
+
+
 def pictures():
-    """The Third Challenge's prop pictures (identity card, section 4), read from the dialogue
-    through tools/dfp_props.py and the transcription tools/props_ch19.py, and held against this
-    file's dare and the Tortoise's five moves."""
-    calls = DIALOGUE.check_layout("Third", sizes=[1, 1, 1, 1])
+    """The Third Challenge's prop pictures (identity card, sections 4 and 3e), read from the
+    dialogue through tools/dfp_props.py and the transcription tools/props_ch19.py, and held against
+    this file's dare and the Tortoise's five moves.  Round 4 draws every move of the dare, each frame
+    the state after one step with its marks; the last two moves a strip."""
+    calls = DIALOGUE.check_layout("Third", sizes=[1] * 6)
     assert [(c.macro, c.keyed, c.opt, c.args, c.caption) for c in calls] == [
         ("darecloth", True, "", (), "Achilles's dare"),
+        ("darecloth", False, "; step=drawn through", (), "Tubes into the ring"),
         ("darecloth", False, "drawn through, card backwards", (), "Read backwards"),
-        ("darecloth", False, "drawn through, card backwards, halves, half passed", (), "Slid past"),
-        ("darecloth", False, "drawn through, card backwards, halves, half passed, bare cord, one slip", (), "A new slip")]
-    PC.check_captions(DIALOGUE, "Third", calls)
-    PC.check_section(DIALOGUE, "Third", calls)
-    PC.check_anchors(DIALOGUE, "Third")
-    pics = [PC.picture(c) for c in calls]
+        ("darecloth", False, "drawn through, card backwards; step=halves", (), "Greens together"),
+        ("darecloth", False, "drawn through, card backwards, halves; step=half passed", (), "Green slid past red"),
+        ("dareclothsteps", False, "after=drawn through, card backwards, halves, half passed; from=off", ("bare cord; one slip",),
+         "Rings gone; A new slip")]
+    assert PC.check_captions(DIALOGUE, "Third", calls) == 7
+    blocks = PC.check_section(DIALOGUE, "Third", calls, [1, 1, 1, 1, 1, 2])
+    assert PC.check_anchors(DIALOGUE, "Third") == (8, 20)              # next-starts, phrases before (E2, E3 among them)
+    for f_ in (DIALOGUE.dialog, DIALOGUE.raw):
+        assert PC.E_ITEMS["E2"] in DIALOGUE.anchors("Third", f_)[5] and PC.E_ITEMS["E3"] in DIALOGUE.anchors("Third", f_)[5]
+    assert '"' + PC.E_ITEMS["E2"].rstrip(".") + '", E2' in PC.comment_prose("round 4: \\darecloth[")
+    frames = [R for b in blocks for R, _, _ in b]
+    assert tuple((cap, k, R.step, R.dump) for b in blocks for R, cap, k in b) == THIRD_FRAMES      # the readings
+    # round 3's four pictures are their blocks' last frames, unchanged
+    pics = [frames[i] for i in (0, 2, 4, 6)]
     p31, p32, p33, p34 = pics
-    assert tuple(p.dump for p in pics) == THIRD_DUMPS
+    assert tuple(p.dump for p in pics) == THIRD_DUMPS == tuple(R.picture.dump for R in pics)
     states = [""] + [", ".join(DARE_STEPS[:k]) for k in range(1, 7)]
-    assert {PC.darecloth(st).frame for st in states} == {p31.frame}      # one frame in every state
+    assert {PC.darecloth(st).frame for st in states} == {p31.frame} == {R.frame for R in frames}     # one frame
+    # the chain, frame to frame: each frame the dare as its bracket leaves it, each step frame the step
+    # applied to the frame before (the strip's first: to the state its after= names)
+    for k, R in enumerate(frames):
+        assert R.dump == PC.darecloth(states[k]).dump, k
+        if R.step is not None:
+            assert repr(R.before) == repr(frames[k - 1].drawn), k
+    assert [R.step for R in frames] == [None, "drawn through", None, "halves", "half passed", "bare cord", "one slip"]
+    for R in frames[1:]:
+        if R.step is not None:
+            dare_marks(R)
+    assert [(len(R.ghosts), len(R.arcs)) for R in frames] == [(0, 0), (0, 2), (0, 0), (2, 2), (1, 1), (4, 2), (1, 1)]
+    # card backwards, drawn alone, has no marks (the Lua's markless step)
+    dare_marks(PC.run_frame("dare", "drawn through; step=card backwards", "", False))
+    # no prediction frame: expects= refused with the Lua's reason, which quotes the dialogue
+    assert PC.faults(PC.run_frame, "dare", "; expects=a bare cord", "", False) == ["dare-expects"]
+    for q in re.findall(r'"([^"]+)"', PC.DEXPECTS):
+        assert all(q in DIALOGUE.read(f) for f in (DIALOGUE.dialog, DIALOGUE.raw)), q
+    PC.TEX_ERRORS.clear()
     # the captions, true of their dumps
     heads = [p.dump.split(" |")[0] for p in pics]
     assert heads[0] == "laid" and "backwards" in heads[1] and "passed" in heads[2]
+    # round 4's captions: the ring red where the tubes went in; each green pair one green half
+    n = PC.parse_dump(frames[1].dump)[0]
+    assert [v[:2] for v in n.values() if v[3] == 2] == [("ring", "red")] and len(PC.parse_dump(frames[1].dump)[1]) == 1
+    assert sorted((v[1], v[2]) for v in PC.parse_dump(frames[3].dump)[0].values() if v[1] == "green") == [("green", 12)] * 2
+    assert PC.parse_dump(frames[5].dump)[0] == {} and PC.parse_dump(frames[5].dump)[4] == [21, 6]     # rings gone
     assert PC.parse_dump(p34.dump)[4] == [3] and PC.parse_dump(PC.darecloth(states[5]).dump)[4] == [21, 6]
 
     # P3.1, Achilles's dare as laid: this file's dare, read ring for ring -- a tube, then a green
@@ -188,14 +306,14 @@ def pictures():
 
     # fixed parts: the cord's two loose ends at 0 and 10 in every picture; the red ring at 2 kept
     # from P3.2 to P3.3 (no step between moves it)
-    for pic in pics:
+    for pic in frames:
         assert PC.parse_dump(pic.dump)[3] == [("loose", "loose", [(0, 0), (10, 0)])]
     red = lambda pic: [v for v in PC.parse_dump(pic.dump)[0].values() if v[3] == 2]
     assert red(p32) == red(p33) == [("ring", "red", 6, 2, 0)]
 
     # the keyed word (P3.1): the kit's tube, its no-room fault the check; the rest unkeyed
     assert p31.labels == ("tube",) and PC.own_words(p31) == ()
-    assert p32.labels == p33.labels == p34.labels == ()
+    assert all(R.labels == () for R in frames[1:])
 
     # the Lua's refusals: an unknown step; a step twice; a step before the one it follows
     PC.TEX_ERRORS.clear()

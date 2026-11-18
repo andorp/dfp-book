@@ -12,6 +12,7 @@ red pi on every wire -- is exactly x -> 7x mod 15 on the residues 1 <= x < N, se
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools"))
 
+import re
 from fractions import Fraction
 from math import gcd
 
@@ -116,24 +117,47 @@ COUNT = ("none", "once", "twice", "three times", "four times", "five times", "si
          "eight times")
 
 
+def clockwise(p):
+    """The angle of a point on the dial, clockwise from the top mark as Achilles sees it, in degrees."""
+    return (90 - np.degrees(np.arctan2(p[1] - PC.DCY, p[0] - PC.DCX))) % 360
+
+
+def numbers(note):
+    """The figures of a logged clearance line, by name ('the hand 0.104, ...')."""
+    return {k.strip(): float(v) for k, v in re.findall(r"([a-z' ]+?) (-?\d+\.\d+)", note.split(": ", 1)[1])}
+
+
 def pictures():
-    """The First Challenge's prop pictures (identity card, section 4), read from the
-    dialogue through tools/dfp_props.py and the transcription tools/props_ch14.py.  The
-    ties below hold the transcription against this file's blackboard: a structural
-    check of the pictures, not a second proof."""
+    """The First Challenge's prop pictures (identity card, sections 4 and 3e), read from the
+    dialogue through tools/dfp_props.py and the transcription tools/props_ch14.py: three blocks,
+    two single calls and a strip of three, five frames (F01-F05).  The ties below hold the
+    transcription against this file's blackboard: a structural check of the pictures, not a
+    second proof."""
     calls = DIALOGUE.check_layout("First", sizes=[1, 1, 1])
     assert [(c.macro, c.keyed, c.opt, c.args, c.caption) for c in calls] == [
         ("tickdial", True, "", ("hand at one",), "the paper dial"),
-        ("tickdial", False, "", ("hand ticked once",), "after a tick"),
-        ("tickdial", False, "", ("hand ticked four times",), "home again")]
+        ("tickdial", False, "step=tick", ("hand at one",), "after a tick"),
+        ("tickdialsteps", False, "from=off", ("hand ticked once", "tick; tick; tick"),
+         "on past the top; round again; home again")]
     PC.check_captions(DIALOGUE, "First", calls)
     PC.check_section(DIALOGUE, "First", calls)
     dial_h = round(PC.DIAL_FTOP - PC.DIAL_FBOT, 2)
     assert dial_h == 2.42                                             # read from the Lua
     assert [[PC.height(c) for c in b] for b in DIALOGUE.blocks("First")] == [[dial_h]] * 3
+    frames = [(fc, p, cap) for c in calls for fc, (p, cap) in zip(PC.frame_calls(c), PC.pictures(c))]
+    names = ["F%02d" % i for i in range(1, 6)]
+    assert len(frames) == len(names) == 5
+    F = dict(zip(names, [p for _, p, _ in frames]))
+    FC = dict(zip(names, [fc for fc, _, _ in frames]))
+    for fc, p, cap in frames:                                         # a strip frame IS its single call
+        assert PC.drawn(PC.picture(fc)) == PC.drawn(p) and PC.picture(fc).log == p.log, fc.text
+    assert [(fc.keyed, fc.opt, fc.args[0]) for fc in FC.values()] == [
+        (True, "", "hand at one"), (False, "step=tick", "hand at one"),
+        (False, "step=tick", "hand ticked once"), (False, "step=tick", "fifteen hours; hand ticked twice"),
+        (False, "step=tick", "fifteen hours; hand ticked three times")]
 
-    # the anchors (card section 4): the paragraph before each block and the one after, in
-    # dialog.md; P1.3's next paragraph is ambient there, so the raw file's is checked too
+    # the anchors (card sections 4 and 3e.4): the paragraph before each block and the one after,
+    # in dialog.md; B03's next paragraph is ambient there, so the raw file's is checked too
     a1, a2, a3 = DIALOGUE.anchors("First")
     f1, f2, f3 = DIALOGUE.following("First")
     assert "on the side of the sheet furthest from Achilles" in a1 and "with a brass pin" in a1     # D3
@@ -141,7 +165,8 @@ def pictures():
     assert f1.startswith("**Tortoise:** It starts at one.")
     assert "carries it round clockwise, past" in a2 and "One has become seven." in a2            # D4
     assert f2.startswith("**Achilles:** Two ticks.")
-    assert "now it points at one, as though it had never left" in a3
+    assert "now it points at one, as though it had never left" in a3                              # B03
+    assert "It has pointed at seven, at four and at thirteen on the way" in a3
     assert f3.startswith("*[Up the lane, after all their tumbling")
     r1, r2, r3 = DIALOGUE.following("First", DIALOGUE.raw)
     assert (r1, r2) == (f1, f2) and r3.startswith("**Achilles:** Four ticks to come round.")
@@ -153,55 +178,92 @@ def pictures():
         assert "with the Office's label on its left side." in whole                               # D2
         assert "with the Office's label on its side.]*" not in whole
 
-    p11, p12, p13 = (PC.picture(c) for c in calls)
-
     # the hand's hours ARE the blackboard's orbit: one tick multiplies by seven, counted
     # round the fifteen; the orbit's length is the order r = 4
     assert PC.dial_orbit(15) == orbit(7, 15) == [1, 7, 4, 13]
     assert len(PC.dial_orbit(15)) == order_by_power(7, 15) == 4
     for m, w in enumerate(COUNT):
         assert PC.dial_state("hand ticked " + w).hand == pow(7, m, 15)
-    assert not PC.TEX_ERRORS
     assert PC.dial_state("hand at one").hand == 1
 
-    # P1.1, P1.2, P1.3: one, seven, home -- 7^0, 7^1 and 7^4 mod 15; no round on the sheet
-    assert p11.dump == "hours=15 hand=1 rings=none"
-    assert p12.dump == "hours=15 hand=7 rings=none"
-    assert p13.dump == "hours=15 hand=1 rings=none"
-    assert (p12.state.hand, p13.state.hand) == (pow(7, 1, 15), pow(7, 4, 15))
-    assert p11.labels == ("top", "hand") and p12.labels == p13.labels == ()
+    # F01-F05: one, then 7^m mod 15 for m = 1..4 -- seven, four, thirteen, home; no round on the sheet
+    hands = [F[n].drawn.hand for n in names]
+    assert hands == [pow(7, m, 15) for m in range(5)] == [1, 7, 4, 13, 1]
+    for n in names:
+        assert F[n].head == "hours=15 hand=%d rings=none" % F[n].drawn.hand
+        assert F[n].view.rings == () and F[n].view.pairs == ()
+    assert F["F01"].words == ("top", "hand") and F["F01"].notes == [] and F["F01"].mark_tikz == []
+    assert all(F[n].words == () for n in names[1:])                   # keyed once, on F01
+
+    # every tick is marked (card 3e.6, the readings): the hand's ghost at the hour it left and a
+    # swing arc round the pin, clockwise through the marks it passed -- the clockwise way from
+    # h to 7h mod 15: 6, 12, 9, 3 marks, which sum to 30, two whole turns of the dial
+    ways = []
+    for n, h0, h1 in zip(names[1:], hands, hands[1:]):
+        p = F[n]
+        k = (h1 - h0) % 15
+        ways.append(k)
+        assert p.before.hand == h0 and p.after.hand == h1 == (7 * h0) % 15
+        assert p.notes[0] == "step tick -> " + p.head
+        assert p.notes[1] == "ghost of the hand in dotted outline at hour %d, under the hand and the pin" % h0
+        assert re.fullmatch(r"swing arc round the pin, clockwise, %d marks \(%.3f degrees\), radius 0\.700 -> 0\.\d{3}"
+                            % (k, 24 * k), p.notes[2]), p.notes[2]
+        assert len(p.notes) == 4 and p.notes[3].startswith("clearances (edge to edge): ")
+        gaps = numbers(p.notes[3])
+        assert gaps.pop("inside the sheet by") > 0.01                 # every mark on the sheet
+        assert min(gaps.values()) > 0.01, gaps                        # touching nothing drawn
+        assert "the rings none, the twine none" in p.notes[3]
+        (arc,) = p.arcs
+        assert arc.kind == "swing" and not arc.headless and len(p.mark_tikz) == 2   # the ghost, the arc
+        # drawn: the arc starts just clockwise of the hand it left, ends just short of the
+        # hand it reached, and between them runs clockwise the hand's way
+        assert 0 < (clockwise(arc.p0) - 24 * h0) % 360 < 12
+        assert 0 < (24 * h1 - clockwise(arc.p1)) % 360 < 12
+        assert ((24 * h1 - 24 * h0) % 360) == 24 * k
+        assert np.hypot(arc.p1[0] - PC.DCX, arc.p1[1] - PC.DCY) < np.hypot(arc.p0[0] - PC.DCX, arc.p0[1] - PC.DCY)
+        # the wrong sense (counter-clockwise, 15 - k marks) is never what is logged
+        assert k != 15 - k and "counter-clockwise" not in p.notes[2]
+        # the identities (card 3e.6): marks=off draws the same picture, the marks left out
+        assert PC.drawn(PC.twin(FC[n])) == PC.drawn(p) and PC.twin(FC[n]).mark_tikz == []
+    assert ways == [6, 12, 9, 3] and sum(ways) == 30
+    # F02 and F05 with marks=off are round 3's P1.2 and P1.3
+    p12 = PC.run_frame("dial", "", "hand ticked once", False)
+    p13 = PC.run_frame("dial", "", "hand ticked four times", False)
+    assert not PC.TEX_ERRORS
+    assert PC.drawn(PC.twin(FC["F02"])) == PC.drawn(p12) and PC.drawn(PC.twin(FC["F05"])) == PC.drawn(p13)
+
     # what is drawn: the hand's tip points at its hour, counted clockwise from the top mark
     # (y up, the top of the picture the far side of the sheet); the tip stays inside the
     # pencilled circle; the "top" word stands above the top mark, clear of it
-    for p in (p11, p12, p13):
-        tip = p.shown.hand_outline[2]
-        ang = np.degrees(np.arctan2(tip[1] - PC.DCY, tip[0] - PC.DCX))
-        assert np.isclose((90 - ang) % 360, 360 * p.state.hand / 15)
+    for n in names:
+        p = F[n]
+        tip = p.view.hand_outline[2]
+        assert np.isclose(clockwise(tip), 360 * p.drawn.hand / 15)
         assert 0 < PC.DR - np.hypot(tip[0] - PC.DCX, tip[1] - PC.DCY)
-        assert p.shown.rings == () and p.shown.pairs == ()
-    assert p12.shown.hand_outline != p11.shown.hand_outline == p13.shown.hand_outline
+    assert F["F02"].view.hand_outline != F["F01"].view.hand_outline == F["F05"].view.hand_outline
+    p11 = F["F01"]
     # the keyed words, as set (measured boxes, strokes included): "top" just right of the top
     # mark's outer end and above the circle, its whole node box inside the sheet and
     # touching nothing drawn; "hand" beside the hand, its letters clear of it
-    (word, x, y, anchor), = [l for l in p11.shown.labels if l[0] == "top"]
+    (word, x, y, anchor), = [l for l in p11.labels if l[0] == "top"]
     assert anchor == "south west" and (x, y) == (PC.DCX + PC.TOP_DX, PC.DCY + PC.DR + PC.TOP_DY)
     top = PC.label_box("top", x, y, anchor)
     assert top[0] > PC.DCX and top[1] > PC.DCY + PC.DR and top[1] < PC.DCY + PC.DR + PC.MARK
-    gaps = PC.dial_word_gaps(p11.shown, "top")
+    gaps = PC.dial_word_gaps(p11.view, "top")
     assert min(gaps.values()) > 0.005 and gaps["sheet"] > 0.01, gaps
-    assert min(PC.dial_word_gaps(p11.shown, "top", ink=True).values()) > 0.03
+    assert min(PC.dial_word_gaps(p11.view, "top", ink=True).values()) > 0.03
     # "hand" is held on its letters: its node box's 1pt inner sep is padding nothing draws
     # (the label has no fill and no border), and that padding reaches the hand's edge
     # (ch14.lua sets the word 0.07 off the hand's middle line), so the box is not the
     # measure of whether the word touches the hand; the letters clear it by over 0.03
-    hand = PC.dial_word_gaps(p11.shown, "hand", ink=True)
+    hand = PC.dial_word_gaps(p11.view, "hand", ink=True)
     assert min(hand.values()) > 0.03, hand
-    assert PC.dial_word_gaps(p11.shown, "hand")["hand"] < 0      # the padding does reach it
-    # P1.2: the first tick carried the hand clockwise as Achilles sees it, six hours on
+    assert PC.dial_word_gaps(p11.view, "hand")["hand"] < 0      # the padding does reach it
+    # F02: the first tick carried the hand clockwise as Achilles sees it, six hours on
     # (one to seven): 6 x 24 = 144 degrees clockwise, not 216
-    t11, t12 = p11.shown.hand_outline[2], p12.shown.hand_outline[2]
-    turn = np.degrees(np.arctan2(t11[1] - PC.DCY, t11[0] - PC.DCX) - np.arctan2(t12[1] - PC.DCY, t12[0] - PC.DCX))
-    assert np.isclose(turn % 360, 144)
+    t11, t12 = p11.view.hand_outline[2], F["F02"].view.hand_outline[2]
+    assert np.isclose((clockwise(t12) - clockwise(t11)) % 360, 144)
+    assert not PC.TEX_ERRORS
 
 
 # --- the sketchbook ---------------------------------------------------------------------

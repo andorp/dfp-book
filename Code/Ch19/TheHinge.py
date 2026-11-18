@@ -13,6 +13,7 @@ simplifier (which is not the book's deck) also takes Hub to Tie.
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools"))
 
+import re
 from fractions import Fraction
 from itertools import product
 
@@ -148,6 +149,21 @@ SECOND_DUMPS = (
     "tie 3-4 []; tie 4-5 []; cord loose-loose [0,0 8,0]; cord loose-loose [0,4 8,4]",
     "red,slid,apart,tube,gone | cols=9 rows=5 y=0..4 near=false folded=false; corner=; 1:ring green 0 @4,0; "
     "2:ring green 0 @4,4; tie 1-2 tubes1 []; cord loose-loose [0,0 8,0]; cord loose-loose [0,4 8,4]")
+SECOND_FRAMES = (
+    ("No longer blank", False, None, SECOND_DUMPS[0]),
+    ("Laid out flat", True, None, SECOND_DUMPS[1]),
+    ("The point exchanged", False, "red point",
+     "red | cols=9 rows=5 y=0..4 near=false folded=false; corner=3; 1:ring green 18 @4,0; 2:hub red 0 @4,2; "
+     "3:bob red 18 @5,3; 4:ring green 18 @4,4; tie 1-2 []; tie 2-4 []; pendant 2-3 []; cord loose-loose [0,0 8,0]; "
+     "cord loose-loose [0,4 8,4]"),
+    ("The point slid in", False, "slid into hub",
+     "red,slid | cols=9 rows=5 y=0..4 near=false folded=false; corner=3; 1:ring green 18 @4,0; 2:hub red 18 @4,2; "
+     "3:ring green 18 @4,4; tie 1-2 []; tie 2-3 []; cord loose-loose [0,0 8,0]; cord loose-loose [0,4 8,4]"),
+    ("Feet at rest", False, "feet slid apart", SECOND_DUMPS[2]),
+    ("Rings off, tube on", False, "tube",
+     "red,slid,apart,tube | cols=9 rows=5 y=0..4 near=false folded=false; corner=3 21; 1:ring green 0 @4,0; "
+     "2:ring green 0 @4,4; tie 1-2 tubes1 []; cord loose-loose [0,0 8,0]; cord loose-loose [0,4 8,4]"),
+    ("The corner empty", False, "slips gone", SECOND_DUMPS[3]))
 HINGE_STEPS = ("red point", "slid into the hub", "feet slid apart", "tube", "slips gone")
 
 
@@ -159,23 +175,119 @@ def with_slips(dump):
     return g
 
 
+def nearest(pt, places):
+    """The place nearest a mark's end, and how far: (distance, place)."""
+    return min((float(np.hypot(pt[0] - q[0], pt[1] - q[1])), tuple(q)) for q in places)
+
+
+def mark_bounds(R, g):
+    """Every mark on its drawn extent (the stroke's half width, a ghost's outline included) inside
+    the picture's box by at least 0.01 cm (the spec's margin rule); every arc bowed at least the
+    Lua's floor (MINSAG) and clear of the cloth's pieces by its clearance (MINCLEAR); no mark of
+    any other kind (no pin; a ghost, a slide arc or a lift arc only)."""
+    fb, ft, half = g._g["fbot"], g._g["ftop"], PC.C.FRAME_WIDTH / 2
+    gap = lambda x, y, r: min(x - r + half, half - x - r, y - r - fb, ft - y - r)
+    for a in R.arcs:
+        assert a.kind in ("slide", "swing") and a.sag >= PC.MINSAG - 1e-9 and a.fit[0] >= PC.MINCLEAR - 1e-9, a.what
+        assert min(gap(x, y, PC.MARKHALF) for x, y in a.pts) >= 0.01, a.what
+    for q in R.ghosts:
+        assert gap(q[0], q[1], q[2] + PC.GHOSTHALF) >= 0.01, q.what
+    assert len(R.mark_tikz) >= len(R.arcs) + len(R.ghosts)
+    draws = [t for t in R.mark_tikz if t.startswith("\\draw")]
+    assert bool(draws) == bool(R.arcs or R.ghosts) and all(re.match(r"\\draw\[propcnineteen(ghost|slide|swing)[,\]]", t) for t in draws)
+    for style in ("ghost", "slide", "swing"):                              # grey, thin, dotted (ch19.tex)
+        assert re.search(r"propcnineteen" + style + r"/\.style=\{(densely )?dotted, black!\d\d, line width=0\.\d+pt\}",
+                         PC.TEX_TEXT), style
+
+
+def hinge_marks(R):
+    """The marks of one hub step (card section 3e.1; the Lua's comment, pinned): which pieces are
+    ghosted where they stood, and every arc from beside a piece of the state before to beside a
+    piece of the state after (or, a lift arc, from the second slip onto the first, E1)."""
+    S0, S1 = PC.hinge_scene(R.before), PC.hinge_scene(R.after)
+    g = PC.G(S1, PC.HOPTS, PC.HWHO)
+    mark_bounds(R, g)
+    old = {(t["x"], t["y"]) for t in S0["things"]}
+    new = {(t["x"], t["y"]) for t in S1["things"]}
+    ghosts = sorted(tuple(round(v, 6) for v in q[:2]) for q in R.ghosts)
+    key = PC._key_of(PC.HKEYS, R.after)
+    if key == "red":                          # the red point lies on the green one's place: no marks
+        assert not R.marked and R.ghosts == R.arcs == [] and R.notes[-1] == "no marks: " + PC.HMARKLESS["red"]
+        return
+    assert R.marked
+    places = {"slid": [(5, 3)], "apart": [], "tube": [(4, 1), (4, 2), (4, 3)], "gone": []}[key]
+    assert ghosts == sorted(tuple(round(v, 6) for v in g.XY(p)) for p in places) or key == "gone", key
+    assert set(places) <= old - new or key == "tube"                      # a ghost where a piece left
+    if key == "tube":
+        assert set(places) <= old and not (set(places) & new)
+    for a in R.arcs:
+        if a.kind == "slide":
+            (d0, c0), (d1, c1) = nearest(a.frm, [g.XY(p) for p in old]), nearest(a.to, [g.XY(p) for p in new])
+            assert d0 < 0.2 and d1 < 0.2 and c0 != c1, a.what
+    if key == "slid":
+        (a,) = R.arcs
+        assert nearest(a.frm, [g.XY(p) for p in old])[1] == g.XY((5, 3)) and nearest(a.to, [g.XY(p) for p in new])[1] == g.XY((4, 2))
+    elif key == "apart":                      # the two feet alike, each to the ring next to it
+        assert [(nearest(a.frm, [g.XY(p) for p in old])[1], nearest(a.to, [g.XY(p) for p in new])[1]) for a in R.arcs] == [
+            (g.XY((4, 0)), g.XY((4, 1))), (g.XY((4, 4)), g.XY((4, 3)))]
+        assert not R.ghosts                   # the feet stay where they were
+    elif key == "tube":
+        assert not R.arcs                     # lifted off into her box
+    elif key == "gone":                       # E1: the slip an eighth back laid on the slip an eighth round
+        assert S0["corner"] == [3, 21] and S1["corner"] == []
+        assert ghosts == sorted(tuple(round(v, 6) for v in PC.slipxy(g, i)) for i in (1, 2))
+        (a,) = R.arcs
+        assert a.kind == "swing"
+        s1, s2 = PC.slipxy(g, 1), PC.slipxy(g, 2)
+        assert np.isclose(a.frm[0], s2[0]) and np.isclose(a.to[0], s1[0]) and a.frm[1] > s2[1] and a.to[1] > s1[1]
+        assert a.frm[1] > 0                   # over the corner, on the blank margin above the linen
+
+
 def pictures():
-    """The Second Challenge's prop pictures (identity card, section 4), read from the dialogue
-    through tools/dfp_props.py and the transcription tools/props_ch19.py, and held against this
-    file's hinge_picture and hub_matrix."""
-    calls = DIALOGUE.check_layout("Second", sizes=[1, 1, 1, 1])
+    """The Second Challenge's prop pictures (identity card, sections 4 and 3e), read from the
+    dialogue through tools/dfp_props.py and the transcription tools/props_ch19.py, and held against
+    this file's hinge_picture and hub_matrix.  Round 4 draws every move of the hub, each frame the
+    state after one step, with its marks."""
+    calls = DIALOGUE.check_layout("Second", sizes=[1] * 7)
     assert [(c.macro, c.keyed, c.opt, c.args, c.caption) for c in calls] == [
         ("rulecard", False, "", ("new",), "No longer blank"),
         ("hingecloth", True, "", (), "Laid out flat"),
-        ("hingecloth", False, "red point, slid into the hub, feet slid apart", (), "Feet at rest"),
-        ("hingecloth", False, "red point, slid into the hub, feet slid apart, tube, slips gone", (), "The corner empty")]
-    PC.check_captions(DIALOGUE, "Second", calls)
-    PC.check_section(DIALOGUE, "Second", calls)
-    PC.check_anchors(DIALOGUE, "Second")
-    pics = [PC.picture(c) for c in calls]
+        ("hingecloth", False, "; step=red point", (), "The point exchanged"),
+        ("hingecloth", False, "red point; step=slid into the hub", (), "The point slid in"),
+        ("hingecloth", False, "red point, slid into the hub; step=feet slid apart", (), "Feet at rest"),
+        ("hingecloth", False, "red point, slid into the hub, feet slid apart; step=tube", (), "Rings off, tube on"),
+        ("hingecloth", False, "red point, slid into the hub, feet slid apart, tube; step=slips gone", (), "The corner empty")]
+    assert PC.check_captions(DIALOGUE, "Second", calls) == 7
+    blocks = PC.check_section(DIALOGUE, "Second", calls, [1] * 7)
+    assert PC.check_anchors(DIALOGUE, "Second") == (10, 22)             # next-starts, phrases before (E1 among them)
+    assert PC.E_ITEMS["E1"] in DIALOGUE.anchors("Second")[6] and PC.E_ITEMS["E1"] in DIALOGUE.anchors("Second", DIALOGUE.raw)[6]
+    assert '"' + PC.E_ITEMS["E1"].rstrip(".") + '", E1' in PC.comment_prose("round 4: \\hingecloth[")
+    frames = [b[0][0] for b in blocks]
+    assert tuple((cap, k, R.step, R.dump) for b in blocks for R, cap, k in b) == SECOND_FRAMES      # the readings
+    # round 3's four pictures are their blocks' frames, unchanged
+    pics = [frames[i] for i in (0, 1, 4, 6)]
     p21, p22, p23, p24 = pics
-    assert tuple(p.dump for p in pics) == SECOND_DUMPS
+    assert tuple(p.dump for p in pics) == SECOND_DUMPS == tuple(R.picture.dump for R in pics)
     states = [""] + [", ".join(HINGE_STEPS[:k]) for k in range(1, 6)]
+    hub_frames = frames[1:]
+    # each step frame is the step applied to the frame before: the chain, frame to frame
+    for k, R in enumerate(hub_frames):
+        assert R.dump == PC.hingecloth(states[k]).dump, k
+        if k:
+            assert R.step is not None and repr(R.before) == repr(hub_frames[k - 1].drawn), k
+    # the marks of every step (none on the red point; no pin; grey, dotted, inside the box)
+    for R in hub_frames[1:]:
+        hinge_marks(R)
+    assert [(len(R.ghosts), len(R.arcs)) for R in hub_frames[1:]] == [(0, 0), (1, 1), (0, 2), (3, 0), (2, 1)]
+    # every one or none: the feet's two hops are drawn together, alike, or not at all
+    apart = hub_frames[3]
+    assert len(apart.arcs) == 2 and np.isclose(apart.arcs[0].len, apart.arcs[1].len)
+    # no prediction frame: expects= refused with the Lua's reason, which quotes the dialogue
+    assert PC.faults(PC.run_frame, "hinge", "; expects=a red hub", "", False) == ["hinge-expects"]
+    for q in re.findall(r'"([^"]+)"', PC.HEXPECTS):
+        assert all(q in DIALOGUE.read(f) for f in (DIALOGUE.dialog, DIALOGUE.raw)), q
+    PC.TEX_ERRORS.clear()
+    assert all(R.frame == p22.frame for R in hub_frames)
     assert {PC.hingecloth(st).frame for st in states} == {p22.frame}      # one frame in every state
 
     # P2.1, the new card, no longer blank: both sides drawn, and the left side -- green, red,
@@ -230,7 +342,7 @@ def pictures():
     assert not same_picture(PC.graph_of(p24.dump.replace(" tubes1", "")), hinge_picture("tie"))   # the sleeve
 
     # fixed parts: each line's loose ends and the column of the feet, in every picture
-    for pic in (p22, p23, p24):
+    for pic in hub_frames:
         nodes, tubes, ties, cords, corner, knots = PC.parse_dump(pic.dump)
         assert [(a, b, pts) for a, b, pts in cords] == [("loose", "loose", [(0, 0), (8, 0)]),
                                                          ("loose", "loose", [(0, 4), (8, 4)])]
@@ -242,7 +354,7 @@ def pictures():
     assert [w for w, *_ in PC.own_words(p22)] == ["corner"] and not PC.parse_dump(p22.dump)[4]
     PC.check_compiled_boxes(p22)
     assert min(PC.check_keyed_words(p22).values()) >= PC.LETTER_FLOOR
-    assert p21.labels == p23.labels == p24.labels == ()
+    assert p21.labels == () and all(R.labels == () for R in hub_frames[1:])
 
     # the Lua's refusals: an unknown step; a step twice; a step before the one it follows
     PC.TEX_ERRORS.clear()

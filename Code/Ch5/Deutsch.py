@@ -91,7 +91,7 @@ def blackboard():
 # spreaders, net = 2 x amplitude; the head lifted and the road walked by hand,
 # one token = sqrt2 x amplitude.
 # --------------------------------------------------------------------------
-DIALOGUE = Dialogue(__file__, macros=("conduitboard", "roadtiles"))
+DIALOGUE = Dialogue(__file__, macros=("conduitboard", "conduitwalk", "roadtiles"))
 NOT_IN_CAPTIONS = ("wire", "wires", "diagram", "diagrams", "drawing", "drawings", "picture",
                    "pictures", "box", "boxes", "dot", "dots", "node", "nodes", "lanes",
                    "strings", "five")
@@ -134,24 +134,44 @@ def check_transcription():
 
 
 def pictures():
+    P.check_lua()                                  # the Lua and .tex the transcription was proved on
     check_transcription()
-    p41, p42 = DIALOGUE.check_layout("Fourth", sizes=[1, 1])
+    found = P.check_section(DIALOGUE, "Fourth", sizes=[1, 1], frames=[1, 1],
+                            forbidden=NOT_IN_CAPTIONS)
+    ((p41, [(b41, _)]),), ((p42, [(b42, _)]),) = found
     for c in (p41, p42):
         assert c.macro == "conduitboard"
         assert words_only(c.caption, forbidden=NOT_IN_CAPTIONS), c.caption
-    b41, b42 = P.picture(p41), P.picture(p42)
     for b in (b41, b42):
         assert isinstance(b, P.Closeup) and b.which == "home"      # the away cup never pictured
+        assert not b.marked and b.lifted == []                     # no marks on a close-up
         assert b.live == ("willow",) and b.setting.reed == "two-faced"
         assert b.setting.bar.hidden                                # her hand over the bar
         both = b.setting.lanes["willow"].head and b.setting.lanes["willow"].foot
         assert not (both and b.view in FORBIDDEN_WITH_BOTH), b.view
 
-    a1, a2 = P.anchors(DIALOGUE, "Fourth")
-    assert "willow's low road" in a1 and a1.endswith("reads the face it brings home.]*")
-    assert a2.startswith("*[He sets the foot spreader back.") and "leaving it bare" in a2
-    between = DIALOGUE.section("Fourth").split(p41.text)[1].split(p42.text)[0]
-    assert "He lifts the foot spreader clear" in between         # the toss: no picture of it
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        a1, a2 = DIALOGUE.anchors("Fourth", path)
+        assert "willow's low road" in a1 and a1.endswith("reads the face it brings home.]*")
+        assert a2.startswith("*[He sets the foot spreader back.") and "leaving it bare" in a2
+        # the clearings: each walk starts on emptied pockets (D5, D6, D7); the tosses
+        # between the two pictures are drawn by no picture
+        assert a1.startswith("*[He tips the willow's pockets empty, lifts the head spreader")
+        assert "He tips the willow's pockets empty, and the Cat walks." in a2
+        at, blocks = P.where(DIALOGUE, "Fourth", "He lifts the foot spreader clear", path)
+        assert blocks[0] < at < blocks[1]                        # the toss: no picture of it
+        assert "tips the lane's pockets empty" in DIALOGUE.paragraphs("Fourth", path)[at]
+    P.check_edits(DIALOGUE, "Fourth", [
+        ("*[He lifts the head spreader, walks a single token down the willow's low road",
+         "*[He tips the willow's pockets empty, lifts the head spreader, walks a single token "
+         "down the willow's low road"),
+        ("*[He lifts the foot spreader clear of the willow.",
+         "*[He lifts the foot spreader clear of the willow, and tips the lane's pockets empty."),
+        ("*[He sets the foot spreader back. The Cat walks. At the head spreader both roads open;",
+         "*[He sets the foot spreader back. He tips the willow's pockets empty, and the Cat walks. "
+         "At the head spreader both roads open;"),
+        ("{one answer}", "{the low road's answer}"),
+        ("{the home pocket bare}", "{home bare}")])
 
     # the rules of the card: the plod's is `never`, the last walk's `willow low`;
     # different from each other and from the Third Challenge's
@@ -167,7 +187,7 @@ def pictures():
     one = kron(H, I2) @ oracle(f_of(b41)) @ kron(ket(0), KMINUS)
     assert np.isclose(np.sqrt(2) * (BRA[0] @ one).item(), P.SIGN[b41.cups["home"][0]])  # +1
 
-    # P4.2: the one walk, both spreaders, settled -- the home pocket bare, net 0
+    # P4.2: the one walk, both spreaders, settled -- home bare, net 0
     assert not p42.keyed and b42.settled and b42.view == "home settled"
     assert b42.setting.lanes["willow"].head and b42.setting.lanes["willow"].foot
     assert b42.heaps == {"home": []} and P.net(b42.cups["home"]) == 0
@@ -177,6 +197,19 @@ def pictures():
     assert np.allclose(out, -kron(ket(1), KMINUS))                 # Deutsch for `not`: -|1>|->
     # the plod's one answer was a full cup; the one question's, a bare one
     assert P.net(b41.cups["home"]) != 0
+    # the one walk's two arrivals: the low road slate (the rule turned it), the high silver
+    assert b42.cups == {"home": ["slate", "silver"]}
+
+    assert P.section_dumps(found) == [
+        "conduitboard: home | willow no head low; reed two-faced; bar hidden never",
+        "conduitboard: + road willow=low silver",
+        "conduitboard: + reed two-faced",
+        "conduitboard: + pocket home silver",
+        "conduitboard: home settled | willow; reed two-faced; bar hidden willow low",
+        "conduitboard: + road willow=low slate",
+        "conduitboard: + road willow=high silver",
+        "conduitboard: + reed two-faced",
+        "conduitboard: + pocket home bare"]
 
 
 def hedge(p, a, b):

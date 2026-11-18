@@ -10,6 +10,7 @@ with yellow boxes) turn it into its net, The Uncooked Net: all green, Hadamard t
 per spider, value exactly U/4 -- the same net PyZX's own to_graph_like makes (isomorphic:
 types, phases, ends, edge types).  Result 17.1's instance; Result 17.18.
 """
+import re
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools"))
 
@@ -205,28 +206,51 @@ def blackboard():
     pictures()
 
 
-CARD_DUMPS = (
-    "card aside=0 | cols=10 rows=2 y=0..1 near=false folded=false; gaps=0.5; 1:ring green 0 @1.32,0; 2:ring green 0 @3.66,0; "
-    "3:ring green 0 @6,0; 4:ring green 0 @8.34,0; 5:ring green 3 @0.15,1; 6:ring red 0 @1.32,1; 7:ring green 3 @2.49,1; "
-    "8:ring red 0 @3.66,1; 9:ring green 3 @4.83,1; 10:ring red 0 @6,1; 11:ring green 3 @7.17,1; 12:ring red 0 @8.34,1; "
-    "tie 1-6 []; tie 2-8 []; tie 3-10 []; tie 4-12 []; cord loose-loose [-0.5,0 9.5,0]; cord loose-loose [-0.5,1 9.5,1]",
-    "green aside=0 | cols=10 rows=2 y=0..1 near=false folded=false; gaps=0.5; 1:ring green 0 @1.32,0; 2:ring green 0 @3.66,0; "
-    "3:ring green 0 @6,0; 4:ring green 0 @8.34,0; 5:ring green 3 @0.15,1; 6:ring green 0 @1.32,1; 7:ring green 3 @2.49,1; "
-    "8:ring green 0 @3.66,1; 9:ring green 3 @4.83,1; 10:ring green 0 @6,1; 11:ring green 3 @7.17,1; 12:ring green 0 @8.34,1; "
-    "tube @0.735,1 a0; tube @1.905,1 a0; tube @3.075,1 a0; tube @4.245,1 a0; tube @5.415,1 a0; tube @6.585,1 a0; "
-    "tube @7.755,1 a0; tube @8.925,1 a0; tie 1-6 tubes1 []; tie 2-8 tubes1 []; tie 3-10 tubes1 []; tie 4-12 tubes1 []; "
-    "cord loose-loose [-0.5,0 9.5,0]; cord loose-loose [-0.5,1 9.5,1]",
-    "green,big aside=0 | cols=10 rows=2 y=0..1 near=false folded=false; gaps=0.5; 1:ring green 0 @4.83,0; 2:ring green 3 @0.15,1; "
-    "3:ring green 0 @1.32,1; 4:ring green 3 @2.49,1; 5:ring green 0 @3.66,1; 6:ring green 3 @4.83,1; 7:ring green 0 @6,1; "
-    "8:ring green 3 @7.17,1; 9:ring green 0 @8.34,1; tube @0.735,1 a0; tube @1.905,1 a0; tube @3.075,1 a0; tube @4.245,1 a0; "
-    "tube @5.415,1 a0; tube @6.585,1 a0; tube @7.755,1 a0; tube @8.925,1 a0; tie 1-3 tubes1 []; tie 1-5 tubes1 []; "
-    "tie 1-7 tubes1 []; tie 1-9 tubes1 []; cord loose-loose [-0.5,0 9.5,0]; cord loose-loose [-0.5,1 9.5,1]",
-    "green,big,small aside=0 | cols=10 rows=2 y=0..1 near=false folded=false; gaps=0.5; 1:ring green 0 @1.83,0; "
-    "2:ring green 0 @3.33,0; 3:ring green 0 @4.83,0; 4:ring green 3 @0.15,1; 5:ring green 0 @1.32,1; 6:ring green 3 @2.49,1; "
-    "7:ring green 0 @3.66,1; 8:ring green 3 @4.83,1; 9:ring green 0 @6,1; 10:ring green 3 @7.17,1; 11:ring green 0 @8.34,1; "
-    "tube @2.58,0 a0; tube @4.08,0 a0; tube @0.735,1 a0; tube @1.905,1 a0; tube @3.075,1 a0; tube @4.245,1 a0; "
-    "tube @5.415,1 a0; tube @6.585,1 a0; tube @7.755,1 a0; tube @8.925,1 a0; tie 3-11 tubes1 []; tie 3-5 tubes1 []; "
-    "tie 3-7 tubes1 []; tie 3-9 tubes1 []; cord loose-loose [-0.5,0 9.5,0]; cord loose-loose [-0.5,1 9.5,1]",
+# every frame's dump, in the dialogue's order (the log's, card 3e.6 item 6: r17/build/def/dumps_md.txt)
+FRAME_DUMPS = (
+    # First block 1 frame 1: The card, laid out
+    'card aside=0 | cols=10 rows=2 y=0..1 near=false folded=false; gaps=0.5; 1:ring green 0 @1.32,0; 2:ring green'
+    ' 0 @3.66,0; 3:ring green 0 @6,0; 4:ring green 0 @8.34,0; 5:ring green 3 @0.15,1; 6:ring red 0 @1.32,1; '
+    '7:ring green 3 @2.49,1; 8:ring red 0 @3.66,1; 9:ring green 3 @4.83,1; 10:ring red 0 @6,1; 11:ring green 3 '
+    '@7.17,1; 12:ring red 0 @8.34,1; tie 1-6 []; tie 2-8 []; tie 3-10 []; tie 4-12 []; cord loose-loose [-0.5,0 '
+    '9.5,0]; cord loose-loose [-0.5,1 9.5,1]',
+    # First block 2 frame 1: Every ring green
+    'green aside=0 | cols=10 rows=2 y=0..1 near=false folded=false; gaps=0.5; 1:ring green 0 @1.32,0; 2:ring '
+    'green 0 @3.66,0; 3:ring green 0 @6,0; 4:ring green 0 @8.34,0; 5:ring green 3 @0.15,1; 6:ring green 0 '
+    '@1.32,1; 7:ring green 3 @2.49,1; 8:ring green 0 @3.66,1; 9:ring green 3 @4.83,1; 10:ring green 0 @6,1; '
+    '11:ring green 3 @7.17,1; 12:ring green 0 @8.34,1; tube @0.735,1 a0; tube @1.905,1 a0; tube @3.075,1 a0; tube'
+    ' @4.245,1 a0; tube @5.415,1 a0; tube @6.585,1 a0; tube @7.755,1 a0; tube @8.925,1 a0; tie 1-6 tubes1 []; tie'
+    ' 2-8 tubes1 []; tie 3-10 tubes1 []; tie 4-12 tubes1 []; cord loose-loose [-0.5,0 9.5,0]; cord loose-loose '
+    '[-0.5,1 9.5,1]',
+    # First block 3 frame 1: Leftmost rings met
+    'green,upper:2 aside=0 | cols=10 rows=2 y=0..1 near=false folded=false; gaps=0.5; 1:ring green 0 @3.66,0; '
+    '2:ring green 0 @6,0; 3:ring green 0 @8.34,0; 4:ring green 3 @0.15,1; 5:ring green 0 @1.32,1; 6:ring green 3 '
+    '@2.49,1; 7:ring green 0 @3.66,1; 8:ring green 3 @4.83,1; 9:ring green 0 @6,1; 10:ring green 3 @7.17,1; '
+    '11:ring green 0 @8.34,1; tube @0.735,1 a0; tube @1.905,1 a0; tube @3.075,1 a0; tube @4.245,1 a0; tube '
+    '@5.415,1 a0; tube @6.585,1 a0; tube @7.755,1 a0; tube @8.925,1 a0; tie 1-5 tubes1 []; tie 1-7 tubes1 []; tie'
+    ' 2-9 tubes1 []; tie 3-11 tubes1 []; cord loose-loose [-0.5,0 9.5,0]; cord loose-loose [-0.5,1 9.5,1]',
+    # First block 3 frame 2: Joined midway
+    'green,upper:3 aside=0 | cols=10 rows=2 y=0..1 near=false folded=false; gaps=0.5; 1:ring green 0 @4.83,0; '
+    '2:ring green 0 @8.34,0; 3:ring green 3 @0.15,1; 4:ring green 0 @1.32,1; 5:ring green 3 @2.49,1; 6:ring green'
+    ' 0 @3.66,1; 7:ring green 3 @4.83,1; 8:ring green 0 @6,1; 9:ring green 3 @7.17,1; 10:ring green 0 @8.34,1; '
+    'tube @0.735,1 a0; tube @1.905,1 a0; tube @3.075,1 a0; tube @4.245,1 a0; tube @5.415,1 a0; tube @6.585,1 a0; '
+    'tube @7.755,1 a0; tube @8.925,1 a0; tie 1-4 tubes1 []; tie 1-6 tubes1 []; tie 1-8 tubes1 []; tie 2-10 tubes1'
+    ' []; cord loose-loose [-0.5,0 9.5,0]; cord loose-loose [-0.5,1 9.5,1]',
+    # First block 3 frame 3: A fan of sleeves
+    'green,big aside=0 | cols=10 rows=2 y=0..1 near=false folded=false; gaps=0.5; 1:ring green 0 @4.83,0; 2:ring '
+    'green 3 @0.15,1; 3:ring green 0 @1.32,1; 4:ring green 3 @2.49,1; 5:ring green 0 @3.66,1; 6:ring green 3 '
+    '@4.83,1; 7:ring green 0 @6,1; 8:ring green 3 @7.17,1; 9:ring green 0 @8.34,1; tube @0.735,1 a0; tube '
+    '@1.905,1 a0; tube @3.075,1 a0; tube @4.245,1 a0; tube @5.415,1 a0; tube @6.585,1 a0; tube @7.755,1 a0; tube '
+    '@8.925,1 a0; tie 1-3 tubes1 []; tie 1-5 tubes1 []; tie 1-7 tubes1 []; tie 1-9 tubes1 []; cord loose-loose '
+    '[-0.5,0 9.5,0]; cord loose-loose [-0.5,1 9.5,1]',
+    # First block 4 frame 1: Rings clipped on
+    'green,big,small aside=0 | cols=10 rows=2 y=0..1 near=false folded=false; gaps=0.5; 1:ring green 0 @1.83,0; '
+    '2:ring green 0 @3.33,0; 3:ring green 0 @4.83,0; 4:ring green 3 @0.15,1; 5:ring green 0 @1.32,1; 6:ring green'
+    ' 3 @2.49,1; 7:ring green 0 @3.66,1; 8:ring green 3 @4.83,1; 9:ring green 0 @6,1; 10:ring green 3 @7.17,1; '
+    '11:ring green 0 @8.34,1; tube @2.58,0 a0; tube @4.08,0 a0; tube @0.735,1 a0; tube @1.905,1 a0; tube @3.075,1'
+    ' a0; tube @4.245,1 a0; tube @5.415,1 a0; tube @6.585,1 a0; tube @7.755,1 a0; tube @8.925,1 a0; tie 3-11 '
+    'tubes1 []; tie 3-5 tubes1 []; tie 3-7 tubes1 []; tie 3-9 tubes1 []; cord loose-loose [-0.5,0 9.5,0]; cord '
+    'loose-loose [-0.5,1 9.5,1]',
 )
 
 
@@ -236,25 +260,78 @@ def row_of(dump, y):
     return sorted((x, kind, col, t) for kind, col, t, x, yy in nodes.values() if yy == y)
 
 
+def rings_at(dump):
+    """The rings of a cloth dump, as (line, column) places."""
+    return {(y, round(x, 3)) for kind, col, t, x, y in PC.parse_dump(dump)[0].values() if kind == "ring"}
+
+
+def slide_of(a):
+    """A hop's (line, from column, to column), as the dump writes columns."""
+    y, x0, x1 = a.slide
+    return y, round(x0, 3), round(x1, 3)
+
+
+def ghost_grid(q):
+    """The grid place a ring's ghost names in the log ("the green ring (grid 1.32,0)")."""
+    x, y = re.search(r"\(grid ([-\d.]+),([-\d.]+)\)", q.what).groups()
+    return float(y), float(x)
+
+
+def check_slides(R):
+    """A slide step's marks, on the drawn extent: every hop runs from a ring of the state before to
+    a ring of the step's state (or of the state before, a chained move), the way the ring went, on
+    the line's outer side, bowed at least the Lua's hop floor; every ring that left its place has a
+    ghost there, and is the start of a hop; every ring that came to a new place is the end of one."""
+    g = PC.G(PC.card_scene(R.after), PC.CARDOPTS, PC.CWHO)
+    old, new = rings_at(PC.card_dump(R.before)), rings_at(PC.card_dump(R.after))
+    hops = [a for a in R.arcs if getattr(a, "slide", None) is not None]
+    for a in hops:
+        y, x0, x1 = slide_of(a)
+        assert a.kind == "slide" and (y, x0) in old and (y, x1) in old | new and x0 != x1, a.what
+        assert np.sign(a.to[0] - a.frm[0]) == np.sign(x1 - x0)                      # the way it went
+        assert abs(a.frm[0] - g.X(x0)) < abs(a.frm[0] - g.X(x1)) and abs(a.to[0] - g.X(x1)) < abs(a.to[0] - g.X(x0))
+        line = g.Y(y)
+        assert (min(p[1] for p in a.body) > line) if y == 0 else (max(p[1] for p in a.body) < line), a.what
+        assert a.minsag == PC.HOPSAG and a.sag >= PC.HOPSAG - 1e-9, (a.what, a.sag)
+    places = {ghost_grid(q) for q in R.ghosts if not q.bead}
+    for q in R.ghosts:
+        if not q.bead:
+            y, x = ghost_grid(q)
+            assert np.allclose(q[:2], g.XY((x, y)), atol=1e-3), q.what               # drawn where it lay
+    for y, x in old - new:
+        assert (y, x) in places and any(slide_of(a)[:2] == (y, x) for a in hops), (y, x)
+    for y, x in new - old:
+        assert any(slide_of(a)[0] == y and slide_of(a)[2] == x for a in hops), (y, x)
+    return hops
+
+
 def pictures():
-    """The First Challenge's prop pictures (identity card, section 4), read from the dialogue
-    through tools/dfp_props.py and the transcription tools/props_ch17.py.  The ties below hold
-    the transcription against this file's blackboard: graph_of reads a cloth dump as a PyZX
-    graph, a structural check of the pictures, not a second proof."""
+    """The First Challenge's prop pictures (identity card, sections 4 and 3e), read from the
+    dialogue through tools/dfp_props.py and the transcription tools/props_ch17.py.  The ties
+    below hold the transcription against this file's blackboard: graph_of reads a cloth dump as
+    a PyZX graph, a structural check of the pictures, not a second proof.  Round 4 draws the
+    upper rings slid together move by move (B1.3): each part-way frame is the recipe's value,
+    exactly."""
     calls = DIALOGUE.check_layout("First", sizes=[1, 1, 1, 1])
     assert [(c.macro, c.keyed, c.opt, c.args, c.caption) for c in calls] == [
         ("cardcloth", True, "", (), "The card, laid out"),
         ("cardcloth", False, "reds made green", (), "Every ring green"),
-        ("cardcloth", False, "reds made green, upper rings slid together", (), "A fan of sleeves"),
+        ("cardclothsteps", False, "after=reds made green; from=off",
+         ("first and second into one; third into those; fourth into those",), "Leftmost rings met; Joined midway; A fan of sleeves"),
         ("cardcloth", False, "reds made green, upper rings slid together, small rings put on", (), "Rings clipped on")]
     PC.check_captions(DIALOGUE, "First", calls)
     PC.check_section(DIALOGUE, "First", calls)
-    PC.check_anchors(DIALOGUE, "First", ["P1.1", "P1.2", "P1.3", "P1.4"])
-    pics = [PC.picture(c) for c in calls]
-    p11, p12, p13, p14 = pics
-    assert tuple(p.dump for p in pics) == CARD_DUMPS
+    assert PC.check_anchors(DIALOGUE, "First") == (4, 6)                 # P1.1's and P1.3's, both files
+    frames = [PC.frame_chain(c) for c in calls]
+    assert [len(f) for f in frames] == [1, 1, 3, 1]                      # card 3e.6: 4 blocks, 6 frames
+    assert tuple(R.dump for f in frames for R in f) == FRAME_DUMPS
+    (p11,), (p12,), b13, (p14,) = frames
+    p13 = b13[-1]
+    pics = [p11, p12, p13, p14]
+    # every strip's last frame is round 3's picture of its block: P1.3 as round 3 drew it
+    assert p13.dump == PC.cardcloth("reds made green, upper rings slid together", False).dump
     # one frame in every state: the kit's (columns 10, rows 2, fine) and the band below it
-    assert {p.frame for p in pics} == {1.37}
+    assert {R.frame for f in frames for R in f} == {1.37}
     assert all(p.shown.counters == () and p.state.aside == 0 for p in pics)     # nothing set aside in I
 
     # the mathematics: every picture of the First Challenge is the recipe's net, exactly U/4
@@ -282,6 +359,42 @@ def pictures():
     bare_small = p14.dump.replace("tube @2.58,0 a0; tube @4.08,0 a0; ", "")
     assert np.allclose(matrix_of(PC.graph_of(bare_small)), U / 4) and not is_graph_like(PC.graph_of(bare_small))
 
+    # B1.3, move by move (card 3e.6, item 7): the leftmost two upper rings into one, then the third
+    # into those, then the fourth -- each frame a state of the slide part-way, its value exactly U/4
+    # (a ring slid into a ring of its colour, their turns added, is the same picture), and none but
+    # P1.4 the master
+    assert [R.step for R in b13] == ["first and second into one", "third into those", "fourth into those"]
+    assert b13[0].before == p12.state                                          # after=reds made green
+    assert [len([x for y, x in rings_at(R.dump) if y == 0]) for R in b13] == [3, 2, 1]
+    assert [R.after.upn for R in b13[:2]] == [2, 3] and b13[2].after.big
+    for R in b13:
+        g = PC.graph_of(R.dump)
+        assert np.allclose(matrix_of(g), U / 4) and R.after.aside == 0, R.step
+        assert not isomorphic(g, net)
+        assert not np.allclose(matrix_of(g), kron(I2, Z) / 4)
+        # the mix-up: the slid ring's ties left behind (a tie dropped) is not the recipe
+        cut = re.sub(r"tie 1-\d+ tubes1 \[\]; ", "", R.dump, count=1)
+        assert cut != R.dump and not np.allclose(matrix_of(PC.graph_of(cut)), U / 4)
+    # their marks: a ghost at each ring's old place and a hop to its new one, every hop drawn
+    assert [len(check_slides(R)) for R in b13] == [1, 2, 1]
+    assert all(R.marked and not R.keyed for R in b13)
+    assert [len(R.ghosts) for R in b13] == [1, 2, 1]
+    assert [round(a.sag, 3) for R in b13 for a in R.arcs] == [0.058] * 4               # L4: every hop 0.058
+    assert all(a.fit[0] >= PC.MINCLEAR - 1e-9 for R in b13 for a in R.arcs)            # clear of the net
+    # the lone pictures carry no marks; P1.4, the drawn copy of the tangle, is never marked: its
+    # step (the small rings put on) draws none, and marks=on there is refused
+    for p in (p11, p12, p14):
+        assert not p.marked and p.arcs == [] and p.ghosts == [] and p.step is None
+    R = PC.run_frame("card", "reds made green, upper rings slid together; step=small rings put on", "", False)
+    assert R.arcs == R.ghosts == [] and R.notes[1].startswith("no marks: the rings and tubes come from her box")
+    assert R.dump == p14.dump
+    assert PC.faults(PC.run_frame, "card", "reds made green, upper rings slid together; step=small rings put on; "
+                     "marks=on", "", False) == ["card-marks-tangle"]
+    # a part-way frame is never keyed (the card's words are set for its whole states)
+    assert PC.faults(PC.run_frame, "card", "reds made green; step=first and second into one; marks=off", "",
+                     True) == ["card-partkey"]
+    PC.TEX_ERRORS.clear()
+
     # the card's details (section 4): P1.1's eighths at turn 3 (an eighth round, in twenty-fourths)
     # on the lower line and its joiners' ties plain; P1.2's ties all sleeved, the lower left lead
     # plain and the lower right lead with a tube; P1.3's one upper ring at the third eighth's
@@ -298,22 +411,29 @@ def pictures():
     up = sorted([(x, "ring") for x, *_ in row_of(p14.dump, 0)] + [(tx, "tube") for tx, ty in PC.parse_dump(p14.dump)[1] if ty == 0])
     assert [k for _, k in up] == ["ring", "tube", "ring", "tube", "ring"]
 
-    # the captions' truth: the card as it stands; no red ring; one upper ring and four sleeved
-    # ties fanning from it; the small rings put on
+    # the captions' truth: the card as it stands; no red ring; the two leftmost upper rings met
+    # (at the second's place), then midway (the third eighth's column), then one upper ring and four
+    # sleeved ties fanning from it; the small rings put on
     assert PC.card_words(p11.state) == "card"
     assert all(col == "green" for kind, col, t, x, y in PC.parse_dump(p12.dump)[0].values())
     assert any(col == "red" for kind, col, t, x, y in PC.parse_dump(p11.dump)[0].values())
+    assert [x for y, x in sorted(rings_at(b13[0].dump)) if y == 0][0] == round(PC.CX[3], 3)   # where the second stood
+    assert (0, round(PC.CX[4], 3)) in rings_at(b13[1].dump)                               # midway
     n13, _, t13, _ = PC.parse_dump(p13.dump)
     assert len(row_of(p13.dump, 0)) == 1 and [(a, k) for _, a, b, k in t13] == [(1, 1)] * 4
     assert PC.card_words(p14.state) == "green,big,small"
 
-    # fixed parts: the card's columns from P1.1 to P1.2 (only the reds change colour), the lower
-    # line from P1.2 to P1.4 (every ring, turn and tube where it was)
+    # fixed parts, frame to frame: the card's columns from P1.1 to P1.2 (only the reds change
+    # colour); the lower line, every ring, turn and tube where it was, from P1.2 through B1.3 to P1.4
     strip = lambda r: [(x, kind, t) for x, kind, col, t in r]
     assert [strip(row_of(p11.dump, y)) for y in (0, 1)] == [strip(row_of(p12.dump, y)) for y in (0, 1)]
-    for p in (p13, p14):
-        assert row_of(p.dump, 1) == row_of(p12.dump, 1)
+    for p in b13 + [p14]:
+        assert row_of(p.dump, 1) == row_of(p12.dump, 1), p.step
         assert [u for u in PC.parse_dump(p.dump)[1] if u[1] == 1] == [u for u in PC.parse_dump(p12.dump)[1] if u[1] == 1]
+    # and the upper rings a step does not move keep their places
+    for P, R in zip([p12] + b13, b13):
+        moved = {slide_of(a)[:2] for a in R.arcs}
+        assert {u for u in rings_at(P.dump) if u[0] == 0} - moved <= rings_at(R.dump), R.step
     # a picture that moved a fixed part would fail: the lower line shifted by a column
     moved = PC.card_scene(p13.state)
     moved["things"][1]["x"] += 0.5
@@ -323,9 +443,9 @@ def pictures():
     # identity card's section 4 gives every kit word clear by at least 0.028 cm, ink to ink), and
     # the Lua's own bead, measured: clear of the drawing, and above the kit's frame by design, in
     # the band over the linen
-    assert p11.labels == ("ring", "line", "bead") and all(p.labels == () for p in (p12, p13, p14))
-    PC.check_compiled_boxes(p11)
-    least = PC.check_keyed_words(p11)
+    assert p11.labels == ("ring", "line", "bead") and all(R.labels == () for f in frames[1:] for R in f)
+    PC.check_compiled_boxes(p11.picture)
+    least = PC.check_keyed_words(p11.picture)
     assert least["bead"] >= 0.06
     # a fault the Lua raises is a fault here: a step out of order, or a step twice
     PC.TEX_ERRORS.clear()

@@ -15,6 +15,7 @@ import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools"))
 
 from fractions import Fraction
+import itertools
 from itertools import combinations, product
 
 import numpy as np
@@ -333,17 +334,31 @@ def bow_net(B):
     (its bead's turn)/12; a Hadamard edge per tie; an output per loose cord (a capped cord
     has none: the cap's quarter is in the ring's turn), through its piece, a two-legged
     spider, if one is threaded on.  Outputs in the bells' order.  The counters by the
-    teapot are numbers, not part of the net."""
+    teapot are numbers, not part of the net.  Round 4's part-way states: a half riding a tie
+    is a two-legged spider of its colour on that tie, before its tube ("near" the ring it left)
+    or past it ("far"); an end-ring tied on a loose cord closes it, a one-legged green spider."""
     g = zx.Graph()
     v, outs = {}, []
     for w, b in enumerate(PC.BELLS):
         R = B.rings[b]
         if R["on"]:
             v[b] = g.add_vertex(VT.Z, w, 1, phase=Fraction(R["t"], 12))
+    riding = {PC.pairkey(h["from"], h["to"]): h for h in (B.onties or [])}
+    assert len(riding) == len(B.onties or [])
     for key in sorted(B.ties):
         a, c = key.split("-", 1)
-        if a in v and c in v:
+        if not (a in v and c in v):
+            continue
+        h = riding.pop(key, None)
+        if h is None:
             g.add_edge((v[a], v[c]), ET.HADAMARD)
+            continue
+        half = g.add_vertex(VT.X if h["c"] == "red" else VT.Z, 0.5, 1.5, phase=Fraction(h["t"], 12))
+        near, far = (ET.SIMPLE, ET.HADAMARD) if h["at"] == "near" else (ET.HADAMARD, ET.SIMPLE)
+        g.add_edge((v[h["from"]], half), near)
+        g.add_edge((half, v[h["to"]]), far)
+    assert not riding                                                   # every half rides a tie
+    ends = 0
     for w, b in enumerate(PC.BELLS):
         R = B.rings[b]
         if R["on"] and R["cord"]:
@@ -353,13 +368,18 @@ def bow_net(B):
                 p = g.add_vertex(VT.X if colour == "red" else VT.Z, w, 2, phase=Fraction(turn, 12))
                 g.add_edge((last, p))
                 last = p
-            o = g.add_vertex(VT.BOUNDARY, w, 3)
-            g.add_edge((last, o))
-            outs.append(o)
+            if R["cap"] is not None:
+                end = g.add_vertex(VT.Z, w, 3, phase=Fraction(R["cap"], 12))
+                g.add_edge((last, end))
+                ends += 1
+            else:
+                o = g.add_vertex(VT.BOUNDARY, w, 3)
+                g.add_edge((last, o))
+                outs.append(o)
     g.set_inputs(())
     g.set_outputs(tuple(outs))
     assert g.num_edges() == len([k for k in B.ties if all(x in v for x in k.split("-", 1))]) + \
-        sum(1 + bool(B.rings[b]["piece"]) for b in v if B.rings[b]["cord"])
+        len(B.onties or []) + sum(1 + bool(B.rings[b]["piece"]) for b in v if B.rings[b]["cord"])
     return g
 
 
@@ -382,27 +402,45 @@ def ties_of(B):
     return norm((PC.BELLS.index(a), PC.BELLS.index(c)) for a, c in (k.split("-", 1) for k in B.ties))
 
 
+def value(R):
+    """A bow-cloth frame's value: its net, with the Third's counter, 2^{-1/2}, for each by the
+    teapot (P3.2's number, below)."""
+    return 2 ** (-R.state.aside / 2) * matrix_of(bow_net(R.state)).ravel()
+
+
 def pictures():
-    """The Third Challenge's prop pictures (identity card, section 4), read from the dialogue
+    """The Third Challenge's prop pictures (identity card, sections 4 and 3e), read from the dialogue
     through tools/dfp_props.py and the transcription tools/props_ch16.py.  The ties below hold
     the transcription against this file's blackboard: a structural check of the pictures,
-    not a second proof."""
+    not a second proof.  Round 4 draws each re-tying in two moves (the re-knot, then the quarter
+    rings off with the counter) and, before the first, Achilles's prediction, pale: the cloth he
+    expects, every tie kept -- wrong about the drawing, right about the value."""
     import props_ch14
     import props_office as O
     check_bells()
-    calls = DIALOGUE.check_layout("Third", sizes=[1, 1, 1, 1])
+    calls = DIALOGUE.check_layout("Third", sizes=[1, 2, 1, 1, 1])
+    HALF = "half the left-back's touch"
     assert [(c.macro, c.keyed, c.opt, c.args, c.caption) for c in calls] == [
-        ("belltray", False, "", ("half the left-back's touch",), "Red round, green back"),
-        ("bowcloth", False, "re-tie at the left-back", ("half the left-back's touch",), "A vee on the left"),
-        ("belltray", False, "", ("half the left-back's touch; half the left-back's touch",), "Made whole"),
-        ("bowcloth", False, "re-tie at the left-back, half the left-back's touch, re-tie at the left-back",
-         ("half the left-back's touch",), "Back to the bow")]
+        ("belltray", False, "", (HALF,), "Red round, green back"),
+        ("bowcloth", False, "step=" + HALF, ("bare",), "The bow, threaded"),
+        ("bowcloth", False, HALF + "; step=re-knot at the left-back; expects=the same tray", ("bare",),
+         "as Achilles expects"),
+        ("bowclothsteps", False, "after=" + HALF + "; from=off", ("bare", "re-knot at the left-back; the quarter rings off"),
+         "The bow, unknotted; A vee on the left"),
+        ("belltray", False, "", (HALF + "; " + HALF,), "Made whole"),
+        ("bowclothsteps", False, "after=re-tie at the left-back; from=off",
+         (HALF, HALF + "; re-knot at the left-back; the quarter rings off"),
+         "The vee, threaded again; Knotted as before; Back to the bow")]
     PC.check_captions(DIALOGUE, "Third", calls)
     PC.check_section(DIALOGUE, "Third", calls)
-    PC.check_anchors(DIALOGUE, "Third", ["P3.1", "P3.2", "P3.3", "P3.4"])
+    assert PC.check_anchors(DIALOGUE, "Third") == (6, 10)                # B10's, P3.2, P3.4, both files
+    frames = [PC.frame_chain(c) for c in calls]
+    assert [len(f) for f in frames] == [1, 1, 1, 2, 1, 3]               # card 3e.6: 5 blocks, 9 frames
     tray_h, cloth_h = round(PC.TFTOP - PC.TFBOT, 2), 2.32
-    assert [[PC.height(c) for c in b] for b in DIALOGUE.blocks("Third")] == [[tray_h], [cloth_h], [tray_h], [cloth_h]]
-    p31, p32, p33, p34 = (PC.picture(c) for c in calls)
+    assert [[PC.height(c) for c in b] for b in DIALOGUE.blocks("Third")] == \
+        [[tray_h], [cloth_h, cloth_h], [cloth_h], [tray_h], [cloth_h]]  # B10's two share one height
+    (p31,), (thread,), (pale,), b11, (p33,), b13 = frames
+    p32, p34 = b11[-1], b13[-1]
     n, G = 5, graph_state(5, BOWTIE)
     LB = PC.BELLS.index("lb")
 
@@ -422,29 +460,112 @@ def pictures():
     assert np.allclose(red_q @ red_q, X) and np.allclose(green_b @ green_b, Z)
     assert np.allclose(tray_op(p33.state), K(n, BOWTIE, LB))           # "Made whole"
     assert np.allclose(tray_op(p33.state) @ G, G)
+    # the bell tray is the counted frame: never marked
+    for R in (p31, p33):
+        assert not R.marked and R.step is None and R.own == [] and R.mark_tikz == []
 
-    # P3.2: re-tied at the left-back -- the vee: the bow tie with the left-front--knot tie
-    # lost (local complementation at the left-back), laid at the near edge, one counter aside
+    # B10 f1, the bow threaded: half the touch on the bare bow-tie net, a slide arc for each ring
+    bare = PC.bow_state("", "bare")
+    bow_n = matrix_of(bow_net(bare)).ravel()
+    assert thread.before == bare and thread.step == HALF and [a.kind for a in thread.arcs] == ["slide"] * 3
+    assert thread.ghosts == [] and thread.pins == []
+    assert thread.dump.split(" | ")[0] == ("lb=0+cord:red6 lf=0+cord:green18 knot=0+cord:green18 rb=0+cord rf=0+cord "
+                                           "ties=knot-rb,knot-rf,lb-knot,lb-lf,lf-knot,rb-rf edge= aside=0")
+    assert np.allclose(value(thread), half @ bow_n)                     # the pieces are the half touch
+
+    # B11, the re-tying in two moves.  Frame 1 (the re-knot): the left-front--knot tie taken up and
+    # laid at the near edge, the quarter rings still on, nothing by the teapot yet: a state of the
+    # re-tying part-way.  Frame 2 (the quarter rings off): the vee, bare, one counter -- round 3's P3.2
+    f1 = b11[0]
+    assert f1.before == thread.state and f1.step == "re-knot at the left-back"
+    assert f1.state.edge == ["lf-knot"] and f1.state.aside == 0 and f1.state.reknot == {
+        "b": "lb", "nb": ["lf", "knot"], "lost": 1, "gained": 0}
+    assert all(f1.state.rings[b] == thread.state.rings[b] for b in PC.BELLS)
+    assert [a.kind for a in f1.arcs] == ["swing"] and f1.ghosts == []
+    assert p32.step == "the quarter rings off" and p32.before == f1.state
+    assert PC.check_ghosts(f1, p32) == ["the red ring (grid 0.75,0)", "the green ring (grid 0.75,2)",
+                                        "the green ring (grid 3.5,2)"]
+    assert p32.dump == PC.bowcloth("re-tie at the left-back", HALF).dump          # round 3's P3.2
+    # P3.2: the vee: the bow tie with the left-front--knot tie lost (local complementation at the
+    # left-back), laid at the near edge, one counter aside
     assert p32.dump.split(" | ")[0] == ("lb=0+cord lf=0+cord knot=0+cord rb=0+cord rf=0+cord "
                                         "ties=knot-rb,knot-rf,lb-knot,lb-lf,rb-rf edge=lf-knot aside=1")
     vee = ties_of(p32.state)
     assert vee == tau(BOWTIE, LB) and vee == norm(e for e in BOWTIE if e != (1, 2))
+    assert ties_of(f1.state) == vee
     assert p32.state.edge == ["lf-knot"] and p32.state.aside == 1
     assert (0, 1) in vee and (0, 2) in vee                              # "A vee on the left"
     # the first counter's number: the half touch on the bare bow-tie net is exactly 2^{-1/2}
     # times the bare vee net
-    bow_n, vee_n = matrix_of(bow_net(PC.bow_state("", "bare"))).ravel(), matrix_of(bow_net(p32.state)).ravel()
+    vee_n = matrix_of(bow_net(p32.state)).ravel()
     assert np.allclose(half @ bow_n, 2 ** -0.5 * vee_n)
     assert not np.allclose(half @ bow_n, vee_n)                         # the counter is needed
     assert np.allclose(vee_n, graph_state(n, vee))                      # five ties of five rings: no number
-    # P3.4: half the touch again and re-tied: back to the bow, the counter taken back
+    assert np.allclose(value(p32), value(thread))                       # the re-tying keeps the value
+
+    # B10 f2, the prediction (card 3e.6, item 7): `the same tray`, pale.  Its state is the named
+    # wrong rule's -- the cloth as it was before the step, every tie and the quarter rings kept,
+    # nothing by the teapot -- over the true re-knot, which takes the left-front--knot tie up
+    assert PC.is_prediction(calls[2]) and not calls[2].keyed and PC.options(calls[2])["expects"] == "the same tray"
+    assert pale.wrong == pale.before == thread.state and pale.after == f1.state
+    assert pale.state is pale.wrong and pale.dump == thread.dump        # its dump is B10 f1's
+    TEX = list(PC.TEX_ERRORS)
+    assert PC.the_same_tray(pale.before, pale.after, pale.step) == pale.wrong and PC.TEX_ERRORS == TEX
+    assert pale.wrong != pale.after and pale.tied == [("lf", "knot")]   # the telling part: the kept tie
+    assert not pale.marked and pale.arcs == pale.ghosts == pale.pins == []
+    # wrong about the drawing, not the value: the pale frame's value is the vee's with its counter.
+    # The pale dump and P3.2's differ in the kept tie (ties=, edge=), the counter (aside=) and the
+    # three quarter rings the rule keeps (card 3e.6 item 7 says "exactly the kept tie and the
+    # counter": it fails -- the quarter rings differ too -- and is reported, not weakened)
+    def fields(d):
+        return dict(x.split("=", 1) for x in d.split(" | ")[0].split(" "))
+    diff = {k for k, v in fields(pale.dump).items() if fields(p32.dump).get(k) != v}
+    assert diff == {"ties", "edge", "aside", "lb", "lf", "knot"}, diff
+    assert {k for k, v in fields(pale.dump).items() if fields(f1.dump).get(k) != v} | \
+        (set(fields(f1.dump)) - set(fields(pale.dump))) == {"ties", "edge", "reknot"}
+    assert np.allclose(value(pale), value(p32))
+    assert not same_picture(bow_net(pale.state), bow_net(p32.state))     # as nets they differ
+    # the rule as the Lua states it, word for word, on the card and in the planning comment of
+    # both dialogue files (card 3e.6, item 8); its quotations the dialogue's own
+    lua_rule = PC.rule_comment()
+    assert lua_rule.startswith("-- " + PC.RULE_COMMENT)
+    for path in (DIALOGUE.dialog, DIALOGUE.raw, DIALOGUE.dialog.with_name("identity.md")):
+        assert PC.rule_comment(path) == lua_rule, path.name
+    text = DIALOGUE.read(DIALOGUE.dialog) + DIALOGUE.read(DIALOGUE.raw)
+    quotes = PC.comment_quotes()
+    assert quotes == ["the same tray", "It's the same tray with three clips on.",
+                      "The tie is right there, sleeve and all!",
+                      "So the tray has every one of its cords, and the net you've drawn for it has lost one."]
+    assert all(q in text for q in quotes[1:])
+    # the rule foresees only a re-tying that takes a tie up
+    assert PC.faults(PC.run_frame, "bow", "step=push; expects=the same tray", "the knot's touch", False) == ["bow-rule-step"]
+
+    # B13: half the touch again and re-tied, move by move: back to the bow, the counter taken back
+    g1, g2, g3 = b13
+    assert g1.before == p32.state and g1.step == HALF
+    assert g1.dump.split(" | ")[0] == ("lb=0+cord:red6 lf=0+cord:green18 knot=0+cord:green18 rb=0+cord rf=0+cord "
+                                       "ties=knot-rb,knot-rf,lb-knot,lb-lf,rb-rf edge=lf-knot aside=1")
+    assert np.allclose(value(g1), 2 ** -0.5 * half @ vee_n)
+    assert g2.step == "re-knot at the left-back" and ties_of(g2.state) == norm(BOWTIE) and g2.state.edge == []
+    assert g2.state.reknot == {"b": "lb", "nb": ["lf", "knot"], "lost": 0, "gained": 1} and g2.state.aside == 1
+    assert PC.check_ghosts(g2, g3) == ["the red ring (grid 0.75,0)", "the green ring (grid 0.75,2)",
+                                       "the green ring (grid 3.5,2)", "the counter taken back"]
+    assert p34.dump == PC.bowcloth("re-tie at the left-back, " + HALF + ", re-tie at the left-back", HALF).dump
+    # P3.4: back to the bow -- B11 then B13 compose to no change: the bare bow, every tie in place,
+    # no counter, P2.2's dump, exactly ("two re-tyings make no change")
     assert p34.dump == PC.bowcloth("", "bare").dump and p34.state.aside == 0 and p34.state.edge == []
     assert ties_of(p34.state) == norm(BOWTIE) == tau(vee, LB)           # "Back to the bow"
+    assert same_picture(bow_net(p34.state), bow_net(bare))
     # the second counter's number: the half touch on the bare vee net is exactly 2^{1/2} times
     # the bare bow-tie net; the two numbers multiply to 1: taking the counter back is exact
     assert np.allclose(half @ vee_n, 2 ** 0.5 * bow_n)
     assert np.isclose(2 ** -0.5 * 2 ** 0.5, 1)
-    assert same_picture(bow_net(p34.state), bow_net(PC.bow_state("", "bare")))
+    assert np.allclose(value(p34), value(g1)) and np.allclose(value(p34), bow_n)
+    # the captions' truth: unknotted (a tie at the near edge), threaded again (the vee's pieces),
+    # knotted as before (the bow's ties, the pieces still on)
+    assert f1.state.edge and g1.state.rings["lb"]["piece"] == ("red", 6) and ties_of(g2.state) == ties_of(thread.state)
+    # every slide arc runs from where a part was to where a part arrives (the threading, the rings off)
+    assert [PC.check_slides(R) for R in (thread, f1, p32, g1, g2, p34)] == [3, 0, 3, 3, 0, 3]
 
     # the counter (P3.2): off the linen, beyond its near edge and its shadow, inside the frame,
     # clear of every cloth part; the laid tie and its tube lie on the linen
@@ -464,6 +585,8 @@ def pictures():
         assert left < x_ - laid[0][1] and x_ + laid[0][1] < right and bottom < y_ - laid[0][1] < y_ + laid[0][1] < top
     t = tubes[0][2]
     assert left < t[0] and t[2] < right and bottom < t[1] and t[3] < top
+    for R in (thread, pale) + tuple(b11) + tuple(b13):
+        rings_in_place(R)
 
     # the clips (P3.1, P3.3): the trays' sixteen cords unchanged.  A ring's first clip keeps
     # its single-clip place exactly (P3.3 against P3.1, and likewise on the right wing and at
@@ -502,6 +625,220 @@ def pictures():
         assert len(cl) == 2 * len(single.shown.clips)
     assert sorted(least) == sorted(PC.BELLS)                            # every ring's pair measured
     assert not PC.TEX_ERRORS
+    check_faults()
+
+
+F, T = False, True
+FAULT_CASES = [
+    # \cradlemodel (merr)
+    ("model-seating", "model", F, "", "sideways"),
+    ("model-tips", "model", F, "", "Dark blue up, pale red front"),
+    ("model-same", "model", F, "", "Dark green up, dark green front"),
+    ("model-opposite", "model", F, "", "Dark green up, pale green front"),
+    ("model-unseated", "model", F, "an eighth, quarter", "home"),
+    ("model-line", "model", F, "a half about the blue line", "home"),
+    ("model-move", "model", F, "spin", "home"),
+    # \belltray (terr)
+    ("tray-colours", "tray", F, "", "red a half on the knot; green a half on the knot"),
+    ("tray-two", "tray", F, "", "green a half on the knot; green a half on the knot; green a half on the knot"),
+    ("tray-bell-touch", "tray", F, "", "the moon's touch"),
+    ("tray-bell-off", "tray", F, "", "off the moon"),
+    ("tray-bead", "tray", F, "", "red a lot on the knot"),
+    ("tray-bell-clip", "tray", F, "", "red a half on the moon"),
+    ("tray-clause", "tray", F, "", "whatever"),
+    # \trayledger (lerr)
+    ("ledger-rows", "ledger", F, "", "some rows"),
+    ("ledger-update", "ledger", F, "a twist on the knot", "the tray's rows"),
+    ("ledger-bell", "ledger", F, "an over on the moon", "the tray's rows"),
+    ("ledger-empty", "ledger", F, "an over on the knot", ""),
+    ("ledger-twice", "ledger", F, "an over on the knot, an over on the knot", "the tray's rows"),
+    # \bowcloth (berr)
+    ("bow-lay-cord", "bow", F, "cap every loose cord, the left-back's touch", "bare"),
+    ("bow-lay-piece", "bow", F, "", "the knot's touch; the knot's touch"),
+    ("bow-touch-ring", "bow", F, "", "the moon's touch"),
+    ("bow-touch-out", "bow", F, "cap every loose cord, pull out the left-back, the left-back's touch", "bare"),
+    ("bow-piece", "bow", F, "", "sideways"),
+    ("bow-busy", "bow", F, "push the red half in, the knot's touch", "the knot's touch"),
+    ("bow-push-half", "bow", F, "push", "half the knot's touch"),
+    # reachable only past a fault of the pieces: two touches lay on the knot's one cord
+    ("bow-push-rest", "bow", F, "push, the knot's touch, push", "the left-back's touch; the right-back's touch",
+     ("bow-lay-piece", "bow-push-rest")),
+    ("bow-push-none", "bow", F, "push", "bare"),
+    ("bow-retie-ring", "bow", F, "re-tie at the moon", "half the left-back's touch"),
+    ("bow-retie-knot", "bow", F, "re-tie at the knot", "half the left-back's touch"),
+    ("bow-retie-needs", "bow", F, "re-tie at the left-back", "bare"),
+    ("bow-cap", "bow", F, "cap every loose cord", "the knot's touch"),
+    ("bow-pull-ring", "bow", F, "pull out the moon", "bare"),
+    ("bow-pull-knot", "bow", F, "pull out the knot", "bare"),
+    ("bow-pull-twice", "bow", F, "cap every loose cord, pull out the left-back, pull out the left-back", "bare"),
+    ("bow-pull-needs", "bow", F, "pull out the left-back", "bare"),
+    ("bow-redin-one", "bow", F, "push the red half in", "bare"),
+    ("bow-redin-half", "bow", F, "push the red half in", "half the knot's touch"),
+    ("bow-tubes-none", "bow", F, "through the tubes", "bare"),
+    ("bow-far-none", "bow", F, "into the far rings", "bare"),
+    ("bow-waiting-none", "bow", F, "the waiting halves in", "bare"),
+    ("bow-reknot-ring", "bow", F, "re-knot at the moon", "half the left-back's touch"),
+    ("bow-reknot-knot", "bow", F, "re-knot at the knot", "half the left-back's touch"),
+    ("bow-reknot-needs", "bow", F, "re-knot at the left-back", "bare"),
+    ("bow-off-none", "bow", F, "the quarter rings off", "bare"),
+    ("bow-capl-bare", "bow", F, "cap the loose cords", "the knot's touch"),
+    ("bow-capl-none", "bow", F, "cap every loose cord, cap the loose cords", "bare"),
+    ("bow-slide-none", "bow", F, "slide the caps in", "bare"),
+    ("bow-op", "bow", F, "wiggle", "bare"),
+    # \eighthcloth (ierr)
+    ("eighth-scene", "eighth", F, "", "sideways"),
+    ("eighth-close", "eighth", F, "close dark, close dark", "the eighth-end"),
+    ("eighth-slide", "eighth", F, "slide the end-ring in", "the eighth-end"),
+    ("eighth-lift", "eighth", F, "lift the red ring", "the eighth-end"),
+    ("eighth-push", "eighth", F, "push the half into the eighth-end", "the eighth-end"),
+    ("eighth-up", "eighth", F, "slide the eighth-end up", "the eighth-end"),
+    ("eighth-beside", "eighth", F, "a quarter round beside it, a quarter round beside it", "the eighth-end"),
+    ("eighth-slidein", "eighth", F, "slide it in", "the eighth-end"),
+    ("eighth-thread", "eighth", F, "thread the joiner", "the eighth-end"),
+    ("eighth-tie", "eighth", F, "tie on the eighth-end", "the eighth-end"),
+    ("eighth-step", "eighth", F, "wiggle", "the eighth-end"),
+    # the bracket (oerr)
+    ("opt-unknown", "model", F, "quarter; colour=red", "home"),
+    ("opt-twice", "model", F, "step=quarter; step=quarter", "home"),
+    ("opt-bare-two", "model", F, "quarter; back; step=over", "home"),
+    ("opt-onoff", "model", F, "step=quarter; marks=maybe", "home"),
+    ("marks-no-step", "model", F, "marks=on", "home"),
+    ("expects-keyed", "bow", T, "step=re-tie at the left-back; expects=the same tray", "half the left-back's touch"),
+    ("expects-marked", "bow", F, "step=re-tie at the left-back; marks=on; expects=the same tray", "half the left-back's touch"),
+    ("marks-keyed", "model", T, "step=quarter", "home"),
+    # \cradlemodel (oerr)
+    ("model-rule", "model", F, "step=quarter; expects=surer", "home"),
+    ("model-step-one", "model", F, "step=quarter, back", "home"),
+    ("model-step-empty", "model", F, "step=", "home"),
+    # \belltray (oerr)
+    ("tray-bracket-old", "tray", F, "red", ""),
+    ("tray-bracket-bare", "tray", F, "red; marks=off", ""),
+    ("tray-marks", "tray", F, "step=the knot's touch; marks=on", ""),
+    ("tray-rule", "tray", F, "step=the knot's touch; expects=surer", ""),
+    ("tray-step-empty", "tray", F, "step=", ""),
+    # \bowcloth (oerr)
+    ("bow-rule-step", "bow", F, "step=push; expects=the same tray", "the knot's touch"),
+    ("bow-rule-none", "bow", F, "re-tie at the left-back, half the left-back's touch; step=re-tie at the left-back; "
+     "expects=the same tray", "half the left-back's touch"),
+    ("bow-halves-keyed-old", "bow", T, "push the red half in", "the knot's touch"),
+    ("bow-step-one", "bow", F, "step=push, push", "the knot's touch"),
+    ("bow-step-empty", "bow", F, "step=", "bare"),
+    ("bow-rule", "bow", F, "step=re-tie at the left-back; expects=surer", "half the left-back's touch"),
+    ("bow-rule-nostep", "bow", F, "expects=the same tray", "half the left-back's touch"),
+    # the step it foresees refused: the refusal is a fault of its own
+    ("bow-rule-refused", "bow", F, "step=re-tie at the left-back; expects=the same tray", "bare",
+     ("bow-retie-needs", "bow-rule-refused")),
+    ("bow-halves-keyed", "bow", T, "step=push the red half in; marks=off", "the knot's touch"),
+    # \eighthcloth (oerr)
+    ("eighth-rule", "eighth", F, "step=close dark; expects=surer", "the eighth-end"),
+    ("eighth-step-one", "eighth", F, "step=close dark, close lit", "the eighth-end"),
+    ("eighth-reading", "eighth", F, "step=the dark reading", "the eighth-end"),
+    ("eighth-step-empty", "eighth", F, "step=", "the eighth-end"),
+    # the strips (oerr): (site, "steps", keyed, kind, scene, options, steps, captions[, want])
+    ("strip-unknown", "steps", F, "bogus", "home", "", "quarter", "a", ("strip-unknown", "strip-captions")),
+    ("strip-bare", "steps", F, "model", "home", "odd", "quarter", "a; b"),
+    ("strip-star-from", "steps", T, "model", "home", "from=off", "quarter", "a"),
+    ("strip-none", "steps", F, "model", "home", "", "", "a"),
+    ("strip-commas-tray", "steps", F, "tray", "", "", "the knot's touch, off the knot", "a; b"),
+    ("strip-commas", "steps", F, "model", "home", "", "quarter, back", "a; b"),
+    ("strip-long", "steps", F, "model", "home", "", "quarter; back; quarter; back", "a; b; c; d; e"),
+    ("strip-captions", "steps", F, "model", "home", "", "quarter", "a; b; c"),
+]
+
+
+def check_faults():
+    """Every fault site of the chapter's Lua raised by its own call, alone (the strip faults by the
+    strip alone, as TeX raises them before any frame runs), with messages of its own (the Lua's three shared messages
+    excepted, PC.REPEATED); three sites
+    are reached only with a second fault each (named in the cases); the 97 sites are the Lua's,
+    all of them; a refused step draws no marks; the ';' bracket is order-free, each order run."""
+    seen = {}
+    for case in FAULT_CASES:
+        site = case[0]
+        if case[1] == "steps":
+            _, _, keyed, kind, scene, opt, stepspec, caps = case[:8]
+            want = case[8] if len(case) > 8 else (site,)
+            fn, args = PC.steps, (kind, keyed, scene, opt, stepspec, caps)
+        else:
+            _, kind, keyed, br, state = case[:5]
+            want = case[5] if len(case) > 5 else (site,)
+            fn, args = PC.run_frame, (kind, br, state, keyed)
+        assert tuple(dict.fromkeys(PC.faults(fn, *args))) == tuple(want), (site, PC.TEX_ERRORS)
+        msgs = {m for s_, m in zip(PC.faults(fn, *args), PC.messages(fn, *args)) if s_ == site}
+        assert msgs, site                                                # its own messages (one per part named)
+        for m in msgs:
+            assert m not in seen or any(site in grp and seen[m] in grp for grp in PC.REPEATED), site
+            seen.setdefault(m, site)
+    # the mutual-exclusion checks are made on the whole parse: every order of a refused bracket's
+    # items raises the same faults (and a strip's options, likewise)
+    orders = 0
+    for case in FAULT_CASES:
+        if case[1] == "steps":
+            _, _, keyed, kind, scene, opt, stepspec, caps = case[:8]
+            items, fn = opt.split("; "), lambda br: PC.faults(PC.steps, kind, keyed, scene, br, stepspec, caps)
+        else:
+            _, kind, keyed, br, state = case[:5]
+            items, fn = br.split("; "), lambda br: PC.faults(PC.run_frame, kind, br, state, keyed)
+        if len(items) < 2:
+            continue
+        want = sorted(fn("; ".join(items)))
+        for order in itertools.permutations(items):
+            assert sorted(fn("; ".join(order))) == want, (case[0], order)
+            orders += 1
+    assert orders >= 20
+    # a step the Lua refuses draws no marks; the same kind of step taken draws them
+    refused = 0
+    for case in FAULT_CASES:
+        if case[1] != "steps" and "step=" in case[3]:
+            PC.TEX_ERRORS.clear()
+            p = PC.run_frame(case[1], case[3], case[4], case[2])
+            if p.refused:
+                refused += 1
+                assert p.mark_tikz == [] and p.ghosts == [] and p.arcs == [] and p.pins == [], case[0]
+                assert "no marks: the step was refused" in p.notes, case[0]
+    # and each family's refused step, in the step= form (the cases above give most of them in the
+    # round-3 form)
+    for kind, br, state, site in (("model", "step=a half about the blue line", "home", "model-line"),
+                                  ("model", "an eighth; step=quarter", "home", "model-unseated"),
+                                  ("bow", "step=re-knot at the left-back", "bare", "bow-reknot-needs"),
+                                  ("bow", "step=pull out the left-back", "bare", "bow-pull-needs"),
+                                  ("bow", "step=the waiting halves in", "bare", "bow-waiting-none"),
+                                  ("eighth", "step=slide the end-ring in", "the eighth-end", "eighth-slide"),
+                                  ("eighth", "step=lift the red ring", "the eighth-end", "eighth-lift")):
+        PC.TEX_ERRORS.clear()
+        p = PC.run_frame(kind, br, state, False)
+        assert [s_ for s_, _ in PC.TEX_ERRORS] == [site] and p.refused, (kind, br)
+        assert p.mark_tikz == [] and p.ghosts == [] and p.arcs == [] and p.pins == [], (kind, br)
+        assert "no marks: the step was refused" in p.notes, (kind, br)
+        refused += 1
+    assert refused >= 8
+    PC.TEX_ERRORS.clear()
+    for kind, br, state in (("model", "step=quarter", "home"), ("bow", "step=the knot's touch", "bare"),
+                            ("eighth", "close dark; step=slide the end-ring in", "the eighth-end")):
+        assert PC.run_frame(kind, br, state, False).mark_tikz and not PC.TEX_ERRORS, kind
+    # the bell tray is never marked: marks= is refused on it, and a tray step draws nothing of its own
+    assert PC.faults(PC.run_frame, "tray", "step=the knot's touch; marks=on", "", False) == ["tray-marks"]
+    PC.TEX_ERRORS.clear()
+    assert PC.run_frame("tray", "step=the knot's touch", "", False).mark_tikz == [] and not PC.TEX_ERRORS
+    assert [c[0] for c in FAULT_CASES] == [k for k, _ in PC.TEX_SITES] and len(PC.ERROR_SITES) == 97
+    assert {k.rstrip("("): v for k, v in PC.SITE_COUNTS.items()} == {"merr": 7, "terr": 7, "lerr": 5, "berr": 30, "ierr": 11, "oerr": 37}
+    assert sum(PC.SITE_COUNTS.values()) == 97
+    PC.check_sites()                                                     # the wrappers' tex.error calls
+    PC.check_lua()                                                       # every chunk as transcribed, pinned
+    # the bracket is order-free: every order of a frame's items draws the same frame
+    for kind, state, items in (
+            ("model", "home", ["quarter", "step=over", "marks=on"]),
+            ("bow", "bare", ["half the left-back's touch", "step=re-knot at the left-back", "expects=the same tray"]),
+            ("bow", "the knot's touch", ["step=push the red half in", "marks=off"]),
+            ("eighth", "the eighth-end", ["close lit", "step=slide the end-ring in", "marks=on"])):
+        dumps = set()
+        for order in itertools.permutations(items):
+            PC.TEX_ERRORS.clear()
+            R = PC.run_frame(kind, "; ".join(order), state, False)
+            assert not PC.TEX_ERRORS, (kind, order)
+            dumps.add((R.dump, tuple(R.mark_tikz)))
+        assert len(dumps) == 1, (kind, items)
+    PC.TEX_ERRORS.clear()
 
 
 # --- the sketchbook ----------------------------------------------------------------------

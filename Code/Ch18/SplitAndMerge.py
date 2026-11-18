@@ -125,24 +125,126 @@ FIFTH_DUMPS = (
 )
 
 
+FRAME_DUMPS = (                                        # the log's dump, frame by frame (card 3e.6, item 6)
+    'joiner | cols=6 rows=3 y=0..2 near=false folded=false; gaps=1.5; 1:ring green 0 @1,0; 2:ring red 0 @3,2; tie '
+    '1-2 []; cord loose-loose [-0.3,0 5.3,0]; cord loose-loose [-0.3,2 5.3,2]',
+    'out | cols=6 rows=3 y=0..2 near=false folded=false; gaps=1.5; 1:ring green 0 @1,0; 2:ring red 0 @3,2; cord '
+    '1-2 [1,0 1,1 3,1 3,2]; cord loose-loose [-0.3,0 5.3,0]; cord loose-loose [-0.3,2 5.3,2]',
+    'out,half | cols=6 rows=3 y=0..2 near=false folded=false; gaps=1.5; 1:ring green 0 @1,0; 2:ring green 12 '
+    '@2.25,1; 3:ring red 0 @3,2; cord 1-3 [1,0 1,1 3,1 3,2]; cord loose-loose [-0.3,0 5.3,0]; cord loose-loose '
+    '[-0.3,2 5.3,2]',
+    'out,half,into | cols=6 rows=3 y=0..2 near=false folded=false; gaps=1.5; 1:ring green 12 @1,0; 2:ring red 0 '
+    '@3,2; cord 1-2 [1,0 1,1 3,1 3,2]; cord loose-loose [-0.3,0 5.3,0]; cord loose-loose [-0.3,2 5.3,2]',
+    'out,half,into,apart | cols=6 rows=3 y=0..2 near=false folded=false; gaps=1.5; 1:ring green 0 @1,0; 2:ring '
+    'green 12 @2,0; 3:ring red 0 @3,2; cord 1-3 [1,0 1,1 3,1 3,2]; cord loose-loose [-0.3,0 5.3,0]; cord '
+    'loose-loose [-0.3,2 5.3,2]',
+    'out,half,into,apart,crab | cols=6 rows=3 y=0..2 near=false folded=false; gaps=1.5; 1:ring green 0 @1,0; '
+    '2:ring green 12 @2,0; 3:ring green 12 @3,0; 4:ring red 0 @3,2; cord 1-4 [1,0 1,1 3,1 3,2]; cord loose-loose '
+    '[-0.3,0 5.3,0]; cord loose-loose [-0.3,2 5.3,2]',
+    'out,half,into,apart,crab,together | cols=6 rows=3 y=0..2 near=false folded=false; gaps=1.5; 1:ring green 0 '
+    '@1,0; 2:ring red 0 @3,2; cord 1-2 [1,0 1,1 3,1 3,2]; cord loose-loose [-0.3,0 5.3,0]; cord loose-loose '
+    '[-0.3,2 5.3,2]',
+)
+
+
+# an arc ends beside its ring: a hop HOPR from its centre, a route ROUTER, the third strand's 0.16 (its end
+# set back past the parting ring's ties); every one within NEAR
+NEAR = 0.17
+GRID = re.compile(r"no ghost of the (\w+) (\w+) \(grid ([-\d.]+),([-\d.]+)\): (.+)")
+
+
+def check_cloth_marks(R, scene_of, opts, who, extra=()):
+    """A cloth step's marks, on the drawn extent (card 3e.6): every piece of the state before that
+    left its place has a ghost there, the size of a ring, or the log says why it has none; every
+    ghost stands on such a piece (or on one of `extra`, a place that is no piece of the cloth's
+    table); every arc runs from beside a piece of the state before to beside a piece of the step's
+    state (or to one of this step's ghosts: a ring slid into one that goes with it), another place, bowed at least the Lua's floor and clear of the net by its clearance;
+    pieces gone and no arc drawn: the log says why."""
+    S0, S1 = scene_of(R.before), scene_of(R.after)
+    g = PC.G(S1, opts, who)
+    at = lambda S: {(t["x"], t["y"]): (t["kind"], t["c"]) for t in S["things"]}
+    old, new = at(S0), at(S1)
+    gone = {p for p in old if p not in new}
+    hidden = {p for p in old if p in new and new[p] != old[p]}
+    said = {(float(x), float(y)): why for c, kw, x, y, why in (m.groups() for m in map(GRID.fullmatch, R.notes) if m)}
+    for p in hidden:
+        assert said.get(p) == "the piece lying on its place now hides it", p
+    ghosted = set()
+    for q in R.ghosts:
+        assert np.isclose(q[2], g.RO), q.what
+        here = [p for p in gone if np.allclose(q[:2], g.XY(p), atol=1e-3)]
+        assert here or any(np.allclose(q[:2], e, atol=1e-3) for e in extra), q.what
+        ghosted |= set(here)
+    assert gone - ghosted <= set(said), (gone, ghosted, said)          # a piece gone: ghosted, or why not
+    assert not (ghosted & set(said)), ghosted & set(said)
+    near = lambda pt, places: min(((np.hypot(pt[0] - c[0], pt[1] - c[1]), c) for c in places), key=lambda u: u[0])
+    for a in R.arcs:
+        assert a.kind == "slide" and a.sag >= PC.MINSAG - 1e-9 and a.fit[0] >= PC.MINCLEAR - 1e-9, (a.what, a.sag, a.fit)
+        d0, c0 = near(a.frm, [g.XY(p) for p in old] + list(extra))
+        d1, c1 = near(a.to, [g.XY(p) for p in new] + [tuple(q[:2]) for q in R.ghosts])   # or this step's ghost: both gone
+        assert d0 < NEAR and d1 < NEAR and c0 != c1, (a.what, d0, d1)
+    if gone and not R.arcs:
+        assert any(n.startswith("no arc") for n in R.notes), R.step
+    assert len(R.mark_tikz) >= len(R.arcs) + len(R.ghosts)
+
+
+# the dialogue's blocks (card 3e.6, item 5): calls per block, and frames per section
+SIZES = {"First": [1, 1, 2, 1], "Second": [1, 1, 1, 1, 1, 1], "Third": [2, 1, 1], "Fourth": [1, 1], "Fifth": [1, 1, 1, 1]}
+FRAMES = {"First": 10, "Second": 10, "Third": 5, "Fourth": 2, "Fifth": 7}
+
+
 def pictures():
-    """The Fifth Challenge's prop pictures (identity card, section 4), read from the dialogue
-    through tools/dfp_props.py and the transcription tools/props_ch18.py, and held against this
-    file's joiner pictures (graph_of: a structural reading of each cloth dump, not a proof);
-    then the checks of card section 4 on the whole dialogue."""
-    calls = DIALOGUE.check_layout("Fifth", sizes=[1, 1, 1, 1])
+    """The Fifth Challenge's prop pictures (identity card, sections 4 and 3e), read from the
+    dialogue through tools/dfp_props.py and the transcription tools/props_ch18.py, and held against
+    this file's joiner pictures (graph_of: a structural reading of each cloth dump, not a proof);
+    then the checks of card section 4 on the whole dialogue.  Round 4 draws the half set on the
+    string, slid back into the split and slid apart, and the Crab's half laid beside hers before
+    the two slide together."""
+    calls = DIALOGUE.check_layout("Fifth", sizes=SIZES["Fifth"])
     assert [(c.macro, c.keyed, c.opt, c.args, c.caption) for c in calls] == [
         ("splitcloth", True, "", (), "Clipped across"),
         ("splitcloth", False, "drawn out", (), "Drawn out long"),
-        ("splitcloth", False, "drawn out, half on the string, slid into the split, slid apart", (), "Slid back and apart"),
-        ("splitcloth", False, "drawn out, half on the string, slid into the split, slid apart, crab's half beside, "
-                              "slid together", (), "Nothing left over")]
+        ("splitclothsteps", False, "after=drawn out; from=off", ("half on the string; slid into the split; slid apart",),
+         "A green ring set on; Back into the split; Then slid apart"),
+        ("splitclothsteps", False, "after=drawn out, half on the string, slid into the split, slid apart; from=off",
+         ("crab's half beside; slid together",), "The Crab's ring beside; Nothing left over")]
     PC.check_captions(DIALOGUE, "Fifth", calls)
     PC.check_section(DIALOGUE, "Fifth", calls)
-    PC.check_anchors(DIALOGUE, "Fifth", ["P5.1", "P5.2", "P5.3", "P5.4"])
-    pics = [PC.picture(c) for c in calls]
-    p51, p52, p53, p54 = pics
-    assert tuple(p.dump for p in pics) == FIFTH_DUMPS
+    assert PC.check_anchors(DIALOGUE, "Fifth", PC.BLOCKS["Fifth"]) == (2, 4)    # next-starts, phrases before
+    frames = [PC.frame_chain(c) for c in calls]
+    assert [len(f) for f in frames] == [1, 1, 3, 2] and sum(map(len, frames)) == FRAMES["Fifth"]
+    assert tuple(R.head for f in frames for R in f) == FRAME_DUMPS          # the log's dump, frame by frame
+    assert all(R.head == R.dump for f in frames for R in f)
+    (p51,), (p52,), b53, b54 = frames
+    p53, p54 = b53[-1], b54[-1]
+    pics = [p51, p52, p53, p54]
+    assert tuple(p.dump for p in pics) == FIFTH_DUMPS                     # round 3's pictures, as last frames
+    # the strips take up where the block before stops
+    chain = [p52] + b53 + b54
+    for P, R in zip(chain, chain[1:]):
+        assert R.before == P.drawn, R.step
+    assert [R.step for R in chain[1:]] == ["half on string", "slid into split", "slid apart", "crab's half beside", "slid together"]
+    # the marks: the half and the Crab's half come from a box and a claw (no marks); each slide its
+    # arc, the half's ghost where it lay on the string, the two halves' ghosts where they met
+    for R in chain[1:]:
+        if R.step in ("half on string", "crab's half beside"):
+            assert not R.marked and R.mark_tikz == R.arcs == R.ghosts == []
+            assert R.notes[1] == "no marks: " + PC.SPLITMARKLESS["half" if R.step == "half on string" else "crab"]
+        else:
+            assert R.marked
+            check_cloth_marks(R, PC.split_scene, PC.SPLITOPTS, PC.JWHO)
+    assert [len(R.arcs) for R in chain[1:]] == [0, 1, 1, 0, 1] and [len(R.ghosts) for R in chain[1:]] == [0, 1, 0, 0, 2]
+    assert "no arc for the ring left at rest: unclipped into her box" in p54.notes
+    # E1: the Crab's goes into hers -- his ring (3,0) beside hers (2,0), the half slid apart; both
+    # gone after (they cancel), so the arc's way is asserted here, from his to hers
+    (crab_arc,) = p54.arcs
+    gj = PC.G(PC.split_scene(p54.after), PC.SPLITOPTS, PC.JWHO)
+    mine, his = gj.XY((2, 0)), gj.XY((3, 0))
+    assert [n[1:] for n in PC.parse_dump(b54[0].dump)[0].values() if n[0] == "ring" and n[4] == 0.0] == [
+        ("green", 0, 1.0, 0.0), ("green", 12, 2.0, 0.0), ("green", 12, 3.0, 0.0)]
+    assert np.hypot(*np.subtract(crab_arc.frm, his)) < NEAR and np.hypot(*np.subtract(crab_arc.to, mine)) < NEAR
+    assert np.hypot(*np.subtract(crab_arc.frm, mine)) > NEAR
+
     steps = ["drawn out", "half on the string", "slid into the split", "slid apart", "crab's half beside",
              "slid together"]
     every = [PC.splitcloth(", ".join(steps[:k])) for k in range(7)]
@@ -171,6 +273,20 @@ def pictures():
     assert same_picture(g[3], bare)
     crab = PC.graph_of(every[5].dump)                              # beside, not yet slid: the same
     assert same_picture(crab, bare)
+    # round 4, frame by frame (card 3e.6, item 7): P5.3's three frames -- the half on the string,
+    # back in the split, slid apart -- each the joiner after tails with its half, exactly; P5.4's
+    # first frame, the Crab's half beside hers, already the plain joiner (his half cancels the tails
+    # half), and equal to its last, "Nothing left over"
+    for R in b53:
+        gR = PC.graph_of(R.dump)
+        assert np.allclose(matrix_of(gR), zc) and not same_picture(gR, bare), R.step
+        assert same_picture(gR, g[2]), R.step
+    assert same_picture(PC.graph_of(b53[0].dump), surgery(1))
+    g54 = [PC.graph_of(R.dump) for R in b54]
+    assert same_picture(g54[0], bare) and same_picture(g54[0], g54[1]) and same_picture(g54[1], g[3])
+    # the plausible mix-up: the Crab's half laid by hers but read as on the lower line is not the joiner
+    lower = b54[0].dump.replace("3:ring green 12 @3,0", "3:ring green 12 @4,2")
+    assert lower != b54[0].dump and not same_picture(PC.graph_of(lower), bare)
 
     # captions against their dumps
     head = [p.dump.split(" | ")[0].split(",") for p in pics]
@@ -210,15 +326,39 @@ def pictures():
     # --- the whole dialogue (card section 4): the sections in order, every picture inside one;
     # the starred form on the first picture of each macro; no negative anchor in either file
     ORD = PC.ORDER
-    assert DIALOGUE.check_whole(ORD) == 17
+    assert tuple(ORD) == tuple(SIZES) == tuple(PC.BLOCKS)
+    assert DIALOGUE.check_whole(ORD) == sum(sum(v) for v in SIZES.values())                  # 21 calls
+    assert sum(len(DIALOGUE.blocks(o)) for o in ORD) == sum(len(v) for v in SIZES.values())   # 19 blocks
+    assert [[len(b) for b in DIALOGUE.blocks(o)] for o in ORD] == list(SIZES.values())
+    every_call = [c for o in ORD for b in DIALOGUE.blocks(o) for c in b]
+    every_frame = [(R, cap) for c in every_call for R, cap in PC.pictures(c)]
+    assert len(every_frame) == sum(FRAMES.values())                                         # 34 frames
+    assert [sum(len(PC.pictures(c)) for b in DIALOGUE.blocks(o) for c in b) for o in ORD] == list(FRAMES.values())
+    assert sum(1 for c in every_call if PC.is_strip(c)) == 8
+    # the starred form on the first picture of each macro (a strip by its frames' macro, the star
+    # keying its before-frame), and only there, frame by frame
     DIALOGUE.keyed_first(ORD, kind=PC.keyed_kind)
     starred = [(o, c.macro) for o in ORD for b in DIALOGUE.blocks(o) for c in b if c.keyed]
-    assert starred == [("First", "plaintin"), ("First", "partcloth"), ("First", "stormline"),
-                       ("Second", "linecloth"), ("Third", "tubecloth"), ("Fifth", "splitcloth")]
+    assert starred == [("First", "plaintinsteps"), ("First", "partclothsteps"), ("First", "stormline"),
+                       ("Second", "linecloth"), ("Third", "tubeclothsteps"), ("Fifth", "splitcloth")]
+    seen = set()
+    for R, cap in every_frame:
+        m = PC.KIND_MACRO[R.kind]
+        assert (R.keyed is True) == (m not in seen), cap
+        seen.add(m)
+    # section 4's forbidden places, every call (a strip by its frames' macro) in both files; a
+    # strip set where its macro may not stand is refused as its frames would be
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        text = DIALOGUE.read(path)
+        for o in ORD:
+            for c in (c for b in DIALOGUE.blocks(o, path) for c in b):
+                assert PC.place_ok(o, c, text), (path, c.text)
+    strip_ = next(c for c in every_call if c.macro == "tubeclothsteps")
+    assert PC.macro_of(strip_) == "tubecloth" and not PC.place_ok("Fifth", strip_, DIALOGUE.read(DIALOGUE.dialog))
     PC.check_negative_anchors(DIALOGUE)
-    every_call = [c for o in ORD for b in DIALOGUE.blocks(o) for c in b]
-    for c in every_call:                                           # the Cat is never drawn or named
-        assert not re.search(r"\bcat\b", c.caption + " " + " ".join(PC.picture(c).labels), re.I)
+    assert len(PC.NEG) == 35 and len(PC.PIC_ANCHORS) == 17 and sum(map(len, PC.D_ANCHORS.values())) == 60
+    for R, cap in every_frame:                                     # the Cat is never drawn or named
+        assert not re.search(r"\bcat\b", cap + " " + " ".join(R.labels), re.I)
     # the form check of card section 1c, the signal grep, the hooks, the Genie, the Cat, on both files
     for path in (DIALOGUE.dialog, DIALOGUE.raw):
         text = pathlib.Path(path).read_text(encoding="utf-8")
@@ -231,6 +371,13 @@ def pictures():
         assert not re.search(r"\b(eighteen|eighteenth|18)\b", text, re.I)
         assert text.count("Let Bob draw") == 0 and text.count("**Genie") == 0
         assert PC.cat_count(text) == 4
+        # the last picture block comes before the Crab's definite question (is it asleep?) and the
+        # Cat's line: nothing is drawn once the Cat is to be measured
+        t = DIALOGUE.read(path)
+        last_pic = t.rindex("\\end{center}")
+        crabq = [m.start() for m in re.finditer(r"^\*\*Crab:\*\*.*\basleep\b.*\?\s*$", t, flags=re.M | re.I)]
+        catline = [m.start() for m in re.finditer(r"^\*\*Cat:\*\*", t, flags=re.M)]
+        assert crabq and catline and last_pic < crabq[-1] and last_pic < catline[-1]
 
 
 # ------------------------------------------------------------------------------ pictures

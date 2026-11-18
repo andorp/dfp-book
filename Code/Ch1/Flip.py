@@ -9,10 +9,11 @@ import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools"))
 
 import itertools
-import re
 
 import numpy as np
 from dfp import I2, Picture, ket, matrix_of, same_picture, verdict
+from dfp_props import Dialogue
+import props_ch01 as P
 
 X = np.array([[0, 1], [1, 0]], dtype=complex)      # NOT
 S0 = np.array([[1, 1], [0, 0]], dtype=complex)     # SET-0: "heads up, whatever it was"
@@ -34,183 +35,24 @@ def blackboard():
 
 # --------------------------------------------------------------------------
 # The pictures.  The dialogue draws the Tortoise's string with
-# \tagstring[place]{start}{tags}{caption} (pdf/props/ch01.tex; the rules are in
-# pdf/props/ch01.lua).  start is the end tag as tied; tags are hung left to
-# right, "over" for "turn it over" and "heads" for "heads up, whatever it was",
-# a "+" joining two tags slid together; place is how far the traveller has got.
-# The macro COMPUTES what the traveller looks like there; the dialogue never
-# writes a turned result.  parse_start, parse_tags, travel and tagstring below
-# are a line-for-line transcription of ch01.lua, so what is asserted here is
-# what the printed page shows.  The calls are read out of this challenge's
-# section of dialog.md, never copied, so an edit to the dialogue that breaks a
-# picture breaks here.
+# \tagstring[place;opts]{start}{tags}{caption} and a step strip of one walk
+# along it with \tagwalk[opts]{start}{tags}{caption; caption; ...} (pdf/props/ch01.tex;
+# the rules are in pdf/props/ch01.lua).  start is the end tag as tied; tags are
+# hung left to right, "over" for "turn it over" and "heads" for "heads up,
+# whatever it was"; place is how far the traveller has got.  The macro COMPUTES
+# what the traveller looks like there, and with marks=on the ghost (the
+# traveller one tag earlier); a step strip is one such frame per tag.  The
+# dialogue never writes a turned result.  tools/props_ch01.py transcribes the
+# Lua, all but the drawing; the calls are read out of this challenge's section
+# of dialog.md (tools/dfp_props.py), never copied, so an edit to the dialogue
+# that breaks a picture breaks here.  Every frame is checked against the model
+# below, which is the blackboard's: heads the first entry, "over" NOT, "heads"
+# SET-0.
 # --------------------------------------------------------------------------
-DIALOG = pathlib.Path(__file__).resolve().parents[2] / "dialog.md"
-RAW = DIALOG.with_name("dialog.raw.md")
+DIALOGUE = Dialogue(__file__, macros=("tagstring", "tagwalk", "arrowsquare"))
 ORDINALS = ("First", "Second", "Third", "Fourth", "Fifth")
-# the regexes of identity.md, section 3 "Props and their pictures"
-TAGSTRING = r"\\tagstring(\*?)(?:\[([^\]]*)\])?\{([^}]*)\}\{([^}]*)\}\{([^}]*)\}"
-ARROWSQUARE = r"\\arrowsquare(\*?)(?:\[([^\]]*)\])?\{([^}]*)\}\{([^}]*)\}"
-MARKUP = {"tagstring", "arrowsquare", "quad", "qquad", "begin", "end", "textup"}
+QUOTE = __doc__.split('"')[1]
 
-
-def read(path):
-    """The file, its planning comments left out (they are notes, not pictures)."""
-    return re.sub(r"<!--.*?-->", "", path.read_text(encoding="utf-8"), flags=re.S)
-
-
-def section(path, ordinal):
-    """The '## <ordinal> Challenge' section, up to the next heading."""
-    text = read(path)
-    heads = list(re.finditer(r"^## " + ordinal + r" Challenge\b.*$", text, re.M))
-    assert len(heads) == 1, (path.name, ordinal)
-    rest = text[heads[0].end():]
-    after = re.search(r"^## ", rest, re.M)
-    return rest[:after.start()] if after else rest
-
-
-def picture(call):
-    """One call, parsed: a dict naming the macro and its arguments."""
-    m = re.fullmatch(TAGSTRING, call)
-    if m:
-        star, place, start, tags, caption = m.groups()
-        return dict(macro="tagstring", keyed=star == "*", place=place or "", start=start,
-                    tags=tags, caption=caption)
-    m = re.fullmatch(ARROWSQUARE, call)
-    assert m, call                                   # nothing malformed
-    star, view, matches, caption = m.groups()
-    return dict(macro="arrowsquare", keyed=star == "*", view=view or "", matches=matches,
-                caption=caption)
-
-
-def blocks(path, ordinal):
-    """The picture blocks of a section, in order, each the list of its calls."""
-    text = section(path, ordinal)
-    found = []
-    for para in re.split(r"\n[ \t]*\n", text):
-        if "\\tagstring" not in para and "\\arrowsquare" not in para:
-            continue
-        # a raw centre block that is a paragraph of its own, one line of calls
-        # joined by \quad or \qquad -- so never inside a *[...]* direction
-        m = re.fullmatch(r"\\begin\{center\}\n([^\n]*)\n\\end\{center\}", para.strip())
-        assert m, para
-        found.append([c.strip() for c in re.split(r"\\q?quad", m.group(1))])
-    calls = [c for b in found for c in b]
-    assert text.count("\\tagstring") + text.count("\\arrowsquare") == len(calls)
-    return found
-
-
-def words_only(caption):
-    """Words, commas and apostrophes: no digit, brace, symbol or lone letter,
-    and never a count of strings."""
-    return (re.fullmatch(r"[A-Za-z']+(?:,? [A-Za-z']+)*", caption) is not None
-            and all(len(w) > 1 or w == "a" for w in re.findall(r"[A-Za-z']+", caption))
-            and not re.search(r"\bstrings\b", caption))
-
-
-def check_layout(ordinal, sizes):
-    """The section's blocks: their sizes, markup and captions, and the very same
-    calls in dialog.raw.md.  Returns the parsed pictures, in order."""
-    found = blocks(DIALOG, ordinal)
-    assert [len(b) for b in found] == sizes, (ordinal, [len(b) for b in found])
-    assert blocks(RAW, ordinal) == found, ordinal       # identical in the raw dialogue
-    assert set(re.findall(r"\\([A-Za-z]+)", section(DIALOG, ordinal))) <= MARKUP
-    pics = [picture(c) for b in found for c in b]
-    for b in found:
-        assert len(b) <= 4
-        squares = [picture(c)["macro"] == "tagstring" and picture(c)["start"].strip() == "square"
-                   for c in b]
-        assert all(squares) or not any(squares), b      # a square-tied string keeps to its own line
-    for p in pics:
-        assert words_only(p["caption"]), p["caption"]
-        assert p.get("place", "").strip() != "off"      # [off] is not used
-    return pics
-
-
-def check_whole_dialogue():
-    """The five challenge sections, in order, and every picture of the dialogue
-    in one of them."""
-    text = read(DIALOG)
-    assert tuple(re.findall(r"^## (\w+) Challenge\b", text, re.M)) == ORDINALS
-    total = len(re.findall(TAGSTRING, text)) + len(re.findall(ARROWSQUARE, text))
-    assert text.count("\\tagstring") + text.count("\\arrowsquare") == total
-    assert total == sum(len(c) for o in ORDINALS for c in blocks(DIALOG, o))
-
-
-# --- ch01.lua, transcribed ---------------------------------------------------
-WORDNUM = {"zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6}
-POS = {"start": 0, "first": 1, "second": 2, "third": 3, "fourth": 4}
-
-
-def parse_start(spec):
-    spec = re.sub(r"\s", "", spec)
-    if spec in ("heads", "tails"):
-        return dict(kind="coin", face=spec)
-    if spec in ("none", ""):
-        return dict(kind="none")
-    if spec == "square":
-        return dict(kind="square", turned=False)
-    m = re.fullmatch(r"strip-(\w+)", spec)
-    if m:
-        k = m.group(1)
-        n = WORDNUM.get(k, int(k) if k.isdigit() else None)
-        if n is not None and 0 <= n <= 6:
-            return dict(kind="strip", dark=n, turned=False)
-    raise AssertionError("tagstring: unknown start " + spec)
-
-
-def parse_tags(spec):
-    """Groups of touching tags, and the tags one by one, left to right."""
-    groups, flat = [], []
-    for g in re.sub(r"\s", "", spec).split(","):
-        grp = []
-        for t in g.split("+"):
-            if t == "":
-                continue
-            assert t in ("over", "heads"), "tagstring: unknown tag " + t
-            grp.append(t)
-            flat.append(t)
-        if grp:
-            groups.append(grp)
-    return groups, flat
-
-
-def travel(st, tags, n):
-    """The traveller after the first n tags."""
-    s = dict(st)
-    for t in tags[:n]:
-        if s["kind"] == "coin":
-            if t == "over":
-                s["face"] = "tails" if s["face"] == "heads" else "heads"
-            else:
-                s["face"] = "heads"
-        elif s["kind"] in ("strip", "square"):
-            assert t == "over", "a 'heads up, whatever it was' tag cannot be done to a " + s["kind"]
-            s["turned"] = not s["turned"]
-    return s
-
-
-def tagstring(place, startspec, tagspec):
-    """props.ch01_tagstring, all but the drawing: its error checks, how many
-    tags the traveller has passed, and the traveller there."""
-    where = re.sub(r"\s", "", place) or "start"
-    assert where in POS or where in ("end", "off"), "tagstring: unknown place " + where
-    st = parse_start(startspec)
-    groups, tags = parse_tags(tagspec)
-    n = len(tags)
-    passed = n if where == "end" else POS.get(where, 0)
-    assert passed <= n, "tagstring: the traveller cannot be past tag %d of %d" % (passed, n)
-    travel(st, tags, n)                    # every tag is checked, wherever the traveller is
-    s = travel(st, tags, passed)
-    walked = where == "end" or passed > 0
-    if st["kind"] == "square" and where != "off":
-        assert not walked, "tagstring: the square is only drawn tied on at the start"
-    return dict(start=st, groups=groups, tags=tags, where=where, passed=passed, now=s)
-
-
-# --- the coin, in the chapter's state model ----------------------------------
-# heads is the first entry, as on the blackboard; "turn it over" is NOT and
-# "heads up, whatever it was" is SET-0, the very matrices blackboard() uses.
 HEADS = np.array([1, 0], dtype=complex)
 TAILS = np.array([0, 1], dtype=complex)
 FACE = {"heads": HEADS, "tails": TAILS}
@@ -231,55 +73,109 @@ def face_of(v):
     return names[0]
 
 
+def check_coin(pic, marks):
+    """A coin picture against the model: the face drawn is the model's after the
+    tags passed.  With marks, the ghost is the model's after one tag fewer, and
+    there is no ghost exactly when that tag left the coin as it was."""
+    assert pic.start["kind"] == "coin" and pic.expects is None and pic.lifted is None
+    start, tags = FACE[pic.start["face"]], list(pic.tags)
+    now = carry(start, tags[:pic.passed])
+    assert pic.shown["face"] == face_of(now), pic.dump
+    assert pic.marks == marks, pic.dump
+    if marks:
+        before = carry(start, tags[:pic.passed - 1])
+        if np.allclose(before, now):
+            assert pic.ghost is None and pic.dump.endswith(" unchanged"), pic.dump
+        else:
+            assert pic.ghost["face"] == face_of(before), pic.dump
+    else:
+        assert pic.ghost is None, pic.dump
+    return now
+
+
 def check_coin_rule():
     """The macro's coin against the model: every start, every string of up to
-    four tags, every place the coin can have got to."""
+    four tags, every place the coin can have got to, with and without marks;
+    and every step strip of such a walk, frame by frame."""
     for start in FACE:
         for n in range(5):
             for tags in itertools.product(("over", "heads"), repeat=n):
+                spec = ",".join(tags)
                 for place in PLACES[:n + 1] + ("end",):
-                    t = tagstring(place, start, ",".join(tags))
-                    assert t["now"]["face"] == face_of(carry(FACE[start], tags[:t["passed"]]))
-
-
-def check_coin_pictures(ordinal, sizes, scene):
-    """The section's pictures against the scene, one row per picture:
-    (end tag as tied, the tags' groups on the string, where the coin is,
-    keyed?, the face identity.md section 3b reads).  Returns the model's
-    coin at each picture."""
-    check_whole_dialogue()
-    check_coin_rule()
-    pics = check_layout(ordinal, sizes)
-    assert len(pics) == len(scene), (ordinal, len(pics))
-    coins = []
-    for p, (start, groups, place, keyed, reading) in zip(pics, scene):
-        assert p["macro"] == "tagstring" and p["keyed"] == keyed, p
-        t = tagstring(p["place"], p["start"], p["tags"])
-        assert t["start"] == dict(kind="coin", face=start), p       # the end tag as tied
-        assert t["groups"] == groups and t["where"] == place, p
-        v = carry(FACE[start], t["tags"][:t["passed"]])              # the model
-        assert t["now"]["face"] == face_of(v) == reading, p         # macro = model = card
-        coins.append(v)
-    return coins
+                    check_coin(P.tagstring(place, start, spec), False)
+                    if place in PLACES[1:]:
+                        check_coin(P.tagstring(place + ";marks=on", start, spec), True)
+                if n == 0:
+                    assert P.faults(P.tagwalk, start, spec, "", "a")    # nothing to walk past
+                    continue
+                for opt, first, last in (("", 0, n), ("from=off", 1, n), ("to=end", 0, n + 1),
+                                         ("from=off;to=end", 1, n + 1)):
+                    k = n + 1 - first + (last > n)
+                    captions = "; ".join(["a"] * k)
+                    assert P.faults(P.tagwalk, start, spec, opt, captions) == []
+                    frames = P.tagwalk(start, spec, opt, captions)
+                    assert len(frames) == k
+                    for i, f in zip(range(first, last + 1), frames):
+                        assert f.picture.passed == min(i, n)
+                        check_coin(f.picture, 1 <= i <= n)       # marks on every tag frame
+                    assert frames[-1].picture.where == ("end" if last > n else PLACES[n])
+                    # a caption short is a fault; so is one too many
+                    assert P.faults(P.tagwalk, start, spec, opt, captions + "; a")
+                    if k > 1:
+                        assert P.faults(P.tagwalk, start, spec, opt, "; ".join(["a"] * (k - 1)))
+                # marks=off: the same frames, no marks
+                for f in P.tagwalk(start, spec, "marks=off", "; ".join(["a"] * (n + 1))):
+                    check_coin(f.picture, False)
 
 
 def pictures():
-    # P1.1, the keyed coin picture: the first walk, from "heads up", past one
-    # "turn it over" tag, to the right-hand end.  P1.2: the other way about.
-    one = [["over"]]
-    first, other = check_coin_pictures("First", [1, 1], [
-        ("heads", one, "end", True, "tails"),
-        ("tails", one, "end", False, "heads"),
-    ])
-    assert np.allclose(first, X @ HEADS) and np.allclose(other, X @ TAILS)
-    assert not np.allclose(first, HEADS)           # the tag did something
+    P.check_lua()                                  # the Lua and .tex the transcription was proved on
+    check_coin_rule()
+    P.check_dialogue(DIALOGUE, ORDINALS)
+    assert QUOTE in DIALOGUE.section("First")       # the docstring's line is spoken there
 
-    # the keyed rule: of all the dialogue's coin pictures, the first -- this
-    # challenge's first -- is keyed, and no other
-    coins = [m for m in re.finditer(TAGSTRING, read(DIALOG))
-             if parse_start(m.group(3))["kind"] == "coin"]
-    assert coins[0].group(0) == blocks(DIALOG, "First")[0][0]
-    assert [m.group(1) == "*" for m in coins] == [True] + [False] * (len(coins) - 1)
+    # Two moments.  Block 1.1: the evening's first walk, a step strip of three
+    # frames, keyed -- from "heads up", just past the one "turn it over" tag,
+    # and arrived.  Block 1.2: the same walk from "tails up", one picture.
+    (walk,), (other,) = [[fr for _, fr in b] for b in
+                         P.check_section(DIALOGUE, "First", sizes=[1, 1], frames=[3, 1])]
+    (c_walk,), (c_other,) = DIALOGUE.blocks("First")
+    assert c_walk.macro == "tagwalk" and c_walk.keyed and c_other.macro == "tagstring"
+    (start, _), (turned, _), (arrived, _) = walk
+    assert [p.where for p, _ in walk] == ["start", "first", "end"]
+    assert start.tags == turned.tags == arrived.tags == ("over",)
+    assert np.allclose(check_coin(start, False), HEADS)            # from heads up
+    assert np.allclose(check_coin(turned, True), X @ HEADS)       # turned at the tag ...
+    assert turned.ghost["face"] == "heads"                       # ... from heads, the ghost
+    assert np.allclose(check_coin(arrived, False), TAILS)          # carried on: tails
+    # the key is on the first frame only, and the frames after it keep its depth
+    assert start.keyed and start.labels == ("the end tag", "a tag") and start.deep is None
+    assert not turned.keyed and not arrived.keyed and turned.labels == arrived.labels == ()
+    assert turned.deep is True and arrived.deep is True
+    (pic, _), = other
+    assert np.allclose(check_coin(pic, False), X @ TAILS) and pic.where == "end"
+    assert not np.allclose(X @ HEADS, HEADS)                      # the tag did something
+    # no prediction here: Achilles is right ("Well, of course it's tails up")
+    assert all(p.expects is None for p, _ in walk + other)
+    # the render the card records (identity.md section 3e.2)
+    assert [p.dump for p, _ in walk + other] == [
+        "tagstring: start coin-heads -> coin-heads",
+        "tagstring: first coin-heads -> coin-tails ghost coin-heads",
+        "tagstring: end coin-heads -> coin-tails",
+        "tagstring: end coin-tails -> coin-heads"]
+
+    # where they stand: block 1.1 follows the walk, and the ghost and its hop are
+    # carried by the words that describe the same motion; then the draught
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        a_walk, a_other = DIALOGUE.anchors("First", path)
+        assert a_walk.endswith("Tails up. Well, of course it's tails up.")
+        for phrase in ("slides it rightward along the table beside the string, on their side of it",
+                       "where the tag hangs he stops and turns the coin over in his fingers",
+                       "it is the same coin, only the other way up",
+                       "Then he carries it on.]*"):
+            assert phrase in a_walk, phrase
+        assert a_other.startswith("**Achilles:** *[setting the coin tails up at the left end")
+    assert DIALOGUE.following("First")[0].startswith("*[Under the door the draught comes again")
 
 
 def not_box():

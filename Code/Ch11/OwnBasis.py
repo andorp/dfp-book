@@ -9,6 +9,7 @@ leaves no |01> part where a clone has ab|A_psi>; delta|+-> = Phi+- (a pair, not 
 copies).  In pictures: red points go through the green copier as two red points, and
 a green point fuses with it into one cup (times 1/sqrt2).
 """
+import re
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools"))
 
@@ -151,12 +152,18 @@ def blackboard():
 # The prop pictures.  The dialogue draws the black slab from the side nearer the
 # fire as the press is set down (keyed: the near stone, the far stone, the press,
 # the reflection, the counters, the viewer), then, on the Tortoise's cloth, the
-# fork with a red point before and after it is threaded (keyed: point, fork), and
-# the green point threaded and the ring lifted off, a bend,
-#   \presstable[operations]{scene}{caption}, \copycloth[operations]{scene}{caption}
-#                                                         (pdf/props/ch11.tex)
-# tools/props_ch11.py transcribes the Lua (with L1-L5); the calls are read out of
-# dialog.md, never copied.
+# fork with a red point before and after it is threaded (keyed: point, fork; the
+# threaded frame a step, with its marks: the point's and the fork's ghosts and the
+# point's slide arc), and (round 4, "Show the process") one block at the naming
+# beat: Achilles's prediction recalled, paler (rule "copies anything": the green
+# point threaded comes out as two green points), then the green point threaded and
+# the ring lifted off as a strip of two, each frame with its ghosts and arc,
+#   \presstable[operations; step=...]{scene}{caption},
+#   \copycloth[operations; step=...; expects=...]{scene}{caption},
+#   \copysteps[from=off]{scene}{steps}{captions}           (pdf/props/ch11.tex)
+# tools/props_ch11.py transcribes the Lua (proved against texlua; check_lua holds it
+# to the Lua and the .tex it was proved on); the calls are read out of dialog.md,
+# never copied.
 #
 # The ties (identity card, section 4), a structural check against this file's
 # blackboard, not a second proof: a red point is a stone settled plain, and the
@@ -165,11 +172,14 @@ def blackboard():
 # settled crosswise, and the copier sends it to cup/sqrt2 exactly -- Schmidt rank 2
 # -- which the cloth draws as one bend, both ends on one piece of cord.  The bend
 # is the cup (unnormalized; the 1/sqrt2 stays in chapter.md).  On the table every
-# stone of the fresh pair is half of Phi+: 1/2 I alone, its reflection slack.
+# stone of the fresh pair is half of Phi+: 1/2 I alone, its reflection slack.  The
+# wrong rule's pale frame -- two green points -- is the product |+>|+>, which the
+# copier does not make.
 # --------------------------------------------------------------------------
 DIALOGUE = Dialogue(__file__, macros=PC.MACROS)
 QUOTE = "...Oh. It doesn't copy the crosswise stone. It makes a *pair* of it."
 F = "the fresh pair"
+RED, GREEN = "the fork, red point", "the fork, green point"
 
 
 def half(state, n, i):
@@ -205,37 +215,89 @@ def pieces(S):
     return list(groups.values())
 
 
+def head(c):
+    """A call's bracket as its log line writes it (the Lua's trim of what TeX hands it)."""
+    return PC.trim(PC.bracket(c))
+
+
+def r3(x):
+    """A mark's numbers to the Lua's three places (its log's)."""
+    if isinstance(x, tuple):
+        return tuple(r3(y) for y in x)
+    return round(x, 3) if isinstance(x, float) else x
+
+
 def pictures():
     assert f'"{QUOTE}"' in __doc__                               # quoted byte for byte
-    calls = DIALOGUE.check_layout("First", sizes=[1, 2, 1])
-    p11, p12, p13, p14 = calls
-    text, raw = DIALOGUE.read(DIALOGUE.dialog), DIALOGUE.read(DIALOGUE.raw)
-    spoken = PC.spoken_sentences(text) | PC.spoken_sentences(raw)
-    for c in calls:
-        assert words_only(c.caption, forbidden=PC.CAPTION_FORBIDDEN), c.caption
-        assert c.macro == "presstable" or CLOTH.caption_ok(c.caption), c.caption
-        assert PC.normal_sentence(c.caption) not in spoken, c.caption   # the gigue: never said twice
-        assert PC.place_ok("First", c), c.text
-    assert [[PC.height(c) for c in b] for b in DIALOGUE.blocks("First")] == [[1.66], [1.78, 1.78], [1.78]]
-    assert [c.macro for c in calls] == ["presstable", "copycloth", "copycloth", "copycloth"]
-    assert [c.keyed for c in calls] == [True, True, False, False]
-    assert [(c.opt, c.args[0]) for c in calls] == [
-        ("", F), ("", "the fork, red point"), ("thread", "the fork, red point"),
-        ("thread, lift off", "the fork, green point")]
-    assert [c.caption for c in calls] == [
+    PC.check_lua()                                                # the Lua the transcription was proved on
+    PC.check_sites()                                              # its 55 fault sites, one for one
+    found = PC.check_section(DIALOGUE, "First", sizes=[1, 2, 2], frames=[1, 2, 3])
+    calls = [c for b in found for c, _ in b]
+    p11, p12, p13, w14, st15 = calls
+    assert [[PC.height(c) for c, _ in b] for b in found] == [[1.66], [1.78, 1.78], [1.78, 1.78]]
+    assert [c.macro for c in calls] == ["presstable", "copycloth", "copycloth", "copycloth", "copysteps"]
+    assert [c.keyed for c in calls] == [True, True, False, False, False]
+    assert [PC.is_prediction(c) for c in calls] == [False, False, False, True, False]
+    assert [PC.options(c) for c in calls] == [
+        {"bare": ""}, {"bare": ""}, {"step": "thread", "bare": ""},
+        {"step": "thread", "expects": "copies anything", "bare": ""}, {"from": "off", "bare": ""}]
+    assert [c.args[0] for c in calls] == [F, RED, RED, GREEN, GREEN] and st15.args[1] == "thread; lift off"
+    t11, c12, c13, w14p = (PC.picture(c) for c in calls[:4])
+    strip = PC.picture(st15)
+    (c15, cap15), (c16, cap16) = strip.pictures
+    assert [c.caption for c in calls[:4]] + [cap15, cap16] == [
         "set down beside the far stone", "a green ring made to fork", "slid through, the green ring gone",
-        "bent round on itself"]
-    t11, c12, c13, c14 = (PC.picture(c) for c in calls)
+        "as Achilles had it", "green into green", "bent round on itself"]
     a1, a2, a3 = DIALOGUE.anchors("First")
     f1, f2, f3 = DIALOGUE.following("First")
     section = DIALOGUE.section("First")
     assert QUOTE in section                                       # the docstring's line
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        here = [(n, q) for n, q, o in PC.quote_places(DIALOGUE, path) if o == "First"]
+        assert [n for n, _ in here] == ["THE CLOTH'S STEPS"] * 3 + ["THE CLOTH'S WRONG RULES"] * 4
+    # the log the section writes (F01-F06), the strip's line before its frames'
+    G1 = "cols=7 rows=3 y=0..2 near=false folded=false; "
+    assert [l for c in calls for l in PC.describe(c)] == [
+        "presstable: [] {the fresh pair} | " + t11.dump,
+        "copycloth: [] {the fork, red point} | " + c12.dump,
+        "copycloth: [step=thread] {the fork, red point} | " + c13.dump,
+        "copycloth: + step thread -> " + c13.dump,
+        "copycloth: + ghost red point ring in dotted outline at (-0.900,-0.720) (grid 0,1): slid up the in-cord "
+        "into the fork, and through it: the points at the heads of the out-cords",
+        "copycloth: + ghost fork ring in dotted outline at (-0.300,-0.720) (grid 2,1), under the rings that came to "
+        "lie over its place: opened round the point and lifted off into her shell, the in-cord with it (no cord is "
+        "ghosted)",
+        "copycloth: + slide arc the red point up the in-cord's place to the fork, and out at the first head, above "
+        "the cord, (-0.873,-0.595) -> (-0.516,-0.595)",
+        "copycloth: + every mark on the linen, the least gap to its edge 0.216",
+        "copycloth: [" + head(w14) + "] {the fork, green point} | " + w14p.dump,
+        "copycloth: + expects copies anything (the whole picture paler)",
+        "copycloth: + step thread -> " + w14p.dump + " (no marks)",
+        "copysteps: strip of 2 frames",
+        "copycloth: [step=thread] {the fork, green point} | " + c15.dump,
+        "copycloth: + step thread -> " + c15.dump,
+        "copycloth: + ghost green point ring in dotted outline at (-0.900,-0.720) (grid 0,1): slid up the in-cord "
+        "into the fork: the two rings ran into one, at the fork's place",
+        "copycloth: + slide arc the green point up the in-cord's place into the fork, above the cord, "
+        "(-0.873,-0.595) -> (-0.408,-0.595)",
+        "copycloth: + every mark on the linen, the least gap to its edge 0.216",
+        "copycloth: [thread; step=lift off] {the fork, green point} | " + c16.dump,
+        "copycloth: + step lift off -> " + c16.dump,
+        "copycloth: + ghost fork ring in dotted outline at (-0.300,-0.720) (grid 2,1): lifted off, back into her "
+        "shell: a ring with two cords and no turn on it is only a bend",
+        "copycloth: + every mark on the linen, the least gap to its edge 0.630"]
 
-    # P1.1: the press set down on the black at the far end, keyed; the fresh pair
+    # P1.1 (F01): the press set down on the black at the far end, keyed; the fresh pair
     # unread, each stone restless with its reflection slack; the counters in the tray;
-    # the viewer by the tray, collar upright, needle in the middle
+    # the viewer by the tray, collar upright, needle in the middle.  A counted frame
+    # (card 3e.5): unmarked, and its lines -- each stone and its reflection two, each
+    # counter stacked in the tray one -- are seven (wires 1-5, 10, 11)
     assert t11.dump == "near restless slack; far restless slack; strikes 0; tray 3; viewer tray upright middle"
     assert t11.labels == ("near stone", "far stone", "press", "reflection", "counters", "viewer")
+    assert (t11.step, t11.marks, t11.mark_tikz) == (None, (), ())
+    # the ruled count; the fallback (discs counted by the dialogue, four) is unused: the
+    # stack is countable at print size since the clarity batch
+    assert PC.lines_drawn(t11) == 7 and PC.lines_drawn(t11, tray=False) == 4
     v = t11.shown
     things = {t.name: t for t in v.black}
     assert set(things) == {"press", "near", "far"}
@@ -247,6 +309,7 @@ def pictures():
     assert "beside the far stone" in a1 and "as a half of a pair's always does" in a1      # D2
     assert f1.startswith("**Crab:** The copying press.")
     # every keyed word is named in the dialogue before the picture shows it
+    text = DIALOGUE.read(DIALOGUE.dialog)
     before = text[:text.index(p11.text)].lower()
     for w in t11.labels:
         assert w in before, w
@@ -276,17 +339,18 @@ def pictures():
         assert np.allclose(rho, I2 / 2) and np.isclose(np.trace(rho @ rho).real, 0.5)
         assert things[name].refl == "slack"
 
-    # P1.2 | P1.3: the fork, keyed, a red point at the in-cord's left end; threaded, the
-    # fork and its in-cord gone and a red point resting at the head of each out-cord,
-    # where the fork stood -- on the fork's row, either side of its place (FORKHEAD) --
-    # its cord running on by its own slanted leg and out to the right (D3)
-    assert {PC.height(c) for c in (p12, p13)} == {1.78}
-    assert c12.labels == ("point", "fork")
+    # P1.2 | P1.3 (F02, F03): the fork, keyed, a red point at the in-cord's left end;
+    # threaded (a step, from the state just drawn), the fork and its in-cord gone and a
+    # red point resting at the head of each out-cord, where the fork stood -- on the
+    # fork's row, either side of its place (FORKHEAD) -- its cord running on by its own
+    # slanted leg and out to the right (D3)
+    assert c12.labels == ("point", "fork") and c12.marks == ()
     assert c12.dump.endswith("1:end red 0 @0,1; 2:ring green 0 @2,1; cord 1-2 [0,1 2,1]; "
                              "cord loose-2 [6,0 3,0 2,1]; cord loose-2 [6,2 3,2 2,1]")
-    assert c13.dump == ("scene=fork point=red threaded=true lifted=false | cols=7 rows=3 y=0..2 "
-                        "near=false folded=false; 1:end red 0 @1.55,1; 2:end red 0 @2.45,1; "
+    assert c13.dump == ("scene=fork point=red threaded=true lifted=false | " + G1 +
+                        "1:end red 0 @1.55,1; 2:end red 0 @2.45,1; "
                         "cord loose-1 [6,0 3,0 1.55,1]; cord loose-2 [6,2 3,2 2.45,1]")
+    assert c13.before == c12.state and c13.step == "thread"
     (fork,) = [(r["x"], r["y"]) for r in c12.cloth["things"] if r["kind"] == "ring"]
     ends = [(r["kind"], r["c"], r["x"], r["y"]) for r in c13.cloth["things"]]
     assert ends == [("end", "red", fork[0] - PC.FORKHEAD, fork[1]), ("end", "red", fork[0] + PC.FORKHEAD, fork[1])]
@@ -307,22 +371,88 @@ def pictures():
     assert change[0] > 0 > change[1]                              # the upper a little longer, the lower shorter
     assert "where the fork stood" in a2 and "only the green ring and its in-cord have gone" in a2   # D3
     assert f2.startswith("**Achilles:** Two, and both red.")
-    # P1.4: the green point threaded and the bare ring lifted off: one cord bent round on
-    # itself, the turn at the left, both ends running out to the right
-    assert c14.dump.endswith("near=false folded=false; cord loose-loose [6,0 3,0 2,1 3,2 6,2]")
-    (bend,) = c14.cloth["cords"]
-    assert not c14.cloth["things"] and bend["a"] == bend["b"] == "loose"
+    # F03's marks: the red point's ghost where it lay (the in-cord's left end), the fork's
+    # ghost where it stood (into her shell; no cord is ghosted), and a slide arc above the
+    # in-cord's place from the point's ghost to the first head, bowed up, rightwards
+    g1, g2, sl = c13.marks
+    assert [(m.kind, m.name, m.how, r3(m.at), m.grid) for m in (g1, g2)] == [
+        ("ghost", "red point", "outline", (-0.9, -0.72), (0, 1)), ("ghost", "fork", "outline", (-0.3, -0.72), (2, 1))]
+    assert (sl.kind, sl.name, r3((sl.pts[0], sl.pts[3]))) == ("slide", "red point", ((-0.873, -0.595), (-0.516, -0.595)))
+    assert sl.pts[0][1] > g1.at[1] and sl.pts[1][1] > sl.pts[0][1] and sl.pts[3][0] > sl.pts[0][0]
+    head1 = PC.grid_xy(c13, fork[0] - PC.FORKHEAD, fork[1])
+    # the fork's ghost passes under the two red points that came to lie over its place (the
+    # clarity batch): clipped away inside a circle round each, a little wider than a ring, so the
+    # arriving points read whole; the red point's ghost, where nothing lies, is not clipped
+    ((shapes, drawn),) = PC.mark_clips(c13)
+    outer, *holes = shapes
+    RO = float(re.search(r"circle \(([\d.]+)\)", drawn[0]).group(1))           # a ring's radius
+    assert outer[0] == "rect" and len(drawn) == 1 and drawn[0].startswith("\\draw[propchelevenghost] (-0.300,-0.720)")
+    assert [h[0] for h in holes] == ["circle", "circle"]
+    heads = [PC.grid_xy(c13, fork[0] + d * PC.FORKHEAD, fork[1]) for d in (-1, 1)]
+    assert [r3((h[1], h[2])) for h in holes] == [r3(q) for q in heads]          # round each red point
+    assert all(np.isclose(h[3], RO + 0.02) for h in holes)                       # a ring, with air
+    assert all(np.hypot(h[1] - g2.at[0], h[2] - g2.at[1]) < RO + h[3] for h in holes)   # it cuts the ghost
+    assert r3(head1) == (-0.435, -0.72) and sl.pts[3][0] < head1[0]   # the arc stops short of the first head
+    # the marks-off twin is round 3's P1.3 to the byte: \copycloth[thread]{the fork, red point}
+    t = PC.twin(p13)
+    assert t.marks == () and t.mark_tikz == () and PC.frame_of(t)[:3] == PC.frame_of(PC.copycloth("thread", RED))[:3]
+    assert PC.frame_of(t)[0] == PC.frame_of(c13)[0]               # the same picture; the marks its only addition
+
+    # B1.3, in the spoken order: Achilles's prediction (l.358, given up at l.372), recalled
+    # at the naming beat, paler, before the process; then the process; then the result.
+    # The prediction: rule "copies anything" -- the press copies whatever goes in, green as
+    # red: the green point threaded comes out as two green points at the out-cords' heads,
+    # where the red ones lay.  Never keyed, never marked, the whole picture paler.
+    said = "a press that copies high and copies low will copy anything in between"
+    assert said in section and section.index(said) < section.index(w14.text) < section.index(st15.text)
+    assert (w14p.expects, w14p.pale, w14p.marks, w14p.labels) == ("copies anything", True, (), ())
+    assert w14p.mark_tikz == ("\\begin{scope}[transparency group, opacity=0.500]", "\\end{scope}")
+    assert w14p.dump == ("scene=fork point=green threaded=true lifted=false copies=true | " + G1 +
+                         "1:end green 0 @1.55,1; 2:end green 0 @2.45,1; "
+                         "cord loose-1 [6,0 3,0 1.55,1]; cord loose-2 [6,2 3,2 2.45,1]")
+    assert w14p.before == PC.copycloth("", GREEN).state and w14p.state == dict(c15.state, copies=True)
+    # the prediction's two green points sit exactly where the red ones lay
+    assert [(r["kind"], r["x"], r["y"]) for r in w14p.cloth["things"]] == [(k, x, y) for k, _, x, y in ends]
+    assert PC.faults(PC.copycloth, "step=thread; expects=copies anything", RED) == ["rule-copies"]
+    assert PC.faults(PC.copycloth, "step=thread; expects=copies anything", GREEN, True) == ["expects-keyed"]
+    assert PC.faults(PC.copycloth, "expects=copies anything", GREEN) == ["rule-step"]
+    # the strip: frame k is the single call [<the steps before>; step=<k>], frame by frame
+    fc = PC.frame_calls(st15)
+    assert [(c.opt, c.args[0], c.caption) for c in fc] == [
+        ("step=thread", GREEN, "green into green"), ("thread; step=lift off", GREEN, "bent round on itself")]
+    for c, (fr, _) in zip(fc, strip.pictures):
+        assert PC.frame_of(PC.picture(c)) == PC.frame_of(fr)
+    # F05: the green point threaded: one green ring with just the two out-cords; its marks
+    # the point's ghost and a slide arc above the in-cord's place, stopping short of the
+    # ring (the fork held still and took it in: no ghost of the fork)
+    assert [(r["kind"], r["c"], r["x"], r["y"]) for r in c15.cloth["things"]] == [("ring", "green", 2, 1)]
+    assert len(c15.cloth["cords"]) == 2 and len(pieces(c15.cloth)) == 1
+    g1, sl = c15.marks
+    assert (g1.kind, g1.name, g1.how, r3(g1.at), g1.grid) == ("ghost", "green point", "outline", (-0.9, -0.72), (0, 1))
+    assert (sl.kind, sl.name, r3((sl.pts[0], sl.pts[3]))) == ("slide", "green point", ((-0.873, -0.595), (-0.408, -0.595)))
+    assert sl.pts[3][0] < PC.grid_xy(c15, 2, 1)[0]                   # short of the ring it ran into
+    # F06: the bare ring lifted off: one cord bent round on itself, the turn at the left,
+    # both ends running out to the right; its mark the fork's ghost, where the bend turns
+    assert c16.dump.endswith("near=false folded=false; cord loose-loose [6,0 3,0 2,1 3,2 6,2]")
+    (bend,) = c16.cloth["cords"]
+    assert not c16.cloth["things"] and bend["a"] == bend["b"] == "loose"
     assert min(p[0] for p in bend["pts"]) == 2 < bend["pts"][0][0] == bend["pts"][-1][0] == 6
-    assert c14.frame == c13.frame == 1.78                         # a ring the same size throughout
+    ((kind, name, how, at, grid),) = [(m.kind, m.name, m.how, r3(m.at), m.grid) for m in c16.marks]
+    assert (kind, name, how, at, grid) == ("ghost", "fork", "outline", (-0.3, -0.72), (2, 1))
+    # the marks-off twin is round 3's P1.4 to the byte: \copycloth[thread, lift off]{the fork, green point}
+    t = PC.twin(fc[1])
+    assert t.marks == () and PC.frame_of(t)[:3] == PC.frame_of(PC.copycloth("thread, lift off", GREEN))[:3]
+    assert c16.frame == c15.frame == w14p.frame == c13.frame == 1.78     # a ring the same size throughout
     assert "gathers the red points into her shell" in a3 and "back in her shell" in a3    # D4
-    assert f3.startswith("**Tortoise:** Red goes through as two.")
-    # the green point threaded (not drawn: the direction gives it in words): one green
-    # ring with just the two out-cords; and red has no bare ring to lift off
-    green = PC.copycloth("thread", "the fork, green point")
-    assert [(r["kind"], r["c"]) for r in green.cloth["things"]] == [("ring", "green")]
-    assert len(green.cloth["cords"]) == 2
-    assert PC.faults(PC.copycloth, "thread, lift off", "the fork, red point") == ["fork-lift-red"]
-    assert PC.faults(PC.copycloth, "lift off", "the fork, green point") == ["fork-lift-early"]
+    assert "Nothing has slid out along either cord." in a3        # refutes the pale frame's two points
+    assert "Where two green points might have lain, there lies one bend" in a3
+    assert f3.startswith("**Tortoise:** Red goes through as two. Green goes in, and one bend comes out")
+    # every mark inside the linen, and no arc crossing a cord
+    for p in (c13, c15, c16):
+        assert PC.mark_clearance(p) > 0.01
+    assert PC.cord_clearance(c13) > 0.01 and PC.cord_clearance(c15) > 0.01 and PC.cord_clearance(c16) is None
+    assert PC.faults(PC.copycloth, "thread, lift off", RED) == ["fork-lift-red"]
+    assert PC.faults(PC.copycloth, "lift off", GREEN) == ["fork-lift-early"]
 
     # the ties.  Red: two separate points, one loose end each -- the copier's output on
     # a plain stone is a product (Schmidt rank 1), each factor the stone again.
@@ -335,12 +465,17 @@ def pictures():
         assert np.allclose(out, kron(ket(a), ket(a)).ravel())    # each the very twin
     # Green: one piece of cord with both ends loose -- the copier's output on a crosswise
     # stone is the cup over sqrt2, exactly (Schmidt rank 2): a bend, not two points
-    (piece,) = pieces(c14.cloth)
+    (piece,) = pieces(c16.cloth)
     assert piece == {"rings": set(), "loose": 2}
-    assert len(pieces(green.cloth)) == 1                          # before the lift: one piece too
+    assert len(pieces(c15.cloth)) == 1                            # before the lift: one piece too
     assert np.allclose(DELTA @ PLUS, CUP / np.sqrt(2))
     assert np.isclose(np.linalg.norm(CUP), np.sqrt(2))            # the bend is the UNNORMALIZED cup
     assert np.linalg.matrix_rank((DELTA @ PLUS).reshape(2, 2)) == 2
+    # the wrong rule's two green points: two pieces, a product |+>|+> (Schmidt rank 1) --
+    # not what the copier makes of a crosswise stone
+    wrong = pieces(w14p.cloth)
+    assert len(wrong) == 2 and all(len(g["rings"]) == 1 and g["loose"] == 1 for g in wrong)
+    assert np.linalg.matrix_rank(kron(PLUS, PLUS).reshape(2, 2)) == 1
     assert not np.allclose(DELTA @ PLUS, kron(PLUS, PLUS).ravel())   # not two green points
 
 

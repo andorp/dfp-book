@@ -170,36 +170,104 @@ PIECE = {"yes": 0, "no": 1}              # a window, and the piece laid for it: 
 
 def pictures():
     assert f'"{QUOTE}"' in __doc__                               # quoted byte for byte
-    calls = DIALOGUE.check_layout("First", sizes=[1, 2, 1])
-    p11, p12, p13, p14 = calls
+    calls = DIALOGUE.check_layout("First", sizes=[1, 1, 1, 1])           # four strips (round 4)
+    b11, b12, b13, b14 = calls
+    struck = "his: white black white black white then white white black; hers: white black white black white then black white white"
     assert [(c.macro, c.keyed, c.opt, c.args, c.caption) for c in calls] == [
-        ("glinttray", True, "flash yes yes", ("as set out",), "a window lit at each end"),
-        ("keycloth", True, "", ("green to green",), "sending upright, reading upright"),
-        ("keycloth", False, "slide together, lift off", ("green to green",), "slid together and lifted off"),
-        ("keycloth", False, "draw apart", ("green to red",), "green and red drawn apart")]
+        ("traysteps", True, "", ("as set out", "flash yes yes"), "the windows dark; a window lit at each end"),
+        ("keyclothsteps", True, "", ("green to green", "slide together; lift off"),
+         "sending upright, reading upright; run into a joint; the joint lifted off"),
+        ("keyclothsteps", False, "", ("green to red", "draw apart"), "sending upright, reading crosswise; green and red drawn apart"),
+        ("traysteps", False, "", (struck, "strike the first, the second and the third"),
+         "the rows as they stood; struck, the rows alike")]
     PC.check_captions(DIALOGUE, "First", calls)
     PC.check_section(DIALOGUE, "First", calls)
-    assert [[PC.height(c) for c in b] for b in DIALOGUE.blocks("First")] == [[PC.TRAY_FRAME], [1.24, 1.24], [1.24]]
+    assert [[PC.height(c) for c in b] for b in DIALOGUE.blocks("First")] == \
+        [[PC.TRAY_FRAME], [1.24], [1.24], [PC.TRAY_FRAME]]
+
+    # the strips' frames, as TeX runs them (frame k: the steps before k as operations, step=k)
+    frames = [PC.frame_calls(c) for c in calls]
+    assert [[(f.macro, f.keyed, PC.bracket(f), f.args[0]) for f in fs] for fs in frames] == [
+        [("glinttray", True, "", "as set out"), ("glinttray", "new", "step=flash yes yes", "as set out")],
+        [("keycloth", True, "", "green to green"), ("keycloth", False, "step=slide together", "green to green"),
+         ("keycloth", False, "slide together; step=lift off", "green to green")],
+        [("keycloth", False, "", "green to red"), ("keycloth", False, "step=draw apart", "green to red")],
+        [("glinttray", False, "", struck), ("glinttray", False, "step=strike the first, the second and the third", struck)]]
+    (f01, f02), (f03, f04, f05), (f06, f07), (f08, f09) = (
+        [p for p, _ in PC.pictures(c)] for c in calls)
+    assert [p for p, _ in PC.pictures(b12)] == [PC.picture(f) for f in frames[1]]     # each frame is its single call
+    assert PC.picture(b11).log[0] == "traysteps: strip of 2 frames" and PC.picture(b12).log[0] == "keyclothsteps: strip of 3 frames"
+    assert len(PC.describe(b11)) == 1 + 1 + 3 and len(PC.describe(b12)) == 1 + 1 + 6 + 3   # the dump list: F03 [1], F04 [6], F05 [3]
+
+    # the steps.  F02: the lever pressed -- no mark, the flash IS the step (the Lua's note)
+    assert f01.state.flash is None and PC.tray_dump(f02.before) == f01.dump and f02.step == "flash yes yes"
+    assert f02.log[1:] == ("glinttray: + step flash yes yes -> " + f02.dump,
+                           "glinttray: + no mark for 'flash yes yes': the frame shows what it changed")
+    assert f02.mark_tikz == ()
+    # (round 5) F02 is a later frame of a keyed strip, keyed "new": the lever brings no part, so it
+    # names nothing -- the words stay F01's
+    assert f02.labels == () and f02.label_tikz == () and f01.labels == PC.tray_labels(f01.state)
+    # F04: the two rings slid along to the middle, run into one: both ghosts where they stood,
+    # a slide arc beneath the row from each to the joint
+    assert f04.before == f03.state and f04.state["rounds"][0]["slid"] and not f04.before["rounds"][0]["slid"]
+    assert PC.ghost_places(f04) == [((-0.72, -0.18), 0.09), ((0.72, -0.18), 0.09)]
+    assert PC.arc_ends(f04) == [("slide", (-0.693, -0.325), (-0.117, -0.325)), ("slide", (0.693, -0.325), (0.117, -0.325))]
+    assert [r["x"] for r in f04.cloth["things"]] == [3]                # one joint, at the middle column
+    # F05: the joint lifted off: its ghost at the middle, no arc (nothing slid)
+    assert PC.ghost_places(f05) == [((0.0, -0.18), 0.09)] and PC.arc_ends(f05) == []
+    # F07: drawn apart: each ring's ghost where it stood, clipped inside the ring now lying
+    # over part of its place, and a short swing arc beneath, outward
+    assert PC.ghost_places(f07) == [((-0.72, -0.18), 0.09), ((0.72, -0.18), 0.09)]
+    assert [s[0] for s in PC.clip_scopes(f07)] == [((-0.87, -0.18, 0.11),), ((0.87, -0.18, 0.11),)]
+    assert PC.arc_ends(f07) == [("swing", (-0.702, -0.36), (-0.915, -0.36)), ("swing", (0.702, -0.36), (0.915, -0.36))]
+    # F09: struck -- no mark (the pieces are too small to ghost); five pieces left in each row
+    assert f09.mark_tikz == () and f09.log[-1] == ("glinttray: + no mark for 'strike the first, the second and "
+                                                   "the third': the frame shows what it changed")
+    assert f08.state.rows["his"] != f08.state.rows["hers"]
+    assert f09.state.rows["his"] == f09.state.rows["hers"] == ["white", "black", "white", "black", "white"]
+    # every arc points the way its ring went (the ghost's side to the ring's side)
+    for p in (f04, f07):
+        for (kind, a, b), ((gx, _), _) in zip(PC.arc_ends(p), PC.ghost_places(p)):
+            assert (b[0] - a[0]) * (-gx if kind == "slide" else gx) > 0
+    # the marks as drawn (line width and head included): on the linen by more than 0.01 cm,
+    # every arc clear of every cord by more than 0.05 cm and of every ring, edge to edge
+    assert [round(PC.mark_clearance(p), 3) for p in (f04, f05, f07)] == [0.082] * 3
+    assert round(PC.cord_clearance(f04), 3) == 0.091 and round(PC.cord_clearance(f07), 3) == 0.139   # Lua (its own sampling): 0.089, 0.138
+    assert PC.ring_clearance(f04) > 0 and PC.ring_clearance(f07) > 0
+    assert [PC.mark_clearance(p) for p in (f03, f06)] == [None, None]
+    # marks=off draws exactly the round-3 picture (the step taken as one more operation)
+    for p, c in ((f05, frames[1][2]), (f07, frames[2][1])):
+        twin = PC.twin(c)
+        assert twin.mark_tikz == () and PC.frame_of(twin)[:4] == PC.frame_of(p)[:4]
+    assert PC.frame_of(PC.twin(frames[1][2])) == PC.frame_of(PC.keycloth("slide together, lift off", "green to green"))
+    assert PC.frame_of(PC.twin(frames[2][1])) == PC.frame_of(PC.keycloth("draw apart", "green to red"))
+    assert PC.frame_of(f02)[:2] == PC.frame_of(PC.glinttray("flash yes yes", "as set out"))[:2]   # P1.1, up to keying
+    assert PC.frame_of(f03) == PC.frame_of(PC.keycloth("", "green to green", True))                # P1.2, keyed as then
+    assert f01.labels == ("lamp", "key", "rod", "reflection", "sleeve", "his row", "her row")       # the keyed frame
+
+    t11, c12, c13, c14 = f02, f03, f05, f07                           # round 3's P1.1 .. P1.4
 
     # the anchors (card section 4), in dialog.md; the raw file's blocks are the same
-    a1, a2, a3 = DIALOGUE.anchors("First")
-    f1, f2, f3 = DIALOGUE.following("First")
+    a1, a2, a3, a4 = DIALOGUE.anchors("First")
+    f1, f2, f3, f4 = DIALOGUE.following("First")
     assert "one window flashes — once — and is dark again" in a1 and f1.startswith("**Achilles:** Yes.")
     assert "Alice's short cord running straight on into Bob's" in a2
     assert "beneath it and running the same way" in a2                          # D4
     assert f2.startswith("**Achilles:** Straight through.")
     assert "only it is joined to nothing Alice put in" in a3 and "gathers the cord into her pouch" in a3   # D5
     assert f3.startswith("**Achilles:** Tied to nothing she put in.")
-    assert DIALOGUE.following("First", DIALOGUE.raw) == [f1, f2, f3]
+    # B1.4 (round 4): after the strike, before Achilles's "So a key needs the settings to match."
+    assert "Each row is shorter now, and ends where the matching ended" in a4
+    assert f4.startswith("**Achilles:** So a key needs the settings to match.")
+    assert DIALOGUE.following("First", DIALOGUE.raw) == [f1, f2, f3, f4]
     section = DIALOGUE.section("First")
     assert "His row will run from there along the edge towards the middle" in section   # D3
     assert "behind the lamp" in section                                                  # D2
 
-    t11, c12, c13, c14 = (PC.picture(c) for c in calls)
     # P1.1: the tray as set out, a window lit at each end (the reading, card section 3b)
     assert t11.dump == ("sleeve closed; tell's key in the box; side rod in the box; his []; hers []; "
                         "tell's []; flash his yes hers yes; bell still")
-    assert t11.labels == ("lamp", "key", "rod", "reflection", "sleeve", "his row", "her row")
+    assert t11.labels == ()                                     # unkeyed now: the strip keys its first frame
     shown = {t.name: t for t in t11.shown.black}
     assert set(shown) == {"his key", "her key", "lamp", "sleeve"}
     assert (shown["his key"].lit, shown["her key"].lit) == ("yes", "yes")

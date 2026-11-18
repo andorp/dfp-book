@@ -99,11 +99,11 @@ def blackboard():
 # tools/props_ch04.py), read out of this challenge's section of dialog.md.
 # A pencil arrow runs from the panel a pair of coins starts in to the panel it
 # arrives in; the macro walks the pairs itself.  Here each rule's arrows are
-# checked against the matrix of that rule on the four panels.
+# checked against the matrix of that rule on the four panels, and the walk
+# strip frame by frame against the matrix of the clip.
 # --------------------------------------------------------------------------
-DIALOGUE = Dialogue(__file__, macros=("stringframe", "foldsheet"))
-NOT_IN_CAPTIONS = ("strings", "wires", "wire", "diagram", "diagrams", "drawing", "drawings",
-                   "picture", "pictures", "box", "boxes")
+DIALOGUE = Dialogue(__file__, macros=("stringframe", "foldsheet", "framewalk", "framesteps",
+                                      "foldsteps"))
 S0 = np.array([[1, 1], [0, 0]], dtype=complex)
 CNOT = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]], dtype=complex)
 SWAP = np.array([[1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]], dtype=complex)
@@ -121,10 +121,22 @@ def arrows_are(arrow, M):
     return moved
 
 
+def faces(v):
+    """The faces a basis column shows, top row first (heads = 0)."""
+    (k,) = np.flatnonzero(np.abs(v) > 0.5)
+    n = int(np.log2(len(v)))
+    return [P.FACE[int(b)] for b in format(int(k), "0%db" % n)]
+
+
 def pictures(panels):
-    p31, p32, p33 = DIALOGUE.check_layout("Third", sizes=[1, 1, 1])
-    for c in (p31, p32, p33):
-        assert words_only(c.caption, forbidden=NOT_IN_CAPTIONS), c.caption
+    P.check_lua()                     # ch04.lua and ch04.tex as the transcription was proved
+    # Three moments.  Block 3.1, a step strip: the coins laid on, just past the
+    # clip, at the right-hand hooks.  Block 3.2: the sheet as Achilles expects it
+    # beside the sheet with its blue arrows.  P3.3: the red arrows added.
+    found = P.check_section(DIALOGUE, "Third", sizes=[1, 2, 1], frames=[3, 2, 1])
+    (p31, walk), = found[0]
+    (p32e, [(still, _)]), (p32, [(sh, _)]) = found[1]
+    (p33, [(sh3, _)]), = found[2]
 
     # the macro's five arrow rules against their matrices, and their pencils
     for rule, M in RULES.items():
@@ -134,33 +146,88 @@ def pictures(panels):
         assert r == rule and arrows_are(arrow, M) is not None
         assert colour == {"silk": "blue", "hemp": "red"}.get(rule.split("-")[0], "graphite")
 
-    # P3.1: "turn it over" on the silk, heads above and tails below walked
-    fr = P.picture(p31)
-    assert p31.macro == "stringframe" and not p31.keyed and fr.place == ("end", None)
-    assert fr.hooked == ("silk", "hemp", "gut", "horsehair")
-    assert fr.clips() == [(1, "silk", 1, ("over",))]         # on the silk, nothing on the hemp
-    assert fr.face == {"silk": "heads", "hemp": "tails", "gut": None, "horsehair": None}
-    assert fr.coins() == {"silk": ("tails", 1), "hemp": ("tails", 2)}
-    M = P.check_walks(fr, GATES)
-    assert np.allclose(M, np.kron(np.kron(X, I2), np.eye(4)))   # X (x) I on silk and hemp
-    assert not np.allclose(M, np.kron(np.kron(I2, X), np.eye(4)))
-    assert np.allclose(P.column({1: "tails", 2: "tails"}, 2), np.kron(X, I2) @ ket(0, 1))
+    # Block 3.1: "turn it over" on the silk, heads above and tails below walked
+    # (the second walk: D4 sets the coins back at the left upright first)
+    assert p31.macro == "framewalk" and not p31.keyed and P.options(p31) == {"to": "end"}
+    (f0, _), (f1, _), (f2, _) = walk
+    assert [f.place for f in (f0, f1, f2)] == [("start", None), ("past", 1), ("end", None)]
+    for f in (f0, f1, f2):                                    # one frame, three moments
+        assert f.hooked == ("silk", "hemp", "gut", "horsehair") and f.ncol == 1
+        assert f.clips() == [(1, "silk", 1, ("over",))]       # on the silk, nothing on the hemp
+        assert f.face == {"silk": "heads", "hemp": "tails", "gut": None, "horsehair": None}
+        M = P.check_walks(f, GATES)
+        assert np.allclose(M, np.kron(np.kron(X, I2), np.eye(4)))   # X (x) I on silk and hemp
+        assert not np.allclose(M, np.kron(np.kron(I2, X), np.eye(4)))
+    start = ket(0, 1)                                         # heads above, tails below
+    walked = [start, np.kron(X, I2) @ start, np.kron(X, I2) @ start]
+    for f, v in zip((f0, f1, f2), walked):                    # each frame, the model's coins
+        assert np.allclose(P.drawn_column(f, rows=[1, 2]), v)
+    assert np.allclose(walked[2], ket(1, 1))                  # "arrives tails above, tails below"
+    assert not np.allclose(walked[2], np.kron(I2, X) @ start)
+    # the coins laid on at the left upright, and at the right-hand hooks
+    assert all(np.isclose(x, 0.2) for _, _, _, x, _ in f0.drawn_coins)
+    assert all(np.isclose(x, P.L - 0.2) for _, _, _, x, _ in f2.drawn_coins)
+    # the step through the clip: a ghost of the coin it turned, as it was just
+    # before (the model's column before the step), and the hop; the hemp coin,
+    # which passes untouched, has neither
+    assert f0.ghost_coins == [] and f0.hops == [] and f2.ghost_coins == [] and f2.hops == []
+    changed = [r for r, a, b in zip((1, 2), faces(walked[0]), faces(walked[1])) if a != b]
+    assert changed == [1]
+    assert [(n, r) for n, _, r, _, _ in f1.ghost_coins] == [("silk", 1)]
+    assert np.allclose(P.drawn_column(f1, rows=changed, ghosts=True), ket(0))   # as laid
+    assert [n for n, _, _ in f1.hops] == ["silk"]
+    # the ghost stands just before the clip and the coin just past it, both clear of it
+    (_, _, _, cx, cy), = [c for c in f1.clips_drawn]
+    ghost = [P.coin_extent(x, y, ghost=True) for _, _, _, x, y in f1.ghost_coins]
+    after = [P.coin_extent(x, y) for n, _, _, x, y in f1.drawn_coins if n == "silk"]
+    clip = P.clip_extent(cx, cy)
+    assert ghost[0][1] < clip[0] < clip[1] < after[0][0]
+    # F12 is the old P3.1, unchanged
+    old = P.stringframe("end", p31.args[0])
+    assert f2.dump == old.dump and f2.drawn_coins == old.drawn_coins
+    D4 = ("*[He draws a blue arrow on the sheet.]*",
+          "*[He draws a blue arrow on the sheet, sets the coins back at the left upright, and "
+          "walks again.]*")
+    P.check_edits(DIALOGUE, "Third", [D4])
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        a31, a32, a33 = DIALOGUE.anchors("Third", path)
+        assert a31.endswith("Heads above, tails below: arrives tails above, tails below. "
+                            "Upper right goes to lower right.")
+        assert a31.index(D4[1]) < a31.index("Heads above, tails below: arrives")
+        assert a32.endswith("The shares looked the same only because the two halves were twins.")
+        assert "Every panel has moved!" in a32
 
-    # P3.2: the patchwork unchanged, and four blue arrows, all up or down
-    sh = P.picture(p32)
+    # Block 3.2: the patchwork unchanged, and four blue arrows, all up or down
+    assert p32.macro == "foldsheet" and p32.opt == "" and not p32.keyed
+    assert p32.caption == "blue: across the first fold"       # C1
     assert np.allclose(sh.shares, panels) and sh.border is not None
     assert len(sh.arrows) == 1                                # one rule, one pencil
     (rule, colour, blue), = sh.arrows
     assert (rule, colour) == ("silk-over", "blue")
     moved = arrows_are(blue, np.kron(X, I2))
     assert len(blue) == 4                                     # "Every panel has moved!"
-    assert all(a % 2 == b % 2 and a // 2 != b // 2 for a, b in blue)   # over the first fold
+    assert all(a % 2 == b % 2 and a // 2 != b // 2 for a, b in blue)   # across the first fold
     assert np.allclose([panels[moved[a]] for a in range(4)], panels)  # twin halves: same numbers
+    # the prediction beside it ("The whole sheet is untouched!"): the rule's
+    # sheet, the same patchwork with no panel moved -- the arrows of the
+    # identity, which are none -- and not the sheet beside it
+    assert p32e.macro == "foldsheet" and p32e.args == p32.args and not p32e.keyed
+    assert P.options(p32e) == {"expects": "untouched"} and still.expects == "untouched"
+    assert still.untouched == ("silk-over",) and still.arrows == []
+    arrows_are((), np.eye(4))                                 # the identity moves nothing
+    assert np.allclose(still.shares, sh.shares) and still.border == sh.border
+    assert still.arrows != sh.arrows
+    assert not np.allclose(np.kron(X, I2), np.eye(4))         # the clip is no identity ...
+    assert np.allclose(np.kron(X, I2).real @ panels, panels)   # ... though the numbers agree
+    # the rule says nothing only where no border list changes: never for a clip
+    # on a string whose slip is not a half and a half
+    assert P.faults(P.foldsheet, "twice", "patchwork: a half, three-quarters; arrows: hemp-over",
+                    False, "expects=untouched") == [
+        "foldsheet: expects=untouched: hemp-over changes a border list; the rule says nothing"]
 
     # P3.3: the blue arrows kept, and four red ones, all sideways
-    sh = P.picture(p33)
-    assert np.allclose(sh.shares, panels) and len(sh.arrows) == 2
-    (r1, c1, blue3), (r2, c2, red) = sh.arrows
+    assert np.allclose(sh3.shares, panels) and len(sh3.arrows) == 2
+    (r1, c1, blue3), (r2, c2, red) = sh3.arrows
     assert (r1, c1, blue3) == ("silk-over", "blue", blue)
     assert (r2, c2) == ("hemp-over", "red")
     arrows_are(red, np.kron(I2, X))
@@ -168,6 +235,43 @@ def pictures(panels):
     assert all(a // 2 == b // 2 and a % 2 != b % 2 for a, b in red)    # inside each half
     assert not set(red) & set(blue)                           # both times, and differently
     assert not np.allclose(np.kron(X, I2), np.kron(I2, X))
+
+    assert P.section_dumps(found) == [
+        "stringframe: start",
+        "stringframe: + coin silk heads row 1",
+        "stringframe: + coin hemp tails row 2",
+        "stringframe: + cells silk over",
+        "stringframe: + cells hemp -",
+        "stringframe: + cells gut -",
+        "stringframe: + cells horsehair -",
+        "stringframe: past-first",
+        "stringframe: + coin silk tails row 1",
+        "stringframe: + coin hemp tails row 2",
+        "stringframe: + cells silk over",
+        "stringframe: + cells hemp -",
+        "stringframe: + cells gut -",
+        "stringframe: + cells horsehair -",
+        "stringframe: + ghost coin silk heads row 1",
+        "stringframe: end",
+        "stringframe: + coin silk tails row 1",
+        "stringframe: + coin hemp tails row 2",
+        "stringframe: + cells silk over",
+        "stringframe: + cells hemp -",
+        "stringframe: + cells gut -",
+        "stringframe: + cells horsehair -",
+        "foldsheet: twice rows 2 cols 2 expects untouched",
+        "foldsheet: + shares 0.3750,0.1250,0.3750,0.1250",
+        "foldsheet: + slips 0.5000,0.7500",
+        "foldsheet: + untouched silk-over",
+        "foldsheet: twice rows 2 cols 2",
+        "foldsheet: + shares 0.3750,0.1250,0.3750,0.1250",
+        "foldsheet: + slips 0.5000,0.7500",
+        "foldsheet: + arrows silk-over 4",
+        "foldsheet: twice rows 2 cols 2",
+        "foldsheet: + shares 0.3750,0.1250,0.3750,0.1250",
+        "foldsheet: + slips 0.5000,0.7500",
+        "foldsheet: + arrows silk-over 4",
+        "foldsheet: + arrows hemp-over 4"]
 
 
 # --------------------------------------------------------------------------

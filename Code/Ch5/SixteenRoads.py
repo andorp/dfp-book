@@ -83,7 +83,9 @@ def blackboard():
 # roads in order, each road's token after the bar's kick, the whole board's
 # home pocket and its settling.  The calls are read out of this challenge's
 # section of dialog.md, never copied.  This last file also checks the
-# dialogue as a whole: seventeen pictures, and the keyed rule.
+# dialogue as a whole: eighteen calls drawing twenty-two frames, the step
+# strips, the predictions, the marks, the keyed rule, and the transcription's
+# list of the macros' refusals against the Lua's own.
 #
 # The state model (identity card, section 3): silver = +1, slate = -1; the
 # home pocket is <0| on every lane in play; the two-faced reed token is |->,
@@ -91,19 +93,13 @@ def blackboard():
 # four lanes and both spreaders the home pocket's net is 16 x the closed
 # master value.
 # --------------------------------------------------------------------------
-DIALOGUE = Dialogue(__file__, macros=("conduitboard", "roadtiles"))
+DIALOGUE = Dialogue(__file__, macros=("conduitboard", "conduitwalk", "roadtiles"))
 ORDINALS = ("First", "Second", "Third", "Fourth", "Fifth")
 NOT_IN_CAPTIONS = ("wire", "wires", "diagram", "diagrams", "drawing", "drawings", "picture",
                    "pictures", "box", "boxes", "dot", "dots", "node", "nodes", "lanes",
                    "strings", "five")
 FOUR = "willow; alder; hazel; rowan; reed two-faced"
 BOARD_RULES = ("willow high", "never", "always", "odd", "even", "alder low", "rowan high")
-
-
-def kind(call):
-    """What a keyed picture labels: a board (its lanes and pockets), a
-    close-up (the name of its cup), the tiles."""
-    return (call.macro, call.opt.split()[0] in ("home", "away", "pockets") if call.opt else False)
 
 
 def f_of(board):
@@ -174,24 +170,63 @@ def check_transcription():
 
 
 def check_whole_dialogue():
-    assert DIALOGUE.check_whole(ORDINALS) == 17                  # 4 + 4 + 4 + 2 + 3
-    DIALOGUE.keyed_first(ORDINALS, kind=kind)
-    placed = [(o, i, c) for o in ORDINALS
-              for i, c in enumerate(c for b in DIALOGUE.blocks(o) for c in b)]
-    assert [(o, i) for o, i, c in placed if c.keyed] == [("First", 0), ("Second", 0),
-                                                         ("Fourth", 0)]
-    for o, i, c in placed:
-        P.picture(c)                                              # no macro ever faults
-        assert words_only(c.caption, forbidden=NOT_IN_CAPTIONS), c.caption
-        assert "sixteen roads" not in c.caption.lower()           # never the master's name
+    """The dialogue as a whole (card section 3e.2, Plan D)."""
+    total, frames, starred = P.check_dialogue(DIALOGUE, ORDINALS)
+    assert total == 18 and len(frames) == 22                     # calls; frames F01-F22
+    assert [len(DIALOGUE.blocks(o)) for o in ORDINALS] == [3, 2, 2, 2, 2]   # moments, cap 4
+    assert [[len(b) for b in DIALOGUE.blocks(o)] for o in ORDINALS] == \
+        [[1, 1, 2], [1, 3], [2, 3], [1, 1], [1, 2]]
+    assert starred == [("First", 0), ("Second", 0), ("Fourth", 0)]
+    calls = [(o, c) for o in ORDINALS for b in DIALOGUE.blocks(o) for c in b]
+    for o, c, pic, cap in frames:
+        assert words_only(cap, forbidden=NOT_IN_CAPTIONS), cap
+        assert "sixteen roads" not in cap.lower()                # never the master's name
+    # two walks drawn as strips of one call; five step strips in all: the blocks
+    # whose frames show a step (a marked frame), each more than one frame
+    walks = [(o, len(P.pictures(c))) for o, c in calls if c.macro == "conduitwalk"]
+    assert walks == [("First", 3), ("First", 3)]
+    strips = [(o, k) for o in ORDINALS for k, b in enumerate(DIALOGUE.blocks(o))
+              if sum(len(P.pictures(c)) for c in b) > 1
+              and any(pic.marked for c in b for pic, _ in P.pictures(c))]
+    assert strips == [("First", 1), ("First", 2), ("Second", 1), ("Third", 0), ("Third", 1)]
+    # eleven marked frames: F03 F04 F06 F07 F08 F11 F12 F13 F14 F15 F17; in a walk's
+    # strip the first frame unmarked, every later one marked
+    assert [n for n, (_, _, pic, _) in enumerate(frames, 1) if pic.marked] == \
+        [3, 4, 6, 7, 8, 11, 12, 13, 14, 15, 17]
+    for o, c in calls:
+        if c.macro == "conduitwalk":
+            first = P.options(c).get("from") != "off"
+            assert [pic.marked for pic, _ in P.pictures(c)] == [not first, True, True]
+    # two predictions, each the named wrong rule, unkeyed, unmarked, no step drawn
+    preds = [(o, P.picture(c).expects) for o, c in calls if P.is_prediction(c)]
+    assert preds == [("First", "add"), ("Third", "reed")]
+    for o, c in calls:
+        if P.is_prediction(c):
+            pic = P.picture(c)
+            assert not c.keyed and not pic.marked and pic.moved is None and pic.labels == ()
+            assert c.caption == "as Achilles expects"
+    # the pin ring: once, on the reed token held while its kick lands (F17)
+    pinned = [(n, [w for w, *_ in pic.pins]) for n, (_, _, pic, _) in enumerate(frames, 1)
+              if getattr(pic, "pins", None)]
+    assert pinned == [(17, ["reed"])]
+    for _, _, pic, _ in frames:
+        if isinstance(pic, P.Board):
+            # only when kicked, past the bar (F15's before already reads its roads kicked)
+            assert bool(pic.pins) == (pic.view == "past" and pic.marked and pic.kicked)
+    # the dump: 145 lines, a head line per frame
+    log = [line for _, _, pic, _ in frames for line in pic.log]
+    assert len(log) == 145
+    assert len([line for line in log if ": + " not in line]) == 22
     # the rules fixed by the card (section 3b, trace 6), and only those, in order
     rules = {}
-    for o, i, c in placed:
-        b = P.picture(c)
-        if c.macro == "conduitboard" and b.setting.bar is not None:
-            rules.setdefault(o, []).append(rule_name(b.setting.bar))
-    assert rules == {"Third": ["willow high"] * 4, "Fourth": ["never", "willow low"],
+    for o, _, pic, _ in frames:
+        if not isinstance(pic, P.Tiles) and pic.setting.bar is not None:
+            rules.setdefault(o, []).append(rule_name(pic.setting.bar))
+    assert rules == {"Third": ["willow high"] * 5, "Fourth": ["never", "willow low"],
                      "Fifth": ["willow high"] * 3}, rules
+    # every refusal of the macros (each tex.error of pdf/props/ch05.lua), in Lua line
+    # order, as the transcription lists them
+    P.check_sites()
 
 
 def rule_name(rule):
@@ -201,17 +236,31 @@ def rule_name(rule):
 
 
 def pictures():
+    P.check_lua()                                  # the Lua and .tex the transcription was proved on
     check_transcription()
     check_whole_dialogue()
-    p51, p52, p53 = DIALOGUE.check_layout("Fifth", sizes=[1, 2])
-    b51, b52, b53 = (P.picture(c) for c in (p51, p52, p53))
+    found = P.check_section(DIALOGUE, "Fifth", sizes=[1, 2], frames=[1, 2],
+                            forbidden=NOT_IN_CAPTIONS)
+    ((p51, [(b51, _)]),), ((p52, [(b52, _)]), (p53, [(b53, _)])) = found
+    assert not any(b.marked for b in (b51, b52, b53))           # ruling (e): P5.3 unmarked
     assert p51.args == p52.args == p53.args                      # one board, three moments
     assert all(c.macro == "conduitboard" and not c.keyed for c in (p51, p52, p53))
     assert all(c.opt.split()[:1] != ["end"] for c in (p51, p52, p53))   # no `end` in the Fifth
 
-    a1, a2 = P.anchors(DIALOGUE, "Fifth")
-    assert a1.endswith("Walk it, and read the home pocket alone.")
-    assert "the pocket a walker reaches only by coming home on every lane at once" in a2
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        a1, a2 = DIALOGUE.anchors("Fifth", path)
+        assert a1.endswith("Walk it, and read the home pocket alone.")
+        assert "the pocket a walker reaches only by coming home on every lane at once" in a2
+        # the clearing before the sixteen roads' walk (D8), inside the Tortoise's speech
+        at, blocks = P.where(DIALOGUE, "Fifth", "*[She tips the willow's pockets empty, sets "
+                             "the bar to a hidden rule", path)
+        assert at < blocks[0] and DIALOGUE.paragraphs("Fifth", path)[at] == a1
+    P.check_edits(DIALOGUE, "Fifth", [
+        ("*[She sets the bar to a hidden rule and lays her hand over its face.]*",
+         "*[She tips the willow's pockets empty, sets the bar to a hidden rule and lays her "
+         "hand over its face.]*"),
+        ("{the whole board in play}", "{all in play}"),
+        ("{not a token left}", "{all lifted out}")])
     # nothing after the last block is a picture: the Cat's measurement ends it
     rest = DIALOGUE.section("Fifth").split(p53.text)[1]
     assert "\\conduitboard" not in rest and "\\roadtiles" not in rest
@@ -232,7 +281,7 @@ def pictures():
     assert b52.cups["home"] == ["silver"] * 8 + ["slate"] * 8
     assert b52.cups["home"] == [P.face((-1) ** FS["balanced"](x)) for x in range(16)]
 
-    # P5.3: settled -- not a token left, net 0 = 16 x the closed master value
+    # P5.3: settled -- all lifted out, net 0 = 16 x the closed master value
     assert b53.view == "home settled" and b53.heaps == {"home": []}
     H4 = reduce(np.kron, [H] * 4)
     closed = (kron(ket(*bits(0)), KMINUS).conj().reshape(1, 32) @ np.kron(H4, I2)
@@ -241,6 +290,22 @@ def pictures():
     # Achilles's other case: a constant rule would have piled all sixteen
     const = P.conduitboard("home settled", f"{FOUR}; bar hidden always")
     assert const.heaps == {"home": [("slate", 8), ("slate", 8)]}
+
+    spec = "willow; alder; hazel; rowan; reed two-faced; bar hidden willow high"
+    roads = [f"conduitboard: + road "
+             + ",".join(f"{l}={'high' if b else 'low'}" for l, b in zip(P.QUERY, bits(x)))
+             + f" {P.face((-1) ** FS['balanced'](x))}" for x in range(16)]
+    assert P.section_dumps(found) == [
+        f"conduitboard: set | {spec}",
+        "conduitboard: + reed two-faced",
+        f"conduitboard: home | {spec}"] + roads + [
+        "conduitboard: + reed two-faced",
+        "conduitboard: + pocket home " + ",".join(["silver"] * 8 + ["slate"] * 8),
+        f"conduitboard: home settled | {spec}"] + roads + [
+        "conduitboard: + reed two-faced",
+        "conduitboard: + pocket home bare"]
+    assert roads[0].endswith("willow=low,alder=low,hazel=low,rowan=low silver")
+    assert roads[8].endswith("willow=high,alder=low,hazel=low,rowan=low slate")
 
 
 def hedge(p, a, b):

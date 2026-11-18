@@ -11,6 +11,7 @@ a half-ring on each cord, the controlled half-turn, collars -- is D / sqrt2 bare
 even setting alone and turns every tilted setting over; and for three cords the CCZ drawn
 as phase gadgets is 2^{-5/2} CCZ, checked by matrix and not derived (Result 15.17).
 """
+import re
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools"))
 
@@ -151,41 +152,262 @@ def blackboard():
 
 # --- the prop pictures ------------------------------------------------------------------
 
+# The anchors (card sections 4 and 3e.6), block by block: phrases of the paragraph before the
+# block, and the start of the paragraph after it, in dialog.md and dialog.raw.md alike.
+ANCHORS = [
+    (["in the card's left margin, beside the first slit, and there it stays.",                       # B04
+      "What has held: the average, still half a notch"], "**Tortoise:** Now the odds."),
+    (["The even row, and no touch. Turn it about."],                                                  # B05
+     "**Achilles:** One and one and one and one: four, and a quarter of four is one."),
+    (["Nothing moves. It found nothing.",                                                             # B06
+      "He puts a finger to each peg in turn and moves none of them."], "**Tortoise:** It turns an even row into itself."),
+    (["on the left end of each cord.]*"],                                                             # B07 (P2.2)
+     "*[The picture as it stands: the two green end-rings at rest at the left;"),
+    (["as every end she pushes tonight swallows the cord it travels",                                 # B08
+      "and each comes to rest just past where its far tube stood",
+      "with only the short loose end of its cord beyond it, bare; and nothing set aside."],
+     "**Achilles:** It comes out as it went in. Like the even row on the pegs."),
+    (["*[As it stands: the upper green end-ring at a half, the lower at rest, and the build between them.",  # B09
+      "she lays a small green bob from her work-bag, its bead at a half, off the cloth just beyond its near "
+      "edge at the right-hand end, by the candlestick. The dark lower end passes its own ring with nothing set aside.]*"],
+     "*[The lit upper end runs on into the controlled turn:"),
+    (["each coming to rest just past where its far tube stood.",                                      # B10 (P2.3)
+      "a half set aside turns the whole picture over.]*"],
+     "**Tortoise:** The same setting, with a half set aside: turned over."),
+    (["below his pencilled tick, which still stands at half a notch."], "**Achilles:** Under, under, one, one."),  # B11
+]
+
+# The peg-card's wrong rule as the Lua states it (card section 3e.1's copy, word for word).
+DOES_THE_FINDING = """\
+-- THE PEG-CARD'S WRONG RULE, given with expects=<rule>, computed from the state before and the step:
+--   does the finding  Achilles, after the touched row was turned about: "So what you're saying is
+--            that the turn-about does the finding, and the touch is only a formality." The
+--            turn-about finds the marked drawer by itself: the even row turned about with no touch
+--            comes out as the touched row did, the marked peg (the second, the case's marked
+--            drawer) two notches up and the others on the line. Said AFTER the picture of the
+--            touched row turned about ("turned about, a tall peg") and BEFORE the Tortoise plays
+--            the even row with no touch ("Then let it find something without one. ... The even row,
+--            and no touch. Turn it about."), which nothing pictured at round 3: a claim she puts to
+--            the test at once, so a prediction of that play. Refuted by "Nothing moves. It found
+--            nothing." and "It turns an even row into itself." Only with step=turn about, on the
+--            even row. The whole card paler, every peg whose expected height differs from the true
+--            one drawn again over it at full strength: the telling part (here all four).
+--   Not drawn (no state of the card differs): "Then a touch on all four drawers at once is wasted.
+--            It leaves a mark nobody can see." (said after the picture of the touched row, of the
+--            odds, which the card does not show; the Tortoise answers it in words: "But look at the
+--            pegs").
+"""
+
+
+def check_anchors(ordinal, table):
+    """Each block's paragraph before holds its phrases and the paragraph after starts as given,
+    in both dialogue files; and no block stands between a touch line and its turn line."""
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        before, after = DIALOGUE.anchors(ordinal, path), DIALOGUE.following(ordinal, path)
+        assert len(before) == len(after) == len(table)
+        for a, f, (phrases, start) in zip(before, after, table):
+            assert all(ph in a for ph in phrases), (a[:80], phrases)
+            assert f.startswith(start), (f[:80], start)
+        paras = DIALOGUE.paragraphs(ordinal, path)
+        inside = False
+        for p in paras:
+            if p.startswith("**Achilles:**") and p.endswith("The marker turns it over."):
+                inside = True
+            elif p.startswith("**Tortoise:**") and p.endswith("And we turn it about."):
+                inside = False
+            assert not (inside and DIALOGUE.is_block(p)), p[:60]
+
+
+def quoted(q, text):
+    """A comment's quotation is the dialogue's, an elision ( ... ) apart."""
+    return all(part in text for part in q.split(" ... "))
+
+
+def O(w, N):
+    """The marker I - 2|w><w|."""
+    e = np.eye(N)[w]
+    return np.eye(N) - 2 * np.outer(e, e)
+
+
+def peg_step(p, before, after):
+    """A marked step frame on the peg-card against this file's model (round 4, card section 3e):
+    before and after are the model's rows; each moved peg has its ghost where it stood before the
+    step and one slide arc beside its own slit, on the slit's right, from its old height (or a
+    little before it, so a short move still gets an arc long enough for its head) to its new
+    height; one offset for every arc of the frame (same verb, same arc); every arc clears the
+    card's edge, its slit, every peg and shadow, the ghosts, the next slit's notches and the
+    other arcs."""
+    assert np.allclose(p.before.h, before) and np.allclose(p.after.h, after)
+    assert p.marked and not p.refused and p.wrong is None
+    moved = [k for k in range(4) if not np.isclose(before[k], after[k])]
+    vb, va = PC.pegs_view(p.before), p.shown
+    assert [k for _, k, _ in p.ghosts] == [k + 1 for k in moved]
+    assert [xy for *_, xy in p.ghosts] == [vb.pegs[k][1:] for k in moved]          # where it stood
+    assert len(p.arcs) == len(moved) and {a.kind for a in p.arcs} <= {"slide"}
+    offsets = set()
+    for a, k in zip(p.arcs, moved):
+        (_, x, y0), (_, _, y1) = vb.pegs[k], va.pegs[k]
+        d = np.sign(y1 - y0)
+        assert np.isclose(a.p1[1], y1) and np.isclose(a.p0[0], a.p1[0]) and a.p0[0] > x
+        assert -PC.PR - 1e-9 <= d * (a.p0[1] - y0) <= 1e-9                       # starts at the ghost
+        assert abs(a.p1[1] - a.p0[1]) >= min(PC.PEGARCMIN, abs(y1 - y0)) - 1e-9
+        offsets.add(round(a.p0[0] - x, 6))
+    assert len(offsets) <= 1
+    for c in p.clearances:
+        assert min(v for k, v in c.items() if k in ("card", "slit", "peg", "ghost", "notch", "others")
+                   and v is not None) > 0.03 and c["shadow"] > 0.02, c                  # edge to edge
+        assert c["crosses middle"] == (np.sign(before[c["k"] - 1]) != np.sign(after[c["k"] - 1]))
+    if not moved:
+        assert p.mark_tikz == [] and "no marks: no peg moved" in p.notes
+
+
+# The cloth's model: an end-ring is a basis point read through its collars.  Green with its bead at
+# rest or at a half is |+> or |->; through the tubes (the collars, H) it is red, |0> or |1>; a
+# half-ring (green pi, Z) sets a half aside when a red end at a half (|1>) passes it; the
+# controlled turn (CZ) sets one aside when both ends are at a half: pushed one end at a time, the
+# upper end at a half leaves a half-ring on the lower cord (CZ = |0><0| (x) I + |1><1| (x) Z), which
+# the lower end passes in its turn; the far tubes take the ends back to green.  Stage k: through the
+# k-th piece.  The halves set aside count the sign.
+STAGE = {"the tubes": 1, "the half-rings": 2, "the controlled turn": 3, "the far tubes": 4}
+REST_X = {0: 0, 1: 1.5, 2: 2.9, 3: 4.3, 4: 6.0}                    # each end's place after stage k
+
+
+def cloth_model(setting, pushes):
+    t = dict(zip(("upper", "lower"), PC.SETTINGS[setting]))
+    M = {"ends": [["green", t["upper"], 0], ["green", t["lower"], 0]], "aside": 0, "turn": True, "landed": None}
+    for push in pushes:
+        who, piece = re.fullmatch(r"(?:(the upper|the lower) )?through (.+)", push).groups()
+        rows = {None: (0, 1), "the upper": (0,), "the lower": (1,)}[who]
+        n = STAGE[piece]
+        for r in rows:
+            end = M["ends"][r]
+            assert end[2] == n - 1
+            half = end[1] == 12
+            if n == 1:
+                end[0] = "red"
+            elif n == 2:
+                M["aside"] += half
+            elif n == 3:
+                if len(rows) == 2:
+                    M["aside"] += half and M["ends"][1 - r][1] == 12 and r == 0
+                else:
+                    if M["landed"] == r + 1:                                    # a half-ring on this cord
+                        M["aside"] += half
+                        M["landed"] = None
+                    elif M["turn"] and half:
+                        M["landed"] = 2 - r                                     # the other cord, 1-based
+                M["turn"] = False
+            else:
+                end[0] = "green"
+            end[2] = n
+    return M
+
+
+def cloth_gone(B, A):
+    """What a push takes from the cloth, by grid place: each moved end-ring's old place; the
+    half-rings it passed; the turn's rings, hub and bob when the turn goes (but the place a ring
+    landed on); a landed half-ring when its end passes it."""
+    gone = set()
+    for r in (0, 1):
+        b, a = B["ends"][r], A["ends"][r]
+        if b[2] != a[2]:
+            gone.add(("end", (REST_X[b[2]], r)))
+            if a[2] == 2:
+                gone.add(("ring", (PC.AT["HALF"], r)))
+    if B["turn"] and not A["turn"]:
+        gone |= {("ring", (PC.AT["TURN"], 0)), ("ring", (PC.AT["TURN"], 1)), ("hub", (PC.AT["HUB"], 0.5)),
+                 ("bob", (PC.AT["BOB"], 0.5))}
+        if A["landed"]:
+            gone.discard(("ring", (PC.AT["TURN"], A["landed"] - 1)))
+    if B["landed"] and not A["landed"]:
+        gone.add(("ring", (PC.AT["TURN"], B["landed"] - 1)))
+    return gone
+
+
+def same_cloth(M, model):
+    return ([[e["c"], e["t"], e["stage"]] for e in M["ends"]] == model["ends"] and M["aside"] == model["aside"]
+            and M["turn"] == model["turn"] and M["landed"] == model["landed"]
+            and [e["x"] for e in M["ends"]] == [REST_X[e[2]] for e in model["ends"]])
+
+
+def cloth_step(p, before, after):
+    """A marked step frame on the cloth against the model: the states before and after; a ghost
+    (the part's own dotted outline) at the old place of each part the push takes, the landed ring
+    none; one slide arc per end that moved, level, on the side of its cord that faces the gap,
+    running the way it went from its ghost towards where it stands; every arc on the linen and
+    clear of every cord, tie and pendant, every ring and the ghosts."""
+    assert same_cloth(p.before, before) and same_cloth(p.after, after)
+    assert p.marked and not p.refused and p.wrong is None
+    assert {(k, place) for k, place, _ in p.ghosts} == cloth_gone(before, after)
+    assert len(p.ghosts) == len(cloth_gone(before, after))
+    moved = [r for r in (0, 1) if before["ends"][r][2] != after["ends"][r][2]]
+    assert len(p.arcs) == len(moved) and {a.kind for a in p.arcs} == {"slide"}
+    g = PC.ClothGeom(p.scene)
+    ghost_x = {place: xy for _, place, xy in p.ghosts}
+    for a, r in zip(p.arcs, moved):
+        assert np.isclose(a.p0[1], a.p1[1])                                        # level
+        assert g.Y(1) < a.p0[1] < g.Y(0) and (a.p0[1] > g.Y(0.5)) == (r == 0)      # the gap side, by its cord
+        x0 = ghost_x[(REST_X[before["ends"][r][2]], r)][0]
+        assert x0 < a.p0[0] < a.p1[0] < g.X(REST_X[after["ends"][r][2]])          # ghost to new place
+    for c in p.clearances:
+        assert min(c["linen"], c["cord"], c["ring"]) > 0.03 and (c["ghost"] is None or c["ghost"] > 0.03), c
+
+
+def twin_is_round3(c, p, kind, round3):
+    """Its twin with marks=off draws what round 3's call of the same state draws, line for
+    line: the marks are all a step frame adds."""
+    tw = PC.run_frame(kind, PC.bracket(c) + "; marks=off", c.args[0], c.keyed)
+    assert not PC.TEX_ERRORS and tw.mark_tikz == [] and tw.ghosts == [] and tw.arcs == []
+    r3 = PC.run_frame(kind, round3, c.args[0], c.keyed)
+    assert not PC.TEX_ERRORS and r3.step is None and r3.opts.get("round4") is None
+    assert PC.drawn(tw) == PC.drawn(r3) == PC.drawn(p)
+
+
+def round3_bracket(c):
+    o = PC.options(c)
+    return ", ".join(x for x in (o["bare"].strip(), o["step"]) if x)
+
+
 def pictures():
-    """The Second Challenge's prop pictures (identity card, section 4), read from the
-    dialogue through tools/dfp_props.py and the transcription tools/props_ch15.py.  The
-    ties hold the transcription against this file's blackboard (a structural check of the
-    pictures, not a second proof): the turn-about on the pegs is Grover's inversion about
-    the average, (Dv)_x = 2 vbar - v_x, and on the cloth it leaves the even setting alone
-    and turns every tilted setting over, the halves it sets aside counting the sign."""
-    calls = DIALOGUE.check_layout("Second", sizes=[1, 1, 1, 1])
+    """The Second Challenge's prop pictures (identity card, sections 4 and 3e), read from the
+    dialogue through tools/dfp_props.py and the transcription tools/props_ch15.py.  The ties
+    hold the transcription against this file's blackboard (a structural check of the pictures,
+    not a second proof): the turn-about on the pegs is Grover's inversion about the average,
+    (Dv)_x = 2 vbar - v_x, played as the dialogue plays it (the tick, three pegs down, one up);
+    the even row is left alone (D|s> = |s>), so the turn-about does not do the finding; and on
+    the cloth the build leaves the even setting alone and turns the tilted setting over, the
+    halves it sets aside counting the sign, push by push."""
+    calls = DIALOGUE.check_layout("Second", sizes=[1, 1, 1, 1, 1, 1, 1, 1])
     assert [(c.macro, c.keyed, c.opt, c.args, c.caption) for c in calls] == [
-        ("pegcard", False, "touch the second, mark the average, turn about", ("even row",), "turned about, a tall peg"),
+        ("pegcardsteps", False, "after=touch the second",
+         ("even row", "mark the average; turn about the first, third and fourth; turn about the second"),
+         "the marked peg under again; the average ticked; the level pegs down; turned about, a tall peg"),
+        ("pegcard", False, "step=turn about; expects=does the finding", ("even row; tick at half a notch",),
+         "as Achilles expects"),
+        ("pegcard", False, "step=turn about", ("even row; tick at half a notch",), "not a peg moved"),
         ("aboutcloth", True, "", ("even setting",), "the build, set even"),
-        ("aboutcloth", False, "push through", ("tilted setting",), "the tilted setting, pushed through"),
-        ("pegcard", False, "turn about", ("one, one, under, under; tick at half a notch",), "tilted, then turned about")]
+        ("aboutclothsteps", False, "from=off",
+         ("even setting", "through the tubes; through the half-rings; through the controlled turn; through the far tubes"),
+         "dark through the tubes; the ends past the rings; the turn fallen away; the ends green again, at rest"),
+        ("aboutclothsteps", False, "", ("tilted setting", "through the tubes; through the half-rings"),
+         "tilted, as laid; lit above, dark below; a bob laid off the cloth"),
+        ("aboutclothsteps", False, "after=through the tubes, through the half-rings; from=off",
+         ("tilted setting",
+          "the upper through the controlled turn; the lower through the controlled turn; through the far tubes"),
+         "the turn vanished, a ring landed; the lower end past the ring; the tilted setting, pushed through"),
+        ("pegcard", False, "step=turn about", ("one, one, under, under; tick at half a notch",),
+         "tilted, then turned about")]
     PC.check_captions(DIALOGUE, "Second", calls)
     PC.check_section(DIALOGUE, "Second", calls)
+    frames = [PC.frame_calls(c) for c in calls]
+    assert [len(f) for f in frames] == [4, 1, 1, 1, 4, 3, 3, 1]                  # card 3e.6: 8 blocks, 18 frames
     pegs_h = round(PC.PFTOP - PC.PFBOT, 2)
-    cloth_h = PC.height(calls[1])
-    assert (pegs_h, cloth_h) == (1.48, 1.75)                            # read from the Lua and the kit
-    assert [[PC.height(c) for c in b] for b in DIALOGUE.blocks("Second")] == [[pegs_h], [cloth_h], [cloth_h], [pegs_h]]
-
-    # the anchors (card section 4)
-    a1, a2, a3, a4 = DIALOGUE.anchors("Second")
-    f1, f2, f3, f4 = DIALOGUE.following("Second")
-    assert "in the card's left margin, beside the first slit, and there it stays." in a1                 # D4
-    assert "What has held: the average, still half a notch" in a1
-    assert f1.startswith("**Tortoise:** Now the odds.")
-    assert "on the left end of each cord.]*" in a2
-    assert f2.startswith("*[The picture as it stands: the two green end-rings at rest at the left;")
-    assert ("she lays a small green bob from her work-bag, its bead at a half, off the cloth just beyond its "
-            "near edge at the right-hand end, by the candlestick.") in a3                                  # D9
-    assert "each coming to rest just past where its far tube stood." in a3
-    assert f3.startswith("**Tortoise:** The same setting, with a half set aside: turned over.")
-    assert "below his pencilled tick, which still stands at half a notch." in a4                          # D10
-    assert f4.startswith("**Achilles:** Under, under, one, one.")
-    assert DIALOGUE.following("Second", DIALOGUE.raw) == [f1, f2, f3, f4]
+    cloth_h = PC.height(calls[3])
+    assert (pegs_h, cloth_h) == (1.48, 1.75)                                    # read from the Lua and the kit
+    assert [[PC.height(f) for f in fs] for fs in frames] == [[pegs_h] * 4, [pegs_h], [pegs_h], [cloth_h],
+                                                             [cloth_h] * 4, [cloth_h] * 3, [cloth_h] * 3, [pegs_h]]
+    assert [PC.family(c) for c in calls] == ["pegs"] * 3 + ["cloth"] * 4 + ["pegs"]
+    check_anchors("Second", ANCHORS)
     # the section carries D4 to D10's anchor phrases, once each, in both files
     for path in (DIALOGUE.dialog, DIALOGUE.raw):
         sec = DIALOGUE.section("Second", path)
@@ -207,38 +429,124 @@ def pictures():
                        "below his pencilled tick, which still stands at half a notch."):                   # D10
             assert sec.count(phrase) == 1, phrase
 
-    p21, p22, p23, p24 = (PC.picture(c) for c in calls)
     D4 = grover_D(4).real
     s2 = 2 * even_state(2).real                                         # the even row: 2|s>
+    v = O(0b01, 4) @ s2                                                 # touched: (1, -1, 1, 1)
+    vbar = v.mean()
 
-    # P2.1: touched, the average ticked, turned about: (0, 2, 0, 0) = D (1, -1, 1, 1), the
-    # tick at the average 1/2, each peg turned about it -- Grover's inversion about the average
-    v = np.array([1, -1, 1, 1])
-    assert p21.dump == "pegs=0,2,0,0 ticks=0.5"
-    assert np.allclose(p21.state.h, D4 @ v) and np.allclose(p21.state.h, 2 * v.mean() - v)
-    assert p21.state.ticks == [v.mean()] == [0.5]
-    assert np.argmax(p21.state.h) == 0b01                               # the second drawer stands tall
-    assert not np.allclose(p21.state.h, -(D4 @ v))                      # 2 vbar - v, not v - 2 vbar
-    assert np.isclose(np.square(p21.state.h).sum(), np.square(v).sum())  # the squares together, still four
-    # the even row turned about is unmoved: D|s> = |s>
-    E = PC.pegs_state("turn about", "even row")
-    assert np.allclose(E.h, D4 @ s2) and np.allclose(E.h, s2)
-    # P2.4: one, one, under, under -- 2|-+>, the tilted setting read in the drawers' basis --
-    # turned about to under, under, one, one: D u = -u when the entries of u sum to nothing
+    # B04, the turn-about as l.608 plays it, frame by frame from the touched row: the tick at the
+    # average; the first, third and fourth pegs reflected about it; then the second
+    pegs = PC.pictures(calls[0])
+    rows = [v, v, np.where([True, False, True, True], 2 * vbar - v, v), 2 * vbar - v]
+    ticks = [[], [vbar], [vbar], [vbar]]
+    for k, ((p, cap), h, tk) in enumerate(zip(pegs, rows, ticks)):
+        assert np.allclose(p.after.h, h) and p.after.ticks == tk, (cap, p.after)
+        if k:
+            assert np.allclose(p.before.h, rows[k - 1]) and p.before.ticks == ticks[k - 1]
+            peg_step(p, rows[k - 1], h)
+            twin_is_round3(PC.frame_calls(calls[0])[k], p, "pegs", round3_bracket(PC.frame_calls(calls[0])[k]))
+    assert np.allclose(rows[1], v) and pegs[1][0].mark_tikz == []                # the tick: no peg moved
+    assert pegs[2][0].after.turning == {"avg": vbar, "done": {1: True, 3: True, 4: True}}
+    assert [len(p.ghosts) for p, _ in pegs] == [0, 0, 3, 1] and [len(p.arcs) for p, _ in pegs] == [0, 0, 3, 1]
+    assert np.allclose(rows[3], D4 @ v) and np.allclose(rows[2][[0, 2, 3]], 0) and rows[2][1] == -1
+    assert [PC.step_line(p) for p, _ in pegs[1:]] == [
+        "step mark the average -> pegs=1,-1,1,1 ticks=0.5",
+        "step turn about the first, third and fourth -> pegs=0,-1,0,0 ticks=0.5 turning=0.5",
+        "step turn about the second -> pegs=0,2,0,0 ticks=0.5"]
+    assert np.allclose(PC.picture(DIALOGUE.blocks("First")[2][0]).after.h, pegs[0][0].after.h)   # F03 = F04
+    p21 = pegs[3][0]
+
+    # B05: `does the finding`, a live prediction: the card paler, the pegs where Achilles expects
+    # them -- the touched row's turn-about D O_01 2|s> = (0, 2, 0, 0) -- over the true turn-about of
+    # the even row, D 2|s> = 2|s>: nothing moves.  Every peg differs, so all four tell.
+    p5 = PC.picture(calls[1])
+    assert PC.is_prediction(calls[1]) and not PC.judged(calls[1]) and not calls[1].keyed
+    assert np.allclose(p5.before.h, s2) and p5.before.ticks == [vbar]
+    assert np.allclose(p5.after.h, D4 @ s2) and np.allclose(p5.after.h, s2)       # true: D|s> = |s>
+    assert np.allclose(p5.wrong.h, D4 @ O(0b01, 4) @ s2) and np.allclose(p5.wrong.h, p21.after.h)
+    assert not np.allclose(p5.wrong.h, p5.after.h)
+    assert p5.telling == tuple(k + 1 for k in range(4) if not np.isclose(p5.wrong.h[k], p5.after.h[k])) == (1, 2, 3, 4)
+    assert p5.head == "pegs=0,2,0,0 ticks=0.5" and p5.ghosts == p5.arcs == [] and p5.mark_tikz == []
+    # the telling part, legible (card section 3e.5): each expected peg stands a notch or more from
+    # its true place, 0.17 cm, over the 0.15 cm floor
+    assert min(abs(p5.wrong.h[k - 1] - p5.after.h[k - 1]) * PC.NP for k in p5.telling) >= 0.15
+    assert PC.step_line(p5) == "step turn about -> pegs=1,1,1,1 ticks=0.5"
+    # the rule as the Lua states it, its quotations the dialogue's own
+    assert DOES_THE_FINDING in PC.LUA_TEXT
+    text = DIALOGUE.read(DIALOGUE.dialog) + DIALOGUE.read(DIALOGUE.raw)
+    assert all(quoted(q, text) for q in PC.comment_quotes(PC.RULE_COMMENTS[1])), PC.comment_quotes(PC.RULE_COMMENTS[1])
+    # the rule is the peg-card's only one, told only by the turn-about on the even row
+    for br, row in (("step=touch the second; expects=does the finding", "even row"),
+                    ("touch the second; step=turn about; expects=does the finding", "even row")):
+        assert PC.faults(PC.run_frame, "pegs", br, row, False) in (["pegs-rule-step"], ["pegs-rule-row"])
+
+    # B06: the play -- the even row turned about: not a peg moved, no marks
+    p6 = PC.picture(calls[2])
+    peg_step(p6, s2, D4 @ s2)
+    assert np.allclose(p6.after.h, p5.after.h) and p6.after.ticks == [vbar]
+    assert p6.ghosts == p6.arcs == [] and p6.mark_tikz == []
+
+    # B11 (P2.4's place): one, one, under, under -- 2|-+>, the tilted setting read in the drawers'
+    # basis -- turned about: D u = -u when the entries of u sum to nothing; four ghosts, four arcs
+    p24 = PC.picture(calls[7])
     u = np.array([1, 1, -1, -1])
     MINUS, PLUS = np.array([1, -1]) / np.sqrt(2), np.array([1, 1]) / np.sqrt(2)
     assert np.allclose(u, 2 * np.kron(MINUS, PLUS))                     # top cord first
     assert not np.allclose(u, 2 * np.kron(PLUS, MINUS))
-    assert p24.dump == "pegs=-1,-1,1,1 ticks=0.5"
-    assert np.allclose(p24.state.h, D4 @ u) and np.allclose(p24.state.h, -u)
-    assert u.mean() == 0 and p24.state.ticks == p21.state.ticks          # the tick still stands
+    peg_step(p24, u, D4 @ u)
+    assert np.allclose(p24.after.h, -u) and u.mean() == 0 and p24.after.ticks == [vbar]
+    assert p24.dump == "pegs=-1,-1,1,1 ticks=0.5" and len(p24.ghosts) == len(p24.arcs) == 4
+    for c, p in ((calls[2], p6), (calls[7], p24)):
+        twin_is_round3(c, p, "pegs", "turn about")
+    assert not PC.TEX_ERRORS
+
+    # the pegs' frames, every one: the turn-about's ghost and arc are the touch's (same verb,
+    # same arc: the slide), every arc beside its own slit
+    p13 = PC.picture(DIALOGUE.blocks("First")[2][0])
+    assert {round(a.p0[0] - PC.SLITX[k - 1], 6) for p in (p13, pegs[2][0], pegs[3][0], p24)
+            for a, (_, k, _) in zip(p.arcs, p.ghosts)} == {round(PC.PEGARCX, 6)}
+    pegs = [(p, cap) for p, cap in pegs] + [(p5, ""), (p6, ""), (p24, "")]
+
+    # the cloth, push by push against the model.  B07 (P2.2) is B08's before-frame (B08 is from=off).
+    p22 = PC.picture(calls[3])
+    even = PC.pictures(calls[4])
+    tilted = PC.pictures(calls[5]) + PC.pictures(calls[6])
+    for (strip, setting, pushes, first) in (
+            ([(p22, None)] + even, "even setting",
+             ["through the tubes", "through the half-rings", "through the controlled turn", "through the far tubes"], 0),
+            (tilted, "tilted setting",
+             ["through the tubes", "through the half-rings", "the upper through the controlled turn",
+              "the lower through the controlled turn", "through the far tubes"], 0)):
+        states = [cloth_model(setting, pushes[:k]) for k in range(len(pushes) + 1)]
+        assert len(strip) == len(states)
+        assert same_cloth(strip[0][0].after, states[0]) and strip[0][0].step is None
+        for k in range(1, len(states)):
+            p = strip[k][0]
+            assert p.step == pushes[k - 1]
+            cloth_step(p, states[k - 1], states[k])
+        assert states[-1]["ends"] == [["green", t, 4] for t in PC.SETTINGS[setting]]   # the setting unchanged
+        ket = np.kron(*[{0: PLUS, 12: MINUS}[t] for t in PC.SETTINGS[setting]])
+        assert np.allclose(D4 @ ket, (-1) ** states[-1]["aside"] * ket)              # the halves count the sign
+        assert not np.allclose(D4 @ ket, (-1) ** (states[-1]["aside"] + 1) * ket)
+    assert [len(p.ghosts) for p, _ in even] == [2, 4, 6, 2] and [len(p.arcs) for p, _ in even] == [2, 2, 2, 2]
+    assert [len(p.ghosts) for p, _ in tilted] == [0, 2, 4, 4, 2, 2] and [len(p.arcs) for p, _ in tilted] == [0, 2, 2, 1, 1, 2]
+    assert tilted[3][0].after["landed"] == 2 and tilted[4][0].after["landed"] is None    # one ring landed, then passed
+    assert tilted[2][0].after["aside"] == 1 and tilted[0][0].after["aside"] == 0
+    assert any("the ring that landed lies on its place now" in n for n in tilted[3][0].notes)
+    for strip_calls, strip in ((PC.frame_calls(calls[4]), even), (PC.frame_calls(calls[5]) + PC.frame_calls(calls[6]),
+                                                                  tilted)):
+        for fc, (p, _) in zip(strip_calls, strip):
+            if p.step is not None:
+                twin_is_round3(fc, p, "cloth", round3_bracket(fc))
+    assert tilted[0][0].shown.aside == () and len(tilted[2][0].shown.aside) == 1          # the bob laid off the cloth
+    p23 = tilted[-1][0]
     assert not PC.TEX_ERRORS
 
     # the pegs' fixed parts: the same card, slits, middle line and notches as in the First
     # Challenge's pictures; a move changes only the pegs and the ticks; the tick, once made,
     # stays, clear of the first slit and of every peg
     first = [PC.picture(c) for c in DIALOGUE.check_layout("First", sizes=[1, 1, 1]) if c.macro == "pegcard"]
-    for p in first + [p21, p24]:
+    for p in first + [p for p, _ in pegs]:
         w = p.shown
         assert (w.card, w.slits, w.notches, w.middle) == (p21.shown.card, p21.shown.slits, p21.shown.notches,
                                                           p21.shown.middle)

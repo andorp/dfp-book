@@ -88,8 +88,13 @@ def blackboard():
 #   \ringcords[view]{tangle}{caption}           (pdf/props/ch08.tex)
 # and the Crab's press, \koekpan[view]{caption}.  The Lua COMPUTES the views:
 # slid, flipped, pushed, pressed, and the ring come clear of the flip-slot.
-# tools/props_ch08.py transcribes the Lua; the calls are read out of this
-# challenge's section of dialog.md, never copied.
+# Round 4 ("Show the process") adds the marks (marks=on: a moved part's ghost,
+# its arc, a pin on what is held), the prediction frames (expects=: Achilles's
+# refuted rule, drawn paler) and \ringsteps[opts]{tangle}{steps}{captions}, a
+# strip whose every frame starts from the state the one before left.
+# tools/props_ch08.py transcribes the Lua (proved against texlua; P.check_lua
+# holds the Lua and the .tex to the text it was proved on); the calls are read
+# out of this challenge's section of dialog.md and dialog.raw.md, never copied.
 #
 # The state model (identity card, section 3): a green ring is a Z spider, a red
 # ring an X spider; a ring's turn t (twenty-fourths, clockwise from the top as
@@ -146,6 +151,8 @@ def gates_of(T):
 def check_transcription():
     """The Lua's gate, three gates and their pressed crossing against the
     three-CNOT theorem (a structural check, not a second proof)."""
+    P.check_lua()
+    P.check_sites()
     # a gate (green on the top line over red on the bottom, one cord) is the spider CNOT,
     # CNOT / sqrt2, the control on the green's line; the gate the other way up is CNOT'
     G = P.parse_tangle("gate")
@@ -181,17 +188,24 @@ def check_transcription():
 def pictures():
     assert f'"{QUOTE}"' in __doc__                              # quoted byte for byte
     check_transcription()
-    p51, p52 = DIALOGUE.check_layout("Fifth", sizes=[1, 1])
-    calls = (p51, p52)
+    found = P.check_section(DIALOGUE, "Fifth", sizes=[1, 1], frames=[1, 1])
+    calls = tuple(c for b in found for c, _ in b)
+    p51, p52 = calls
     assert [c.macro for c in calls] == ["ringcords"] * 2
     for c in calls:
         assert words_only(c.caption, forbidden=P.NOT_IN_CAPTIONS) and P.caption_ok(c), c.caption
     assert [c.opt for c in calls] == ["", "pressed"] and not any(c.keyed for c in calls)
+    assert [P.options(c) for c in calls] == [{"bare": ""}, {"bare": "pressed"}]
+    assert [c.caption for c in calls] == ["its middle reversed", "what came off"]
     assert p51.args == p52.args == ("three gates",)
-    b51, b52 = (P.picture(c) for c in calls)
+    b51, b52 = (fr[0][0] for b in found for _, fr in b)
     sec = DIALOGUE.section("Fifth")
-    a1, a2 = P.anchors(DIALOGUE, "Fifth")
-    f1, f2 = P.following(DIALOGUE, "Fifth")
+    a1, a2 = DIALOGUE.anchors("Fifth")
+    f1, f2 = DIALOGUE.following("Fifth")
+    # the caption edited this round (C3), in both files
+    P.check_edits(DIALOGUE, "Fifth", [("{the middle reversed}", "{its middle reversed}")])
+    # the pan works unseen, so its results alone are drawn: nothing here is marked or a strip
+    assert all(b.marks == () and b.mark_tikz == () and b.expects is None for b in (b51, b52))
 
     # P5.1: the three gates as the Crab strings them -- the colours top and bottom in the
     # order he names them, green up on the top line of a plain gate

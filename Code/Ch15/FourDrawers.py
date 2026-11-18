@@ -198,7 +198,7 @@ def pictures():
     assert [(c.macro, c.keyed, c.opt, c.args, c.caption) for c in calls] == [
         ("drawercase", True, "", ("",), "the Genie's drawer-case"),
         ("pegcard", True, "", ("even row",), "level across the card"),
-        ("pegcard", False, "touch the second", ("even row",), "the marked peg under")]
+        ("pegcard", False, "step=touch the second", ("even row",), "the marked peg under")]
     PC.check_captions(DIALOGUE, "First", calls)
     PC.check_section(DIALOGUE, "First", calls)
     case_h, pegs_h = round(PC.CFTOP - PC.CFBOT, 2), round(PC.PFTOP - PC.PFBOT, 2)
@@ -215,6 +215,7 @@ def pictures():
     assert "The second peg is exactly as far from the line as it was, only on the other side: under." in a3
     assert f3.startswith("**Achilles:** One, one, one, one. The squares haven't changed.")
     assert DIALOGUE.following("First", DIALOGUE.raw) == [f1, f2, f3]
+    assert DIALOGUE.anchors("First", DIALOGUE.raw) == [a1, a2, a3]
     # the section carries D1, D2 and D3's anchor phrases, once each, in both files
     for path in (DIALOGUE.dialog, DIALOGUE.raw):
         sec = DIALOGUE.section("First", path)
@@ -282,6 +283,52 @@ def pictures():
     for v in (v2, v3):
         for (k, x, y), (_, x0, y0, x1, y1) in zip(v.pegs, v.slits):
             assert x0 < x < x1 and y0 + PC.PR + 0.3 * PC.PT / 2 < y < y1 - PC.PR - 0.3 * PC.PT / 2
+
+    process(calls[2], ones)
+
+
+def peg_step(p, before, after):
+    """A marked step frame on the peg-card against this file's model (round 4, card section 3e):
+    the state before and after are the model's rows; each moved peg has its ghost where it stood
+    before the step and one slide arc beside its own slit, on the slit's right, from where it
+    stood to where it stands (the same verb draws the same arc); every arc clears the card's
+    edge, its slit, every peg and shadow, the ghosts and the next slit's notches."""
+    assert np.allclose(p.before.h, before) and np.allclose(p.after.h, after)
+    assert p.marked and not p.refused and p.wrong is None
+    moved = [k for k in range(4) if not np.isclose(before[k], after[k])]
+    vb, va = PC.pegs_view(p.before), p.shown
+    assert [k for _, k, _ in p.ghosts] == [k + 1 for k in moved]
+    assert [xy for *_, xy in p.ghosts] == [vb.pegs[k][1:] for k in moved]          # where it stood
+    assert len(p.arcs) == len(moved) and {a.kind for a in p.arcs} <= {"slide"}
+    offsets = set()
+    for a, k in zip(p.arcs, moved):
+        (_, x, y0), (_, _, y1) = vb.pegs[k], va.pegs[k]
+        assert np.isclose(a.p0[1], y0) and np.isclose(a.p1[1], y1)              # from old height to new
+        assert np.isclose(a.p0[0], a.p1[0]) and a.p0[0] > x                     # beside, on its right
+        offsets.add(round(a.p0[0] - x, 6))
+    assert len(offsets) <= 1                                                     # same verb, same arc
+    for c in p.clearances:
+        assert min(v for k, v in c.items() if k in ("card", "slit", "peg", "shadow", "ghost", "notch", "others")
+                   and v is not None) > 0.03, c
+        assert c["crosses middle"] == (np.sign(before[c["k"] - 1]) != np.sign(after[c["k"] - 1]))
+    assert len(p.mark_tikz) == 2 * len(moved)                                    # a ghost and an arc each
+
+
+def process(c, ones):
+    """F03 (round 4): the touch, the first instance of the marker, as a marked step frame.  Its
+    before is the even row 2|s> as P1.2 drew it; after, O_01 2|s>.  Its twin with marks=off draws
+    round 3's P1.3 line for line (the marks are all it adds), and the transcription logs the step."""
+    p = PC.picture(c)
+    assert PC.options(c) == {"bare": "", "step": "touch the second", "round4": True}
+    peg_step(p, ones, marker(0b01, 2) @ ones)
+    assert np.allclose(p.before.h, PC.picture(DIALOGUE.blocks("First")[1][0]).state.h)  # P1.2's row
+    assert PC.step_line(p) == "step touch the second -> pegs=1,-1,1,1 ticks=none"
+    tw = PC.twin(c)
+    assert tw.mark_tikz == [] and tw.ghosts == [] and tw.arcs == [] and "no marks (marks=off)" in tw.notes
+    r3 = PC.run_frame("pegs", "touch the second", "even row", False)                  # round 3's P1.3
+    assert not PC.TEX_ERRORS and r3.step is None
+    assert PC.drawn(tw) == PC.drawn(r3) == PC.drawn(p)
+    assert PC.judged(c) and not c.keyed                                          # a true frame, not keyed
 
 
 # --- the sketchbook ---------------------------------------------------------------------

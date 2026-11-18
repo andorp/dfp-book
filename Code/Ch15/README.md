@@ -16,18 +16,34 @@ bash check-code.sh 15
 ```
 
 Each file also runs `pictures()`, at the end of its blackboard: the dialogue's prop pictures
-(`\drawercase`, `\pegcard`, `\aboutcloth`, `\handsheet`, fifteen calls) are read out of
-`dialog.md` and `dialog.raw.md` through `tools/dfp_props.py`, and their state is computed by
-`tools/props_ch15.py`, a transcription of `pdf/props/ch15.lua` (with the shared cloth and
-Office kits). The transcription carries a drift guard against the Lua's numbers and code, and
-it was diffed against the Lua under texlua: 15 reference calls, 53 error calls and 2800 fuzzed
-calls, all equal, with every one of the 34 `tex.error` sites reached. `pictures()` ties each
-picture to the blackboard. The pegs' turn-about is $D$, inversion about the average. The case's
-windows read $DO_w\ket s$. The cloth's set-aside halves count $D$'s sign, and the hand's angle
-and tip are $(2k+1)\theta$ and $8\sin((2k+1)\theta)$. It also checks the dialogue's rules:
-blocks and sizes, captions in words only and no echoes, the anchor phrases, the starred
-pictures P1.1, P1.2, P2.2, P3.3 and P4.1, and the keyed words' clearances on drawn extents
-measured in the book's preamble. This is a structural check of the pictures, not a third proof.
+are read out of `dialog.md` and `dialog.raw.md` through `tools/dfp_props.py`, and their state is
+computed by `tools/props_ch15.py`, a transcription of `pdf/props/ch15.lua` (with the shared cloth
+and Office kits). Since round 4 (*show the process*) there are eight macros: the four pictures
+`\drawercase`, `\pegcard`, `\aboutcloth`, `\handsheet`, each now able to take one `step=` (drawn
+with its marks: a dotted ghost where a part stood, a curved headed arc the way it went),
+`marks=off` and, on the pegs and the sheet, `expects=` (a named wrong rule, drawn pale), and the
+four strips `\drawercasesteps`, `\pegcardsteps`, `\aboutclothsteps`, `\handsheetsteps`, which
+draw a move frame by frame. The dialogue holds 21 blocks, one call each, and 35 frames. The
+transcription is pinned to the Lua chunk by chunk (190 chunks), to its four round-4 comments
+word for word and to `ch15.tex` (56 chunks), so a changed Lua stops every file at import. It was
+diffed against the Lua under texlua, line for line (every emitted picture line, every log line,
+every fault): the dialogue's 21 calls (148 log lines, which are also the real TeX build's), one
+call for each of the 68 fault sites (the Lua raises them through 5 `tex.error` calls), a sweep of 42,264 calls and 10,713 spelling variants
+of the brackets, with no difference and no Lua runtime error. `pictures()` ties each frame to the
+blackboard, in order: the state before and after each step is this file's model, each ghost
+stands where the part stood before the step, each marks=off twin draws round 3's picture of the
+same state line for line, and each prediction draws its wrong rule's state, which is not the
+true one. The pegs' turn-about is $D$, inversion about the average. The case's windows read
+$DO_w\ket s$. The cloth's set-aside halves count $D$'s sign, push by push, and the hand's angle
+and tip are $(2k+1)\theta$ and $8\sin((2k+1)\theta)$, fold by fold. It also checks the dialogue's
+rules: blocks, sizes and frames, captions in words only (each frame's, no echoes, no step word
+repeated within a strip), the anchor phrases before and after each block, the forbidden places,
+the starred pictures P1.1, P1.2, P2.2, P3.3 and P4.1, and clearances on drawn extents. This is a
+structural check of the pictures, not a third proof.
+
+**Pins (the cloth kit).** The shared cloth kit, `pdf/props/cloth.{lua,tex}`, is pinned in
+`tools/props_cloth.py`, which every file imports through `props_ch15`; a change to the kit fails
+every file of this chapter (see the note in `chapter10/Code/README.md`).
 
 Five things hold in every file.
 
@@ -109,11 +125,12 @@ assert same_picture(fed, scaled(pair, -1, sign=sign))              # the basis-p
 assert same_picture(scaled(query_picture(w, 1), 5), scaled(marker_beside_flag(w, 1), 1))
 ```
 
-**The pictures.** There are three, all in the First Challenge. P1.1 shows the case sealed. P1.2 is the even row of pegs on the card, $2\ket s$. P1.3 is the second drawer touched: the pegs read $(1,-1,1,1)=O_{01}(1,1,1,1)$, never $O_{10}$'s. Every $w$ gives the dump `touch the <ord>` equal to $O_w(1,1,1,1)$, and the squares of the pegs still sum to four. The card's slits, notches and middle line are the same in all three pictures, and every peg stays inside its slit. The keyed words of P1.1 and P1.2 clear the drawing, each other and the frame. Their node boxes clear by at least $0.001$ (a peg's word against peg 4's shadow) and their letters by more than $0.03$.
+**The pictures.** There are three, all in the First Challenge. P1.1 shows the case sealed. P1.2 is the even row of pegs on the card, $2\ket s$. P1.3 (F03, round 4: `\pegcard[step=touch the second]{even row}`) is the touch, the first instance of the marker, as a marked step frame: before it the even row, after it $(1,-1,1,1)=O_{01}(1,1,1,1)$, never $O_{10}$'s; the second peg's ghost stands where it stood, and one dotted slide arc runs beside its slit, on the slit's right, from its old height to its new one, through the middle line it passes. Every $w$ gives the dump `touch the <ord>` equal to $O_w(1,1,1,1)$, and the squares of the pegs still sum to four. Its twin with `marks=off` draws round 3's P1.3 line for line. The card's slits, notches and middle line are the same in all three pictures, and every peg stays inside its slit. The keyed words of P1.1 and P1.2 clear the drawing, each other and the frame. Their node boxes clear by at least $0.001$ (a peg's word against peg 4's shadow) and their letters by more than $0.03$.
 
 ```python
-assert np.allclose(p13.state.h, marker(0b01, 2) @ ones)
-assert not np.allclose(p13.state.h, marker(0b10, 2) @ ones)        # not the third
+peg_step(p, ones, marker(0b01, 2) @ ones)           # before, after; ghost where it stood; the arc
+assert [xy for *_, xy in p.ghosts] == [vb.pegs[k][1:] for k in moved]
+assert PC.drawn(tw) == PC.drawn(r3) == PC.drawn(p)  # the marks=off twin is round 3's picture
 ```
 
 ## II. `TurnAbout.py` — *The Turn-About* (the headline; *The Theorem, Twice*)
@@ -162,11 +179,13 @@ assert same_picture(fed, scaled(same, 0, sign=tilted))             # the cloth c
 assert np.allclose(matrix_of(scaled(G, 5)), CCZ)                   # 2^{-5/2}, checked not derived
 ```
 
-**The pictures.** P2.1 touches the second peg, ticks the average and turns about. The pegs read $(0,2,0,0)=D(1,-1,1,1)=2\bar v-v$, with the tick at $\bar v=\tfrac12$. The even row turned about does not move. P2.4 is one, one, under, under, which is $2\ket{-+}$ with the top cord first (never $2\ket{+-}$). Turned about, it becomes $-u$, and the tick stays, clear of every slit and peg. On the cloth, each of the four settings pushed through comes back unchanged, with $0,1,1,3$ halves set aside, and their parity is the sign $D$ gives $\ket{++},\ket{-+},\ket{+-},\ket{--}$. P2.2 is the build as laid. On drawn extents, no tie meets a ring that is not its own, the hub and the bob clear every cord, and along each cord every piece clears the next. In P2.3 the ends rest at $6.0$, just past where the far tubes stood. One half is set aside, and its bob, with its shadow and stroke, lies wholly below the linen and its shadow, inside the frame. Both cloth pictures have the same geometry.
+**The pictures.** The Second has eight blocks and eighteen frames, each checked against the file's model in order. B04 (P2.1's place) plays the turn-about as the dialogue plays it, from the touched row $v=(1,-1,1,1)$: the tick at $\bar v=\tfrac12$ (no peg moved, no marks); the first, third and fourth pegs reflected about it, $(0,-1,0,0)$ (three ghosts, three arcs); then the second, $(0,2,0,0)=D v=2\bar v-v$ (one ghost, one arc). B05 is `does the finding`, Achilles's claim that the turn-about finds the drawer by itself, drawn as a live prediction before the Tortoise plays it: the card pale, the four pegs where he expects them, $DO_{01}\,2\ket s=(0,2,0,0)$, each a notch (0.17 cm, asserted over the 0.15 cm floor) from its true place; the true state is $D\,2\ket s=2\ket s$, and B06 shows it, not a peg moved. The rule's comment is the Lua's word for word, and its quotations are the dialogue's. B11 (P2.4's place) turns one, one, under, under, $2\ket{-+}$ with the top cord first (never $2\ket{+-}$), into $-u$: four ghosts, four arcs, the same slide arc as the touch's. On the cloth, P2.2 is the build as laid and B08's before-frame. B08 pushes the even setting through piece by piece (captions "dark through the tubes; the ends past the rings; the turn fallen away; the ends green again, at rest"); B09 and B10 push the tilted setting, the direction split around B09 with no word changed (T1). The model reads an end as a basis point through its collars: the tubes make it red, a half-ring sets a half aside when a lit end passes it, the controlled turn sets one aside when both ends are lit, and pushed one end at a time it leaves a half-ring on the other cord (`landed=lower`) which the lower end then passes; the far tubes make it green again. Each frame's ghosts are exactly the parts the push takes (the landed ring has none), each arc is level, on its cord's gap side, from its ghost towards the new place, clear of every cord, tie, ring and ghost. The even setting comes back unchanged with no half aside, the tilted with one: the sign $D$ gives $\ket{-+}$. Every marks=off twin is round 3's picture. On drawn extents, no tie of P2.2 meets a ring that is not its own, the hub and the bob clear every cord, and along each cord every piece clears the next. In the last frame (P2.3's state) the ends rest at $6.0$; the set-aside bob lies wholly below the linen and its shadow, inside the frame.
 
 ```python
-assert np.allclose(p21.state.h, D4 @ v) and np.allclose(p21.state.h, 2 * v.mean() - v)
-assert np.allclose(D4 @ ket_in, (-1) ** halves * ket_in)          # halves set aside: the sign
+assert np.allclose(p5.wrong.h, D4 @ O(0b01, 4) @ s2) and np.allclose(p5.wrong.h, p21.after.h)
+assert DOES_THE_FINDING in PC.LUA_TEXT
+cloth_step(p, states[k - 1], states[k])             # ghosts = what the push takes; arcs on the gap side
+assert np.allclose(D4 @ ket, (-1) ** states[-1]["aside"] * ket)
 ```
 
 ## III. `SecondDrawer.py` — *One Touch* (the master)
@@ -215,11 +234,13 @@ assert np.isclose(h.scalar.to_number(), 0.5)
 assert same_picture(whole, G)                                      # even state . marker . turn-about
 ```
 
-**The pictures.** P3.1's windows read upper dark, lower lit. That is $DO_{01}\ket s=\ket{01}$, top cord first, and with the marked drawer set to each $w$ in turn they read $\ket w$. In P3.2 the second drawer is drawn out towards him with the key lying on its floor, and the front's fixed parts match P1.1. P3.3 is the inside from behind: the master's fifteen lengths, by name. The upper row has four cords, the lower five, and the two hubs have three ties and pendants each. The six collars sit on lines 1, 2, 4, 5, 7 and 9, and every colour and bead turn is checked. Each hub stands straight between its rings. The marker's bob points towards the end-rings, the turn-about's towards the windows, and the lower window's back is lit. No tie meets a cord or another tie. The eighteen Genie lines are frozen, word for word, all of them in the Third section, and no picture comes before `Granted.`
+**The pictures.** The Third has three blocks and six frames. B12 (P3.1's place, captions "the case as set on the table; upper plain, lower gleaming") shows the case as set, then after the one passage: the windows read upper dark, lower lit, $DO_{01}\ket s=\ket{01}$, top cord first, and with the marked drawer set to each $w$ in turn they read $\ket w$; the passage draws no marks (the gleam shows it). B13 (P3.2's place) begins after the passage: the first drawer pulled out (no marks: it comes out 0.18 cm, under the 0.20 cm an arc needs), pushed shut (its front's dotted ghost exactly where the frame before drew it), and the second drawn out with the key on its floor. Each frame's state is the file's case model, clause by clause, and every marks=off twin draws round 3's picture. P3.3, the counted frame, is round 3's call, unchanged and unmarked; `step=back open` is accepted only in the back view and never draws a mark, and keyed it is refused. P3.3 is the inside from behind: the master's fifteen lengths, by name. The upper row has four cords, the lower five, and the two hubs have three ties and pendants each. The six collars sit on lines 1, 2, 4, 5, 7 and 9, and every colour and bead turn is checked. Each hub stands straight between its rings, the marker's bob points towards the end-rings, the turn-about's towards the windows, and the lower window's back is lit. No tie meets a cord or another tie. The eighteen Genie lines are frozen, word for word, all of them in the Third section, and no picture comes before `Granted.`
 
 ```python
-assert p31.state.windows == tuple(bool(b) for b in bits(int(np.argmax(abs(out))), 2)) == (False, True)
-assert [p for p in paras if p.startswith("**Genie:**")] == GENIE
+assert (what, k) == ("drawer front", 1) and front[0] == 1 and np.allclose(rect, front[1:])
+assert "step" not in PC.options(calls[2]) and p33.opts.get("round4") is None
+assert p33.mark_tikz == [] and p33.ghosts == [] and p33.arcs == [] and not p33.marked
+assert PC.faults(PC.run_frame, "case", "step=back open", before, False) == ["case-back-view"]
 ```
 
 ## IV. `TurningPlane.py` — *The Turning Plane* (two folds make a turn; when to stop)
@@ -261,11 +282,13 @@ assert np.isclose(v[0b011], np.sin((2 * k + 1) * th))
 assert np.isclose(v[0b01], 0.5) and np.allclose(np.abs(v) ** 2, 0.25)   # two steps, four drawers
 ```
 
-**The pictures.** The hand on its pin is the state in the turning plane. For four and for sixty-four drawers and $k=0,\dots,7$, the angle is $(2k+1)\theta$, and it equals $(DO_w)^k\ket s$ simulated. The tip is `"%.2f" % (8 a_k)`, and the holes are the places folded from and to, in order. The marker's fold alone is $a\mapsto-a$, giving $-30^\circ$ and, after six steps, $-93.35^\circ$. The pictures are P4.1 at $30^\circ$ (tip $4$), P4.2 at $90^\circ$ (tip $8$), P4.3 at $13\theta$ (tip $7.99$) and P4.4 at $15\theta$ (tip $7.62$, turned away). The pin and the marked and unmarked lines stay fixed, and the fresh sheet's lines sit at the first sheet's places. Every hole and tip stays inside the sheet. No picture falls between a figure's touch line and its turn line, and the Escher paragraph falls between P4.2 and P4.3. P4.1's keyed words clear everything. `unmarked line` and `even line` are held on their letters against the sheet's right shadow strip, because their node boxes' inner sep reaches that shade.
+**The pictures.** The hand on its pin is the state in the turning plane. For four and for sixty-four drawers and $k=0,\dots,7$, the angle is $(2k+1)\theta$, and it equals $(DO_w)^k\ket s$ simulated. The tip is `"%.2f" % (8 a_k)`, and the holes are the places folded from and to, in order. The Fourth has six blocks and seven frames, one fold to a frame: F29 the marker's fold on the four-drawer sheet, $\theta\to-\theta$ ($-30^\circ$), and F30 the turn-about's fold, $-\theta\to3\theta$ ($90^\circ$), each at the moment told; F33 and F34 the seventh step (captions "the hand down below the pin; turned too far"), $13\theta\to-13\theta\to15\theta$ ($107.71^\circ$, tip $7.62$, turned away). Each fold has the hand's ghost where it lay and one swing arc round the pin, the short way, the arc's ends on its circle inside the sweep, crossing exactly the pencil lines the hand passes (computed from the angles: the unmarked line, and for F30 the even line too), on the sheet and clear of the hand, its ghost, the holes and the pin, never over the ghost. F32 is `surer`, a live prediction: the hand upright at $90^\circ$, tip eight, over the sheet with the holes it had before the step, 0.32 cm from the true tip (asserted over 0.3 cm); the rule is refused at every earlier step, where the next step raises the tip ($k<6$), and its comment is the Lua's word for word. Every marks=off twin is round 3's picture. The pin and the marked and unmarked lines stay fixed, and the fresh sheet's lines sit at the first sheet's places. Every hole and tip stays inside the sheet. No picture falls between a figure's touch line and its turn line; B17 and B18 stay consecutive, B18 straight after "All but a hair of eight", with the Escher paragraph between them. P4.1's keyed words clear everything. `unmarked line` and `even line` are held on their letters against the sheet's right shadow strip, because their node boxes' inner sep reaches that shade.
 
 ```python
-assert np.allclose((np.cos(H.a), np.sin(H.a)), (b, a))          # the hand IS the state
-assert PC.sheet_dump(H).split()[3] == "tip=%.2f" % (8 * a)
+c30 = sheet_fold(f30, -th4, 3 * th4, "about", th4)  # ghost, one swing arc, the lines it crosses
+assert c["crossed"] == lines_passed(a0, a1, th)
+assert min(c["sheet"], c["hand"], c["ghost"], c["holes"], c["pin"]) > 0.03 and c["passed"] == ()
+assert got == (["sheet-rule-rises"] if rises else []) and rises == (k < 6)
 ```
 
 ## V. `NoFasterHand.py` — *No Faster Hand* (the fair share)
@@ -310,15 +333,18 @@ assert same_picture(scaled(unmarked, -1), scaled(greens, -2))     # both exactly
 assert np.isclose(dist, 2 * alpha)                                 # the bound, attained
 ```
 
-**The pictures.** P5.1 is the hand back at the first dot, with no drawer marked, after the turn-about's fold. It has not moved, because $D\ket s=\ket s$. Its tip reads $1.00=8\sin\theta$, and its holes are P4.4's, with none added. The Lua refuses a marker's fold when nothing is marked (`sheet-nomark`). This file also checks the whole dialogue:
-- all fifteen pictures sit inside challenge sections, none of them after P5.1;
-- the starred set is exactly P1.1, P1.2, P2.2, P3.3 and P4.1;
+**The pictures.** P5.1 is the hand back at the first dot, with no drawer marked, after the turn-about's fold: round 3's plain call, no step, no marks. It has not moved, because $D\ket s=\ket s$. Its tip reads $1.00=8\sin\theta$, and its holes are those of the seventh step's last frame, with none added. The Lua refuses a marker's fold when nothing is marked (`sheet-nomark`). This file also checks the whole dialogue:
+- 21 blocks and 35 frames, asserted as the sums of the sections' tables, all inside challenge sections, none of them after P5.1;
+- every stepped frame marked unless it is a prediction, no marked or predicted frame keyed, no strip starred;
+- the starred set is exactly P1.1, P1.2, P2.2, P3.3 and P4.1 (predictions are never judged);
 - the eleven Old fragments are gone from both files;
 - the toccata's figure appears once in II and six times in IV, with one `Granted.`, the Genie's, in III, and three `Referred.`, all the Genie's;
 - no picture falls inside a figure;
-- "Let Bob draw" never occurs, and the signal grep finds nothing, comments included.
+- "Let Bob draw" never occurs, and the signal grep finds nothing, comments included;
+- `FAULT_CASES`: each of the Lua's 68 fault sites raised by its own call, with a message of its own (the strip faults by the strip alone; `strip-unknown` with the caption count it entails); every order of a refused bracket's items raises the same faults; a refused step draws no marks; the `;` bracket is order-free for all four macros and their strips, and an item given twice is refused.
 
 ```python
 assert np.allclose(grover_D(N) @ s, s)
-assert p51.state.holes == p44.state.holes and p51.shown.lines == p44.shown.lines
+assert [c[0] for c in FAULT_CASES] == [k for k, _ in PC.TEX_SITES] and len(PC.ERROR_SITES) == 68
+assert sorted(fn("; ".join(order))) == want, (case[0], order)
 ```

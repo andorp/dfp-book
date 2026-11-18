@@ -64,94 +64,190 @@ def blackboard():
 # The prop pictures.  The dialogue draws the black slab with the look laid out
 # on it -- the far stone under its cloth, the near stone, the needle and the
 # flask, each with its reflection, a clean slate off the black -- the needle
-# pinned and the flask folded, then the works on the Tortoise's string, and the
-# pull,
-#   \blackslab[operations]{scene}{caption}                 (pdf/props/ch09.tex)
+# pinned and the flask folded (a step strip), then the works on the Tortoise's
+# string, and the pull,
+#   \blackslab[<operations>; step=...; marks=off; expects=...]{scene}{caption}
+#   \slabsteps[from=off; marks=off]{scene}{steps}{captions}   (pdf/props/ch09.tex)
 # and, in the First and Second, the viewer (\crabviewer) and the slate
 # (\notchslate).  tools/props_ch09.py transcribes the Lua; the calls are read out
 # of dialog.md, never copied.  This file also checks the whole dialogue: the
-# nineteen pictures, the keyed rule, the places, and that nothing is pictured
-# after the pull -- least of all the Cat.
+# twenty-two calls and twenty-three frames, the keyed rule, the places, the
+# log's forty-four lines, every one of the Lua's fifty refusals, the marks (which
+# change no state and add no line), and that nothing is pictured after the pull --
+# least of all the Cat.
 #
 # The state model (identity card, section 3): the works are an isometry V from
 # the near stone to near stone (x) needle (x) flask; the far stone keeps the Bell
 # pair's top wire; the pin is the read map sum_i |i><ii| (the needle and its
 # reflection in, one notch out); a fold is a discard; the pull after every leg is
-# folded is causality -- discard after the works = discard straight off.  A
-# structural check against this file's blackboard, not a second proof.
+# folded is causality -- discard after the works = discard straight off.  The
+# strip's frames are the counted frames of the master's wire map (eight lines in
+# doubled form and one notch): they carry no marks.  A structural check against
+# this file's blackboard, not a second proof.
 # --------------------------------------------------------------------------
 DIALOGUE = Dialogue(__file__, macros=P.MACROS)
 QUOTE = "Because discarding after the works is discarding straight off."
-SIZES = {"First": [1, 2, 1], "Second": [2, 1, 1], "Third": [3], "Fourth": [1, 2, 1],
+SIZES = {"First": [1, 3, 1], "Second": [2, 1, 2], "Third": [4], "Fourth": [1, 2, 1],
          "Fifth": [1, 1, 2]}
+FRAMES = {"First": [1, 3, 1], "Second": [2, 1, 2], "Third": [4], "Fourth": [1, 2, 1],
+          "Fifth": [1, 2, 2]}
+EDITS = [("{drawn in to the far stone}", "{drawn in to the stone under its cloth}"),   # C5
+         ("{stood out on the black}", "{stood out for the look}"),                     # C6
+         ("{pinned, and the flask let go}", "{the needle pinned; the flask let go}")]  # C7
+LAID = "the look laid out"
 
 
 def check_faults():
-    """Every one of the Lua's twenty-four tex.error sites, each raised by a call of
-    its own and by nothing else."""
+    """Every one of the Lua's fifty tex.error sites, each raised by a call of its own
+    and by nothing else, in the order they stand in the Lua."""
+    twelve = ", ".join(["high"] * 12)
     bad = [
+        ("opt-unknown", P.crabviewer, "bogus=1", "restless stone"),
+        ("opt-twice", P.crabviewer, "step=look high; step=look low", "restless stone"),
+        ("opt-bare", P.crabviewer, "shut; shut", "restless stone"),
+        ("onoff", P.blackslab, "marks=maybe", "plain pair"),
+        ("marks-step", P.blackslab, "marks=on", "plain pair"),
+        ("expects-keyed", P.blackslab, "expects=tighter", "looked-at stone", True),
+        ("expects-marks", P.crabviewer, "step=look high; expects=spyglass; marks=on", "restless stone"),
         ("viewer-word", P.crabviewer, "", "restless stone, needle sideways"),
         ("viewer-twice", P.crabviewer, "", "spent stone, spent stone, needle high"),
         ("viewer-restless", P.crabviewer, "", "restless stone, needle low"),
         ("viewer-spent", P.crabviewer, "", "spent stone, needle middle"),
+        ("vstep-word", P.crabviewer, "step=peek", "restless stone"),
+        ("vstep-empty", P.crabviewer, "step=empty", "restless stone"),
+        ("vstep-look", P.crabviewer, "step=look low", "empty dish"),
+        ("vstep-bare", P.crabviewer, "step=look", "restless stone"),
+        ("vstep-covered", P.crabviewer, "step=look low", "restless stone, dial covered"),
+        ("spyglass-look", P.crabviewer, "step=empty; expects=spyglass", "spent stone, needle low"),
         ("viewer-view", P.crabviewer, "open", "restless stone"),
+        ("viewer-rule", P.crabviewer, "step=look high; expects=telescope", "restless stone"),
+        ("viewer-rule-step", P.crabviewer, "expects=spyglass", "restless stone"),
         ("notch-word", P.notchslate, "", "high, middle"),
         ("notch-none", P.notchslate, "", ""),
         ("notch-many", P.notchslate, "", ", ".join(["high"] * 13)),
+        ("cut-word", P.notchslate, "step=carve high", "clean"),
+        ("cut-covered", P.notchslate, "covered; step=cut low", "clean"),
+        ("cut-full", P.notchslate, "step=cut low", twelve),
         ("slate-view", P.notchslate, "open", "high"),
+        ("slate-marks", P.notchslate, "step=cut high; marks=on", "clean"),
         ("slate-unread", P.notchslate, "", "high, unread"),
         ("pull-laid", P.blackslab, "pull", "pair of one piece, strung"),
         ("pull-pulled", P.blackslab, "pull, pull", "the look on a string"),
-        ("pull-none", P.blackslab, "pull", "the look laid out"),
-        ("pin-word", P.blackslab, "pin needle sideways", "the look laid out"),
+        ("pull-none", P.blackslab, "pull", LAID),
+        ("pin-word", P.blackslab, "pin needle sideways", LAID),
         ("pin-none", P.blackslab, "pin needle low", "plain pair"),
-        ("pin-twice", P.blackslab, "pin needle low, pin needle high", "the look laid out"),
-        ("far-stone", P.blackslab, "fold far stone", "the look laid out"),
-        ("needle", P.blackslab, "fold needle", "the look laid out"),
+        ("pin-twice", P.blackslab, "pin needle low, pin needle high", LAID),
+        ("far-stone", P.blackslab, "fold far stone", LAID),
+        ("needle", P.blackslab, "fold needle", LAID),
         ("tip-fold-word", P.blackslab, "fold works", "the look on a string"),
         ("single", P.blackslab, "fold near stone", "looked-at stone"),
-        ("gone", P.blackslab, "fold flask, fold flask", "the look laid out"),
-        ("tipped", P.blackslab, "tip flask, tip flask", "the look laid out"),
-        ("operation", P.blackslab, "look near stone", "the look laid out"),
+        ("gone", P.blackslab, "fold flask, fold flask", LAID),
+        ("tipped", P.blackslab, "tip flask, tip flask", LAID),
+        ("operation", P.blackslab, "look near stone", LAID),
         ("scene", P.blackslab, "", "a pair of boots"),
+        ("wrong-tighter", P.blackslab, "expects=tighter", "plain pair"),
+        ("wrong-along", P.blackslab, "expects=along", "looked-at stone"),
+        ("slab-rule", P.blackslab, "expects=sooner", "plain pair"),
+        ("strip-bare", P.slabsteps, "loose; from=off", "plain pair", "tip near stone", "a"),
+        ("strip-none", P.slabsteps, "", "plain pair", "", "a"),
+        ("strip-four", P.slabsteps, "", LAID, "tip flask; fold flask; pin needle low; tip near stone",
+         "a; b; c; d; e"),
+        ("strip-captions", P.slabsteps, "", "plain pair", "tip near stone", "a"),
     ]
     for site, fn, *args in bad:
         assert P.faults(fn, *args) == [site], (site, P.faults(fn, *args))
-    assert [b[0] for b in bad] == list(P.ERROR_SITES) and len(set(P.ERROR_SITES)) == 24
+    assert [b[0] for b in bad] == list(P.ERROR_SITES) and len(set(P.ERROR_SITES)) == 50
+    assert set(P.ROUND3_SITES) < set(P.ERROR_SITES) and len(P.ROUND3_SITES) == 24
     # the stand-ins: a bad notch word leaves no notch, so the empty slate is refused too
     assert P.faults(P.notchslate, "", "middle") == ["notch-word", "notch-none"]
     # a leg of the look on a string is already folded: there is nothing there to fold
     assert P.faults(P.blackslab, "fold near stone", "the look on a string") == ["gone"]
     assert P.faults(P.blackslab, "pull", "the look on a string") == []   # every leg folded
+    # the bracket is read whole, so the order its items are written in changes nothing
+    for a, b in (("step=pull; marks=off; fold near stone", "fold near stone; step=pull; marks=off"),
+                 ("expects=along; tip near stone, fold near stone",
+                  "tip near stone, fold near stone; expects=along")):
+        scene = "pair of one piece, strung" if "pull" in a else "plain pair"
+        x, y = P.blackslab(a, scene), P.blackslab(b, scene)
+        assert (x.shown, x.marks, x.log[1:]) == (y.shown, y.marks, y.log[1:])
+
+
+def frames_of(o, path=None):
+    """A section's frames, (call, picture, caption), in order (a strip: one per frame)."""
+    return [(c, pic, cap) for b in DIALOGUE.blocks(o, path) for c in b for pic, cap in P.pictures(c)]
 
 
 def check_whole_dialogue():
-    """All nineteen pictures: their number and places, the keyed rule, the
-    captions, the frames, no fault anywhere, and nothing after the pull."""
-    assert DIALOGUE.check_whole(P.ORDER) == 19                   # 4 + 4 + 3 + 4 + 4
+    """All twenty-two calls and twenty-three frames: their number and places, the keyed
+    rule, the captions, the frames, the log, no fault anywhere, the marks, and nothing
+    after the pull."""
+    assert DIALOGUE.check_whole(P.ORDER) == 22                   # 5 + 5 + 4 + 4 + 4 calls
     text = DIALOGUE.read(DIALOGUE.dialog)
-    assert len(DIALOGUE.call_re.findall(DIALOGUE.read(DIALOGUE.raw))) == 19   # dialog.raw.md too
+    assert len(DIALOGUE.call_re.findall(DIALOGUE.read(DIALOGUE.raw))) == 22   # dialog.raw.md too
     assert not DIALOGUE.call_re.findall(text[:text.index("## First Challenge")])   # none before
-    DIALOGUE.keyed_first(P.ORDER, kind=P.keyed_kind)
+    DIALOGUE.keyed_first(P.ORDER, kind=P.keyed_kind, select=P.judged)
     placed = [(o, i, c) for o in P.ORDER
               for i, c in enumerate(c for b in DIALOGUE.blocks(o) for c in b)]
     assert [(o, i) for o, i, c in placed if c.keyed] == [
-        ("First", 0), ("First", 2), ("Second", 2), ("Third", 0), ("Fourth", 0),
-        ("Fifth", 0), ("Fifth", 2)]                               # P1.1 P1.3 P2.3 P3.1 P4.1 P5.1 P5.3
+        ("First", 0), ("First", 3), ("Second", 2), ("Third", 0), ("Fourth", 0),
+        ("Fifth", 0), ("Fifth", 2)]                               # P1.1 B1.2's slate P2.3 P3.1 P4.1 P5.1 P5.3
     for o in P.ORDER:
         assert [len(b) for b in DIALOGUE.blocks(o)] == SIZES[o], o
-        for b in DIALOGUE.blocks(o):
-            assert len({P.height(c) for c in b}) == 1, (o, [c.text for c in b])
+        P.check_section(DIALOGUE, o, SIZES[o], FRAMES[o])        # frames, heights, captions, places
+    frames = [f for o in P.ORDER for f in frames_of(o)]
+    assert [len(frames_of(o)) for o in P.ORDER] == [5, 5, 4, 4, 5] and len(frames) == 23
+    assert sum(P.is_prediction(c) for o, i, c in placed) == 3     # spyglass, tighter, along
+    assert sum(P.is_strip(c) for o, i, c in placed) == 1
+    assert sum(pic.marks != () for c, pic, cap in frames) == 4    # B1.2's look, B3's tip, fold, P4.4
     for o, i, c in placed:
-        P.picture(c)                                             # the macro never faults
-        assert words_only(c.caption, forbidden=P.CAPTION_FORBIDDEN), c.caption
-        assert P.place_ok(o, c), (o, c.text)
-        assert len(c.args) == 1 and c.args[0]                    # one state/scene argument
-    # the pull equality, as the dialogue draws it: P4.4 and P5.4 the same picture,
-    # with the same caption, each beside its own before
+        assert len(c.args) == (2 if P.is_strip(c) else 1) and all(c.args)
+        if P.is_prediction(c):
+            assert not c.keyed and P.picture(c).pale and P.picture(c).marks == ()
+    # the log: the same forty-four lines from both dialogue files -- 23 heads, 20 entries,
+    # and the strip's line
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        log = [l for o in P.ORDER for b in DIALOGUE.blocks(o, path) for c in b for l in P.describe(c)]
+        assert len(log) == 44 and sum(" + " in l for l in log) == 20
+        assert sum(l.startswith("slabsteps: ") for l in log) == 1
+        assert log == [l for o in P.ORDER for b in DIALOGUE.blocks(o) for c in b for l in P.describe(c)]
+    # the marks change no state and add no line: every marked frame is its marks-off
+    # twin, the marks aside
+    for c, pic, cap in frames:
+        if pic.marks:
+            t = P.twin(c)
+            assert t.marks == () and t.log[0] != pic.log[0]
+            if c.macro == "blackslab":
+                assert t.shown == pic.shown and P.lines_drawn(t.shown) == P.lines_drawn(pic.shown)
+            else:
+                assert (t.view, t.dish, t.needle) == (pic.view, pic.dish, pic.needle)
+    # the readings of the changed frames, as the log gives them (card section 3e.2)
+    log = [l for c, pic, cap in frames for l in pic.log]
+    for entry in (
+            "crabviewer: + ghost needle at middle (90 degrees round the pivot)",            # F03
+            "crabviewer: + swing arc round the pivot, middle -> high (90 -> 36 degrees)",
+            "blackslab: + ghost near stone in dotted outline at (0.800,0.000), standing "   # F12
+            "(its reflection not ghosted)",
+            "blackslab: + swing arc tip round the right side of the near stone, "
+            "(1.000,0.236) -> (1.055,0.035)",
+            "blackslab: + ghost near stone at (0.800,0.000), tipped, above the surface: "   # F14
+            "gone into its reflection",
+            "blackslab: + slide arc above the string's old way, (0.660,0.140) -> "         # F18
+            "(-0.290,0.120), to the bend at -0.360",
+            "blackslab: + pin on the far stone's cloth at (-0.820,0.250) (the finger that holds it)"):
+        assert log.count(entry) == 1, entry
+    # the pull equality, as the dialogue draws it: P4.4's marks-off twin and P5.4 the
+    # same picture, with the same caption, each beside its own before; the marked P4.4
+    # adds the pin and the slide arc and nothing else
     (p44,) = DIALOGUE.blocks("Fourth")[-1]
     p54 = DIALOGUE.blocks("Fifth")[-1][-1]
-    assert P.picture(p44).shown == P.picture(p54).shown and p44.caption == p54.caption
+    b44, b54, t44 = P.picture(p44), P.picture(p54), P.twin(p44)
+    assert t44.shown == b54.shown and p44.caption == p54.caption
+    assert t44.log[0].split(" | ")[1] == b54.log[0].split(" | ")[1]   # the same reading
+    assert t44.marks == b54.marks == () and b44.shown == b54.shown
+    assert [m.kind for m in b44.marks] == ["slide", "pin"]
+    assert b44.log[:2] == (t44.log[0].replace("; marks=off]", "]"), t44.log[1])
+    assert [l.split(" + ")[1].split(" ")[0] for l in b44.log[2:]] == ["slide", "pin"]
+    assert len(t44.log) == 2 and b44.mark_tikz != t44.mark_tikz == ()
     # no picture after the pull: the last call of the dialogue is P5.4, and every
     # paragraph from the Escher glance to the Cat's answer comes after its block
     paras = [q.strip() for q in re.split(r"\n[ \t]*\n", text) if q.strip()]
@@ -162,29 +258,40 @@ def check_whole_dialogue():
     escher = [i for i, q in enumerate(paras) if "Escher's \\textup{Eye}, a single vast eye with" in q]
     assert len(question) == len(answer) == 1 and answer[0] == question[0] + 1
     assert escher and pics[-1] < min(escher) and pics[-1] < question[0]
-    assert all("crabviewer" not in q and "blackslab" not in q and "notchslate" not in q
-               for q in paras[pics[-1] + 1:])
+    assert all(not any(m in q for m in P.MACROS) for q in paras[pics[-1] + 1:])
+    # the Lua's round-4 comments quote the dialogue, every phrase in both files, in
+    # the same places
+    places = P.quote_places(DIALOGUE)
+    assert places == P.quote_places(DIALOGUE, DIALOGUE.raw) and len(places) == 27
+    assert sum(len(P.fragments(q)) for n, q, o in places) == 28
 
 
 def pictures():
     assert f'"{QUOTE}"' in __doc__                               # quoted byte for byte
+    P.check_lua()
+    P.check_sites()
     check_faults()
     check_whole_dialogue()
-    calls = DIALOGUE.check_layout("Fifth", sizes=[1, 1, 2])
-    p51, p52, p53, p54 = calls
-    for c in calls:
-        assert words_only(c.caption, forbidden=P.CAPTION_FORBIDDEN), c.caption
-        assert P.place_ok("Fifth", c), c.text
-    assert [c.macro for c in calls] == ["blackslab"] * 4
+    found = P.check_section(DIALOGUE, "Fifth", sizes=[1, 1, 2], frames=[1, 2, 2])
+    P.check_edits(DIALOGUE, "Fifth", EDITS)
+    calls = [c for b in found for c, _ in b]
+    p51, s52, p53, p54 = calls
+    assert [c.macro for c in calls] == ["blackslab", "slabsteps", "blackslab", "blackslab"]
     assert [c.keyed for c in calls] == [True, False, True, False]
-    assert [(c.opt, c.args[0]) for c in calls] == [
-        ("", "the look laid out"), ("pin needle low, fold flask", "the look laid out"),
-        ("", "the look on a string"), ("pull", "the look on a string")]
-    b51, b52, b53, b54 = (P.picture(c) for c in calls)
+    assert [(P.options(c), c.args[0]) for c in calls] == [
+        ({"bare": ""}, LAID), ({"from": "off", "marks": "off", "bare": ""}, LAID),
+        ({"bare": ""}, "the look on a string"), ({"bare": "pull"}, "the look on a string")]
+    assert s52.args[1] == "pin needle low; fold flask"
+    b51, b53, b54 = (P.picture(c) for c in (p51, p53, p54))
+    (f20, c20), (f21, c21) = P.pictures(s52)                      # the strip's two frames
+    assert (c20, c21) == ("the needle pinned", "the flask let go")
     paras = DIALOGUE.paragraphs("Fifth")
     a1, a2, a3 = DIALOGUE.anchors("Fifth")
     f1, f2, f3 = DIALOGUE.following("Fifth")
     assert QUOTE in DIALOGUE.section("Fifth")                     # the docstring's line
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        here = [(n, o) for n, _, o in P.quote_places(DIALOGUE, path) if o == "Fifth"]
+        assert here == [("THE SLAB'S STEPS", "Fifth")] * 6
 
     # the model: a random non-real isometry V, near stone -> near (x) needle (x) flask
     rng = np.random.default_rng(951)
@@ -201,30 +308,60 @@ def pictures():
     cloth, near, needle, flask = b51.shown.things
     assert [t.name for t in b51.shown.things] == ["far stone", "near stone", "needle", "flask"]
     assert cloth.x < near.x < needle.x < flask.x                  # cloth, near, needle, flask
+    assert [t.x for t in b51.shown.things] == [-0.8, -0.2, 0.32, 0.8]
     assert (near.gloss, near.refl) == ("restless", "slack")       # a Bell half (L1)
     assert (needle.mode, needle.refl, flask.mode, flask.refl) == ("standing", "tight", "standing", "tight")
     assert b51.shown.slate == () and b51.shown.frame == P.LAID_FRAME
     assert b51.labels == ("cloth", "near", "needle", "flask", "slate", "black slab")
     # fixed parts held still (L2): the far cloth and the slab's ends as in the Fourth
     b41 = P.picture(DIALOGUE.blocks("Fourth")[0][0])
-    for b in (b51, b52, b53, b54):
+    for b in (b51, f20, f21, b53, b54):
         assert b.shown.things[0] == b41.shown.things[0] == cloth   # the far cloth at -0.8
         assert b.shown.ends == b41.shown.ends == P.SLAB_ENDS       # the black, full length
 
-    # P5.2: the needle pinned (low: the pointer lies left, toward the stop it read), a
-    # notch cut at the slate's foot -- exactly one more than P5.1's; the flask folded
+    # B5.2, the strip: from P5.1's state (from=off: the paragraph above is its before),
+    # frame by frame -- the needle pinned (low: the pointer lies left, toward the stop it
+    # read), a notch cut at the slate's foot, exactly one more than P5.1's; then the
+    # flask folded.  Frame k is the single call [<the steps before it>; step=<k>]
+    assert [(k, br, a) for k, br, a, cap in P.picture(s52).frames] == [
+        (False, "step=pin needle low; marks=off", LAID),
+        (False, "pin needle low; step=fold flask; marks=off", LAID)]
+    assert [P.picture(fc).log for fc in P.frame_calls(s52)] == [f20.log, f21.log]
+    assert f20.before.items == b51.state.items and f21.before.items == f20.state.items
+    assert f20.shown == P.blackslab("pin needle low", LAID).shown
+    assert f21.shown == P.blackslab("pin needle low, fold flask", LAID).shown   # round 3's P5.2
     pin = [q for q in paras if "pins the needle down onto its own reflection" in q]
     assert len(pin) == 1 and paras.index(a1) < paras.index(pin[0]) < paras.index(a2)
     assert "low, as it happens; she scratches it at the slate's foot" in pin[0]
     assert "Two pointers in; one settled mark out" in pin[0]
     assert "breathed into" in a2 and "gone from the black" in a2
-    assert [t.name for t in b52.shown.things] == ["far stone", "near stone", "needle"]
-    pinned = b52.shown.things[2]
+    assert [t.name for t in f20.shown.things] == ["far stone", "near stone", "needle", "flask"]
+    assert [t.name for t in f21.shown.things] == ["far stone", "near stone", "needle"]
+    pinned = f21.shown.things[2]
+    assert f20.shown.things[2] == pinned and f20.shown.things[3] == flask
     assert (pinned.mode, pinned.refl, pinned.lie) == ("pinned", None, "left")   # one pointer, no twin
     assert pinned.lie == P.LIE["low"] == P.STOP["low"] and P.EDGE["low"] == "foot"
-    assert b52.shown.slate == b51.shown.slate + ("low",)          # exactly one notch more
-    assert b52.shown.things[1] == near and b52.shown.frame == b51.shown.frame
+    assert f20.shown.slate == b51.shown.slate + ("low",)          # exactly one notch more
+    assert f21.shown.slate == f20.shown.slate                     # the fold cuts nothing
+    assert f21.shown.things[1] == near and f21.shown.frame == b51.shown.frame
     assert f2.startswith("**Achilles:** So pinning is reading")
+    # the counted frames (the wire map's "the nine together") carry no mark: P5.1 is
+    # plain, the strip marks=off.  Their lines, counted as CLAUDE.md counts them: each
+    # thing with its reflection two (the far stone under its cloth too), the pinned
+    # needle's pair met at the pin, a notch off the black one -- eight, then nine (the
+    # master's eight doubled lines and its one classical wire), then the flask's pair
+    # ended at the bare patch
+    assert b51.marks == f20.marks == f21.marks == ()
+    assert [P.lines_drawn(b.shown) for b in (b51, f20, f21)] == [8, 9, 7]
+    assert P.lines_drawn(f20.shown) == 2 * 4 + 1
+    # NEGATIVE: without marks=off the strip's frames would carry the standing needle's
+    # dotted outline and the flask's ghost, each with no reflection -- one more thing on
+    # the black that reads as a single line, a tenth wire on a frame whose count is nine
+    marked = [P.blackslab(br, a) for k, br, a, cap in
+              P.slabsteps("from=off", LAID, s52.args[1], s52.caption).frames]
+    assert [[(m.kind, m.name, m.how) for m in w.mark("ghost")] for w in marked] == [
+        [("ghost", "needle", "outline")], [("ghost", "flask", "full")]]
+    assert [w.shown for w in marked] == [f20.shown, f21.shown]
     # the pin <-> the read map: the needle and its reflection in, one notch out, with
     # the Born probabilities of the needle's answer
     assert matrix_of(read_spider()).shape == (2, 4)               # two legs in, one out
@@ -239,6 +376,7 @@ def pictures():
     assert ("every leg it comes out on — the near stone's, the flask's and the needle's, "
             "its answer already cut on the slate — is folded into its reflection") in a3
     assert [t.kind for t in b53.shown.things] == ["cloth", "works"] and b53.shown.string == "works"
+    assert [t.x for t in b53.shown.things] == [-0.8, -0.06]
     assert b53.labels == ("cloth", "works", "black slab") and b53.shown.frame == P.TALL_FRAME
     assert b53.shown.slate is None                                # the notch is not in its frame
     # the needle's folded leg <-> the outcome averaged: the far half is 1/2 I; the
@@ -249,12 +387,13 @@ def pictures():
     assert not np.allclose(cond / np.trace(cond), I2 / 2)
     assert "chimney" in f3                                        # the smoke, after the block
 
-    # P5.4: pulled -- the same picture as the Fourth's pull (causality: discard after
-    # the works = discard straight off), beside the blackboard's trace preservation
+    # P5.4: pulled, the repeat, unmarked -- the same picture as the Fourth's pull with
+    # its marks off (causality: discard after the works = discard straight off), beside
+    # the blackboard's trace preservation
     strung = P.apply(P.apply(P.SCENES["pair of one piece, strung"], "fold near stone"), "pull")
     works = P.apply(P.SCENES["the look on a string"], "pull")
     assert P.visible(strung) == P.visible(works) == b54.shown
-    assert b54.shown.things == (cloth,) and b54.shown.string == "pulled"
+    assert b54.shown.things == (cloth,) and b54.shown.string == "pulled" and b54.marks == ()
     M = rng.normal(size=(2, 2)) + 1j * rng.normal(size=(2, 2))
     rho = M @ M.conj().T
     rho /= np.trace(rho)

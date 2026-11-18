@@ -612,15 +612,14 @@ starts.
 \textbf{Achilles:} \emph{{[}The coin sits heads up at the right-hand
 end, where his hand is. He carries it round to the left end, under the
 ``heads up'' end tag, and slides it rightward along the table beside the
-string --- the string and its one saddled tag holding still --- and
-where the tag hangs he stops and turns the coin over in his fingers, the
-head going under and the wreath coming up, so that the face which was
-heads is now tails; it is the same coin, only the other way up. Then he
-carries it on to the right-hand end.{]}} Tails up. Well, of course it's
-tails up.
+string, on their side of it --- the string and its one saddled tag
+holding still --- and where the tag hangs he stops and turns the coin
+over in his fingers, the head going under and the wreath coming up; it
+is the same coin, only the other way up. Then he carries it on.{]}}
+Tails up. Well, of course it's tails up.
 
 \begin{center}
-\tagstring*[end]{heads}{over}{from heads up}
+\tagwalk*[to=end]{heads}{over}{from heads up; turned at the tag; at the right-hand end}
 \end{center}
 
 \emph{{[}Under the door the draught comes again, harder than before, and
@@ -670,7 +669,8 @@ the first tag, over at the second.{]}} Tails, then heads. It arrives as
 it left.
 
 \begin{center}
-\tagstring[end]{heads}{over,over}{from heads up}
+\tagstring[second;expects=twice]{heads}{over,over}{as Achilles expects}%
+\tagwalk[from=off]{heads}{over,over}{turned at the first; turned at the second}
 \end{center}
 
 \emph{{[}As he says it, the gust falls away outside. The flames right
@@ -741,7 +741,8 @@ along a bare string it would have arrived tails! The pair can't come
 off.
 
 \begin{center}
-\tagstring[end]{tails}{heads,heads}{twins}
+\tagstring[second;expects=twins]{tails}{heads,heads}{as Achilles expects}%
+\tagwalk[from=off]{tails}{heads,heads}{laid heads up; left as it lay}
 \end{center}
 
 \textbf{Tortoise:} \emph{{[}lifting one of the two off{]}} And now?
@@ -786,7 +787,7 @@ part of what the string says. Like washing your hands and drying them:
 the same two jobs, and one order leaves you dry, the other wet.
 
 \begin{center}
-\tagstring[end]{heads}{heads,over}{swapped}
+\tagstring[end;expects=anyorder]{heads}{heads,over}{as Achilles expects}\quad\tagstring[end]{heads}{heads,over}{swapped}
 \end{center}
 
 \emph{{[}The tea has stood long enough to want reviving. Achilles pours
@@ -883,19 +884,18 @@ would become of heads' share?
 tied on by its other end.
 
 \textbf{Achilles:} \emph{{[}The strip is in his hands at the tag,
-untied; the end that had sat at the knot is the dark one, and from it
-three parts run dark to the change of shade --- heads' share --- then
-three parts white to the free end. He turns it end for end and holds its
-white end to the string. What has moved is which end is held to the
-string; what has not moved is the change of shade, still three parts in
-from the held end, for on this strip it sits dead in the middle.{]}}
-Tied on by this end: three in six. \emph{{[}He turns it back, and round
-again: three parts from either end, every time.{]}} It reads the same
-from either end. Then for a coin nobody has seen, this tag does nothing!
-It needn't wait for a twin; it may come off alone.
+untied; the end that had sat at the knot is the dark one. He turns it
+end for end and holds its white end to the string. What has moved is
+which end is held to the string; what has not moved is the change of
+shade, still three parts in from the held end, for on this strip it sits
+dead in the middle.{]}} Tied on by this end: three in six. \emph{{[}He
+turns it back, and round again: three parts from either end, every
+time.{]}} It reads the same from either end. Then for a coin nobody has
+seen, this tag does nothing! It needn't wait for a twin; it may come off
+alone.
 
 \begin{center}
-\tagstring[first]{strip-three}{over}{turned at the tag}
+\tagstring[first;marks=on]{strip-three}{over}{turned at the tag}
 \end{center}
 
 \textbf{Tortoise:} That is your tossed coin. Mine is under my foot.
@@ -910,10 +910,6 @@ the room has drawn in a little closer around the table.{]}}
 
 \textbf{Achilles:} Heads, five parts in six. That's your die.
 
-\begin{center}
-\tagstring{strip-five}{over}{the Tortoise's strip}
-\end{center}
-
 \textbf{Tortoise:} Walk it.
 
 \emph{{[}The fire drops with a soft collapse of coals, and for a breath
@@ -921,21 +917,18 @@ the room holds still --- only the wind. In the lower light the woodcut
 on the wall seems to come forward off its nail, nearer than it had hung
 all evening.{]}}
 
-\textbf{Achilles:} \emph{{[}This strip hangs by its dark end: from the
-knot, five parts dark to the change --- heads' share, five in six ---
-then one white part to the free end. He unties it, carries it along to
-the tag, turns it end for end, and holds its white end to the string.
-The strip is the same length it was; but the change of shade now sits
-only one part in from the held end, where a moment ago it sat five parts
-in, and the two shares have traded sizes.{]}} Tied on by this end: from
-the knot, one part --- and then the change. It moved! \emph{{[}He looks
-up, the strip still in his hands, dark end and white end, at the print
-on the wall --- Escher's \textup{Day and Night}.{]}} Black birds flying
-one way, white birds the other, over fields that are neither yet. And it
-is all one sheet of paper.
+\textbf{Achilles:} \emph{{[}He unties the strip, carries it along to the
+tag, turns it end for end, and holds its white end to the string. The
+strip is the same length it was.{]}} Tied on by this end: from the knot,
+one part --- and then the change. It moved! \emph{{[}He looks up, the
+strip still in his hands, dark end and white end, at the print on the
+wall --- Escher's \textup{Day and Night}.{]}} Black birds flying one
+way, white birds the other, over fields that are neither yet. And it is
+all one sheet of paper.
 
 \begin{center}
-\tagstring[first]{strip-five}{over}{turned at the tag}
+\tagstring[first;expects=idle]{strip-five}{over}{as Achilles expects}%
+\tagwalk{strip-five}{over}{the Tortoise's strip; turned end for end}
 \end{center}
 
 \textbf{Tortoise:} And the tag?
@@ -1016,7 +1009,7 @@ reaches themselves. Then these aren't shares --- three and four
 overshoot the whole. As a wager it's nonsense.
 
 \begin{center}
-\arrowsquare{all}{five, not seven}
+\arrowsquare[expects=sum]{all}{as Achilles expects}\quad\arrowsquare{all}{five, not seven}
 \end{center}
 
 \emph{{[}The teapot has sat cooling at the far corner of the table this
@@ -1033,14 +1026,13 @@ something else a start could be. What does it mean, to reach three
 heads-ward?
 
 \textbf{Tortoise:} Another evening. Tonight, only what a tag does to it.
-\emph{{[}The arrow reaches three matches heads-ward and four tails-ward,
-and five along its own length. She clears the matches away and turns the
-square face-down about the line running from the arrow's corner to the
-far corner. The corner stays pinned where it was and the line she turns
-it about stays put; what swings across is the rest of the square, so
-that the heads-ward edge comes to lie where the tails-ward edge was, and
-the reverse --- and through the paper the arrow shows, as long as
-ever.{]}} Turned over.
+\emph{{[}She clears the matches away and turns the square face-down
+about the line running from the arrow's corner to the far corner. The
+corner stays pinned where it was and the line she turns it about stays
+put; what swings across is the rest of the square, so that the
+heads-ward edge comes to lie where the tails-ward edge was, and the
+reverse --- and through the paper the arrow shows, as long as ever.{]}}
+Turned over.
 
 \textbf{Achilles:} \emph{{[}laying matches again: along the bottom, up
 the side, along the arrow{]}} The reaches have changed places, as the
@@ -1048,7 +1040,7 @@ shares did. And along the arrow, five still: turned over, it is still
 one arrow.
 
 \begin{center}
-\arrowsquare[over]{all}{turned over}
+\arrowsquare[over;marks=on]{none}{turned over}\quad\arrowsquare[over]{all}{measured once more}
 \end{center}
 
 \textbf{Tortoise:} And home again?
@@ -2384,7 +2376,7 @@ the crossing out to that foot he lays the matches end to end.{]}} Three.
 And the arrow is five. Three parts in five.
 
 \begin{center}
-\crosssheet*{three-and-four}{square}{heads-ward}{three in five}
+\crosssteps*{three-and-four}{square}{none}{card heads-ward, matches}{the sheet laid; the card dropped; three in five}
 \end{center}
 
 \textbf{Tortoise:} \emph{{[}She unties the closing tag, and ties on in
@@ -2455,7 +2447,7 @@ that arrow's tail out to the foot he lays the matches.{]}} Three parts
 in five --- the pale string's number, arriving from the other end.
 
 \begin{center}
-\tailontail*{heads-ward}{three-and-four}{from the other end}
+\tailontail*[laid]{heads-ward}{three-and-four}{tail on tail}\quad\tailontail[card]{heads-ward}{three-and-four}{the card dropped}\quad\tailontail{heads-ward}{three-and-four}{from the other end}
 \end{center}
 
 \textbf{Tortoise:} And tails-ward?
@@ -2509,7 +2501,7 @@ whole. But this is a wager --- a coin under a foot! There's no foot
 here, only an arrow and a question.
 
 \begin{center}
-\sharestrip*{nine in twenty-five}{heads, nine in twenty-five}
+\sharestrip[expects=reaches;deep=on]{nine in twenty-five}{as Achilles expects}\quad\sharestrip*{nine in twenty-five}{heads, nine in twenty-five}
 \end{center}
 
 \emph{{[}On the sill beyond the shutter the snow has begun to lie, and
@@ -2543,10 +2535,12 @@ Backwards}}{Third Challenge --- A Reach Backwards}}\label{third-challenge-a-reac
 the near left-hand corner: one match heads-ward, one tails-ward.{]}} The
 slant. Tie it on and ask it.
 
-\emph{{[}The slant is tied to the pale string's left end. The Tortoise
-marks its length along the card's edge and draws the closing arrows,
-heads-ward and tails-ward, exactly so long. Achilles traces; the dark
-string is tagged the other way about.{]}}
+\emph{{[}The two blocks are lifted off the ruled sheet whole and set
+beside the dish, the matches cleared away, and the slant is tied to the
+pale string's left end. The Tortoise marks its length along the card's
+edge and draws the closing arrows, heads-ward and tails-ward, exactly so
+long. Achilles traces; the dark string is tagged the other way
+about.{]}}
 
 \textbf{Achilles:} \emph{{[}He lays the ruled sheet square over the
 slant, crossing on the tail, and drops the card from the arrow's tip to
@@ -2563,27 +2557,30 @@ come out in matches.
 
 \textbf{Tortoise:} Squares.
 
-\textbf{Achilles:} One little square on each reach. But the square on
-the slant?
+\textbf{Achilles:} \emph{{[}He takes the matches back off the slant's
+own arrow and sets a little square out on each reach.{]}} One little
+square on each reach. But the square on the slant?
 
-\textbf{Tortoise:} \emph{{[}She takes the two little squares --- the one
-from the heads-ward reach, the one from the tails-ward --- and cuts each
-along its diagonal, corner to corner; the four half-squares she fits
-point to point around the slant until they close into one square
-standing squarely on it, on its tails-ward side, away from the
-heads-ward line. The paper is all there: none left over, none
-wanting.{]}} Made of those two, and nothing over.
+\textbf{Tortoise:} \emph{{[}She cuts the two little squares where they
+lie --- the one on the heads-ward reach, the one on the tails-ward ---
+each along its diagonal, corner to corner from the crossing. One half
+already lies in its place against the tails-ward reach; the other three
+she slides round to it, each the shortest way, until the four close into
+one square standing squarely on the slant, on its tails-ward side, away
+from the heads-ward line.{]}} Made of those two, and nothing over.
 
 \begin{center}
-\crosssheet{slant}{square}{both,halves}{nothing over}
+\crosssteps{slant}{square}{both,squares}{cut, close}{a square on each; cut corner to corner; nothing over}
 \end{center}
 
 \textbf{Achilles:} Then each reach has one square of the two. Heads, one
 in two. \emph{{[}He folds a strip in two and shades one part.{]}} Evens:
 my half-and-half strip again. Now your back-slant.
 
-\emph{{[}The back-slant is tied on as the pale string's start; its
-tracing becomes the dark string's closing tag.{]}}
+\emph{{[}The square on the slant goes back into the dish in its four
+halves, the matches are cleared away, and the back-slant is tied on as
+the pale string's start; its tracing becomes the dark string's closing
+tag.{]}}
 
 \emph{{[}He lays the sheet square over the back-slant and drops the card
 from its tip to each line. The heads-ward reach lands out along its
@@ -2633,11 +2630,12 @@ back, satisfied, and warms his hands.{]}}
 \textbf{Tortoise:} \emph{{[}letting him{]}} You have asked it one
 question.
 
-\emph{{[}She sets a fingertip on the crossing of the ruled sheet,
-holding it fast to the arrow's tail, and swings the sheet about that one
-point, the heads-ward line coming round toward the two of them. The
-crossing does not stir; the two ruled lines wheel away from heads-ward
-and tails-ward.{]}}
+\emph{{[}She clears the matches away and the two little squares back
+into the dish; then she sets a fingertip on the crossing of the ruled
+sheet, holding it fast to the arrow's tail, and swings the sheet about
+that one point, the heads-ward line coming round toward the two of them.
+The crossing does not stir; the two ruled lines wheel away from
+heads-ward and tails-ward.{]}}
 
 \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
 
@@ -2646,9 +2644,11 @@ and tails-ward.{]}}
 Question}}{Fourth Challenge --- The Turned Question}}\label{fourth-challenge-the-turned-question}}
 
 \emph{{[}The ruled sheet has come to rest a half-right-angle round, the
-crossing still pinned to the arrow's tail. The line that was heads-ward
-now runs along the back-slant; the line that was tails-ward, along the
-slant.{]}}
+crossing still pinned to the arrow's tail.{]}}
+
+\begin{center}
+\crosssheet*[swung=square]{back-slant}{turned}{none}{the sheet turned}
+\end{center}
 
 \emph{{[}The wind veers again --- not round to the far side now but a
 half-turn, crosswise --- and the note that the shutter had held falls to
@@ -2670,7 +2670,7 @@ Its foot falls on the crossing.{]}} No matches at all. It has no reach
 along that line.
 
 \begin{center}
-\crosssheet*{back-slant}{turned}{slant,no-matches}{no reach}
+\crosssheet[expects=bookkeeping]{back-slant}{turned}{slant,no-matches}{as Achilles expects}\quad\crosssheet{back-slant}{turned}{slant,no-matches}{no reach}
 \end{center}
 
 \textbf{Tortoise:} And along the other?
@@ -2690,7 +2690,7 @@ that heads-ward swung round to, the back-slant's own --- and leaves the
 slant's strip white from end to end.{]}} All dark. All white.
 
 \begin{center}
-\sharestrip{all dark}{the back-slant}\quad\sharestrip{all white}{the slant}
+\sharestrip{all dark}{the back-slant's strip}\quad\sharestrip{all white}{the slant's strip}
 \end{center}
 
 \emph{{[}He unties the half-and-half strip from beside the start tag.
@@ -2721,8 +2721,9 @@ shake does.
 \textbf{Tortoise:} Last evening's arrow, under the turned sheet.
 
 \emph{{[}The three-and-four arrow is tied on again. The Tortoise lays
-five matches along each turned line and draws the closing arrows so;
-Achilles traces, and the dark string is tagged the other way about.{]}}
+five matches along each turned line, draws the closing arrows so, and
+gathers the matches up again; Achilles traces, and the dark string is
+tagged the other way about.{]}}
 
 \textbf{Achilles:} Along the slant's line: just short of five matches.
 Along the back-slant's: short of one match, and backwards.
@@ -2744,11 +2745,16 @@ question far enough!
 \section{\texorpdfstring{Fifth Challenge --- \emph{The Arrow
 Reversed}}{Fifth Challenge --- The Arrow Reversed}}\label{fifth-challenge-the-arrow-reversed}}
 
-\textbf{Tortoise:} \emph{{[}She unties the pale string's start tag and
-turns the square end for end on the table --- the tip swung down to
+\textbf{Tortoise:} \emph{{[}She clears the matches away and lifts the
+ruled sheet aside; she unties the pale string's start tag and turns the
+square end for end on the table, clockwise --- the tip swung down toward
 where the tail was, the ink not redrawn and its length unchanged, only
 the arrow pointing now the opposite way --- and ties it on again by what
 had been its far corner.{]}} Every reach backwards at once.
+
+\begin{center}
+\crosssheet[endforend=on]{reversed}{off}{none}{end for end}
+\end{center}
 
 \textbf{Achilles:} Then it will be caught at once. \emph{{[}He ties the
 five-long heads-ward square she drew at the start of the evening on
@@ -2777,10 +2783,12 @@ first strip.
 \textbf{Tortoise:} Don't tie it on yet.
 
 \textbf{Achilles:} Well --- the square sheet missed the back-slant too.
-\emph{{[}He turns the sheet as she turned it; the five-long arrows along
-its lines go back on as the pale string's closing tag, their tracings as
-the dark string's start.{]}} Just short of five, backwards --- and the
-sliver comes forwards now. And the dark one?
+\emph{{[}He lifts the two blocks off whole and sets them beside the dish
+again, clears the matches away, and turns the sheet as she turned it;
+the five-long arrows along its lines go back on as the pale string's
+closing tag, their tracings as the dark string's start.{]}} Just short
+of five, backwards --- and the sliver comes forwards now. And the dark
+one?
 
 \textbf{Tortoise:} That was my line.
 
@@ -2794,19 +2802,20 @@ before.
 \textbf{Tortoise:} A different arrow. Find me the question that knows
 it.
 
-\emph{{[}Achilles turns the ruled sheet to a position of his own
-choosing --- the square sheet swung only a little way round, the
-heads-ward line tipped a little away from them --- and holds it there.
-He lays matches along its lines for the arrow reversed. Then, the sheet
-held still, he turns the square end for end beneath it, lays a second
-row of matches beside the first, and turns the square back.{]}}
+\emph{{[}Achilles clears the matches away and turns the ruled sheet to a
+position of his own choosing --- the square sheet swung only a little
+way round, the heads-ward line tipped a little away from them --- and
+holds it there. He lays matches along its lines for the arrow reversed.
+Then, the sheet held still, he turns the square end for end beneath it,
+lays a second row of matches beside the first, and turns the square
+back.{]}}
 
 \textbf{Achilles:} The same lengths. Every one on the other side of the
-crossing. \emph{{[}The Tortoise lays five matches along one of his lines
-and draws the closing arrow; he traces, and lays the dark string's
-squares one over the other.{]}} And whatever turns backwards on the pale
-string turns backwards on the dark. Two sides, a paper square, the same
-square. I can't catch it!
+crossing. \emph{{[}The Tortoise lays five matches along one of his
+lines, draws the closing arrow, and takes the five up again; he traces,
+and lays the dark string's squares one over the other.{]}} And whatever
+turns backwards on the pale string turns backwards on the dark. Two
+sides, a paper square, the same square. I can't catch it!
 
 \begin{center}
 \crosssheet{reversed}{own}{both,both-ways}{the same lengths}
@@ -2848,8 +2857,8 @@ facing back.{]}}
 
 \textbf{Achilles:} The arrow, asked about --- itself?
 
-\textbf{Tortoise:} \emph{{[}She turns the ruled sheet until one line
-lies along the arrow.{]}} Ask.
+\textbf{Tortoise:} \emph{{[}She clears the matches away and turns the
+ruled sheet until one line lies along the arrow.{]}} Ask.
 
 \textbf{Achilles:} \emph{{[}The card's foot falls on the arrow's own
 tip.{]}} Five. Five parts in five: all of it. And along the other line,
@@ -2881,13 +2890,14 @@ matches on a side.{]}} The square on it. Fill it in.
 \textbf{Achilles:} I have no more little squares. Only the nine and the
 sixteen from --- \emph{{[}He breaks the three-by-three block into its
 nine loose squares and the four-by-four into its sixteen, and sets them
-one by one into her five-by-five outline, row filling into row, until
-the outline is a full field of squares, and nothing is left of either
-block.{]}} It fills. Slice a loaf any way you like, and the slices still
-come back to the one loaf.
+one by one into her five-by-five outline, the nine first, from its near
+left-hand corner, row filling into row, until the outline is a full
+field of squares, and nothing is left of either block.{]}} It fills.
+Slice a loaf any way you like, and the slices still come back to the one
+loaf.
 
 \begin{center}
-\fivesquare{filled}{it fills}
+\fivesquare[from=empty]{nine}{the nine first}\quad\fivesquare[from=nine]{filled}{it fills}
 \end{center}
 
 \textbf{Tortoise:} Exactly?
@@ -4384,7 +4394,7 @@ the Crab winces.{]}}
 
 \begin{center}
 \crabball*{up}{company}{home}\qquad
-\crabball{up}{stove}{glass, one click with the clock}
+\crabball[play=glass+1]{up}{company}{glass, one click with the clock}
 \end{center}
 
 \textbf{Crab:} Stove on the one hand, dresser on the other. In this room
@@ -4425,13 +4435,17 @@ blue dot, then a grey.{]}} Grey for steel, two heads for two clicks, and
 we read from the left. Glass, two clicks; then steel, two clicks.
 
 \emph{{[}He lifts the ball. The glass needle held: the steel bead is
-carried the whole half-way round, off the company and out the far side.
-Then the steel needle, held where it now lies: the glass bead is carried
-the half-way round, from the top down into the hollow of the stand. The
+carried the whole half-way round, off the company and round by the
+stove. Then the steel needle, held where it now lies: the glass bead is
+carried the half-way round, from the top and round by the stove. The
 Crab winces four times.{]}}
 
 \textbf{Achilles:} Glass bead straight down, in the hollow of the stand;
 steel away, towards Mr Crab.
+
+\begin{center}
+\crabplay[by=click]{up}{company}{glass+2,steel+2}{the glass, one click; the glass, two clicks; then the steel, one click; the steel, two clicks}
+\end{center}
 
 \textbf{Tortoise:} And to undo it?
 
@@ -4461,11 +4475,6 @@ turned like a page. Home; and home. Then Achilles plays it steel first,
 glass second, and the ball comes to the very place the first order left
 it; he plays the same again, and it is home.{]}}
 
-\begin{center}
-\crabball{down}{away}{glass, then steel, two clicks each}\quad
-\crabball{down}{away}{steel, then glass}
-\end{center}
-
 \emph{{[}The Crab has crossed to the dresser for the other pot and comes
 back the way he went, sidelong, the same step carrying him out and in
 --- a crab is at no more trouble to go one way than the other. He tops
@@ -4493,10 +4502,13 @@ each arrow.{]}} Glass, one click; then steel, one click. Both with the
 clock, as you drew them. Mr Crab?
 
 \textbf{Crab:} \emph{{[}He plays it, wincing. Glass, a quarter: the
-glass keeps the top while the steel leaves the company for the stove.
-Then the steel needle, held where it now lies at the stove: it keeps its
-place while the glass bead is carried a quarter down off the top, to
-face the company.{]}} If I must.
+glass keeps the top while the steel leaves the company. Then the steel
+needle, held where it now lies: it keeps its place while the glass bead
+is carried a quarter down off the top.{]}} If I must.
+
+\begin{center}
+\crabplay{up}{company}{glass+1,steel+1}{first the glass; then the steel}
+\end{center}
 
 \textbf{Achilles:} Now, my rule. The strip round on the table: steel one
 click, then glass one click, each with the clock as drawn. \emph{{[}He
@@ -4521,9 +4533,9 @@ each the other way.{]}} As it was.
 \scorestrip[round]{glass+1,steel+1}{round on the table}\qquad
 \scorestrip[flip]{glass+1,steel+1}{top over bottom}
 
-\crabball{company}{stove}{as played}\quad
-\crabball{down}{company}{round on the table}\quad
-\crabball{stove}{down}{top over bottom}
+\crabball[play=glass+1,steel+1;then=round;expects=anyend]{up}{company}{as Achilles expects}\quad
+\crabball[play=glass+1,steel+1;then=round]{up}{company}{round on the table}\quad
+\crabball[play=glass+1,steel+1;then=flip]{up}{company}{top over bottom}
 \end{center}
 
 \textbf{Achilles:} But both rules worked. Every time!
@@ -4538,14 +4550,13 @@ rubbed out, nothing redrawn.{]}} The page. Read me what you see.
 
 \textbf{Achilles:} Steel first --- that's my first rule. Each against
 the clock --- that's my second. \emph{{[}He plays it from where the ball
-stands: the steel needle held while the glass bead swings a quarter back
-up to the top; then the glass needle held while the steel bead swings a
-quarter back to the company.{]}} Home. \ldots Oh. Both at once. Last
-arrow first \emph{and} every arrow the other way round, and neither half
-will do alone.
+stands: the steel needle held while the glass bead swings a quarter
+back; then the glass needle held while the steel bead swings a quarter
+back.{]}} Home. \ldots Oh. Both at once. Last arrow first \emph{and}
+every arrow the other way round, and neither half will do alone.
 
 \begin{center}
-\crabball{up}{company}{the page: home}
+\crabplay[view=page]{company}{stove}{glass+1,steel+1}{the page: first the steel; then the glass: home}
 \end{center}
 
 \emph{{[}On the fender the mittens have gone quiet, done steaming. The
@@ -4613,7 +4624,8 @@ tried it! Nearly home, I say.
 
 \textbf{Crab:} \emph{{[}He takes the brass needle by its ends: two
 clicks. The brass bead is the pin now --- it holds fast while the glass
-and steel needles swing a half-turn right past one another.{]}} Brass.
+and steel needles swing a half-turn right past one another, the glass
+bead round by the dresser and the steel round by the stove.{]}} Brass.
 
 \textbf{Tortoise:} Look where the glass needle lies now.
 
@@ -4621,18 +4633,18 @@ and steel needles swing a half-turn right past one another.{]}} Brass.
 lay. And the steel one stands upright, bead on top, in the glass one's
 place. They have changed places, bead for bead.
 
-\textbf{Crab:} \emph{{[}The glass needle, as it now lies, level at the
-company: two clicks. The glass bead holds at the company while the steel
-swings from the top round to the bottom. Then the brass again: two
-clicks, and glass and steel trade ends once more.{]}} Glass. Brass.
+\textbf{Crab:} \emph{{[}The glass needle, as it now lies: two clicks.
+The glass bead holds while the steel swings half-way round, by the
+dresser. Then the brass again: two clicks, and glass and steel trade
+ends once more, by the same sides.{]}} Glass. Brass.
 
 \textbf{Achilles:} Glass straight down, steel towards the company. That
 isn't nearly home. I said glass up and steel away, and it is exactly the
 other thing!
 
 \begin{center}
-\crabball{company}{up}{after one brass turn}\quad
-\crabball{down}{company}{brass, glass, brass}
+\crabball[play=brass+2,glass+2,brass+2;expects=anyorder]{up}{company}{as Achilles expects}%
+\crabplay{up}{company}{brass+2,glass+2,brass+2}{first the brass; then the glass; then the brass again}
 \end{center}
 
 \textbf{Tortoise:} \emph{{[}She turns the strip like a page once
@@ -4664,7 +4676,7 @@ side.{]}} One turn of the steel --- and there they all are again.
 \textbf{Achilles:} Bead for bead the same!
 
 \begin{center}
-\crabball{down}{company}{one steel turn, from home}
+\crabball[play=steel+2;marks=off]{up}{company}{one steel turn, from home}
 \end{center}
 
 \textbf{Tortoise:} And your numbers?
@@ -4822,8 +4834,8 @@ steel at the dresser --- nowhere near the first place.
 beads leap to the same home.{]}} Home.
 
 \begin{center}
-\crabball{dresser}{company}{one place}\quad
-\crabball{down}{dresser}{another place}\quad
+\crabball[play=steel+1;marks=off]{up}{company}{one place}\quad
+\crabball[play=glass-1,steel+2]{up}{company}{another place}\quad
 \crabball{up}{company}{the catch, from either: home}
 \end{center}
 
@@ -4891,8 +4903,8 @@ against the clock.
 \textbf{Achilles:} Home --- by turns alone, to the last click.
 
 \begin{center}
-\crabball{dresser}{away}{the evening's score}\quad
-\crabball{up}{company}{its page: home}
+\crabball[play=glass+1,|,glass+1,steel+1,|,brass+2,glass+2,brass+2]{up}{company}{the evening's score}\quad
+\crabball[play=glass+1,|,glass+1,steel+1,|,brass+2,glass+2,brass+2;then=page]{up}{company}{its page: home}
 \end{center}
 
 \textbf{Crab:} Home, and nothing owing. Every click of the evening has
@@ -6775,16 +6787,15 @@ it falls into panels, and we can give one panel to each way the two
 coins might come up.
 
 \textbf{Tortoise:} \emph{{[}She takes the blank sheet --- one whole face
---- and folds it once across the middle; the sheet is no smaller folded,
-but the crease has scored it into an upper half and a lower half.{]}}
-For the silk: above the crease it shows heads, below it tails.
-\emph{{[}She folds it again, this time end to end, and opens it flat:
-the outline is unchanged, yet the two creases have quartered the single
-face into four panels.{]}} For the hemp: left of the crease heads, right
-of it tails. Four panels. Fill them.
+--- and folds it once across the middle, the lower half up onto the
+upper, and opens it again.{]}} For the silk: above the crease it shows
+heads, below it tails. \emph{{[}She folds it again, this time end to
+end, the right half over onto the left, and opens it flat.{]}} For the
+hemp: left of the crease heads, right of it tails. Four panels. Fill
+them.
 
 \begin{center}
-\foldsheet*{twice}{blank}{a panel for each pairing}
+\foldsteps{none}{once}{one whole face; folded once}\quad\foldsheet*[marks=on]{twice}{blank}{a panel for each pairing}
 \end{center}
 
 \textbf{Achilles:} Upper right is the one you asked for. In half of all
@@ -6841,11 +6852,12 @@ Panels}}{Second Challenge --- Sixteen Panels}}\label{second-challenge-sixteen-pa
 \textbf{Achilles:} \emph{{[}The Tortoise hands him a string out of her
 shell; he loops it over the next hooks down, as she did.{]}} A string
 below: gut. And a fold for it. \emph{{[}He takes a fresh sheet and folds
-it as he speaks, the last crease going across again and turning the
-whole folded square back over on itself.{]}} Once across for the silk.
-Once the other way for the hemp. Once more for the gut. Six panels.
-\emph{{[}He opens it flat and runs a finger down the rows of panels, two
-to a row, counting.{]}} Two, four, six\ldots{} eight.
+it as he speaks, the last crease going across again, bottom edge up to
+top, and turning the whole folded square back over on itself.{]}} Once
+across for the silk. Once the other way for the hemp. Once more for the
+gut. Six panels. \emph{{[}He opens it flat and runs a finger down the
+rows of panels, two to a row, counting.{]}} Two, four, six\ldots{}
+eight.
 
 \textbf{Tortoise:} Count them again, by all means.
 
@@ -6853,7 +6865,7 @@ to a row, counting.{]}} Two, four, six\ldots{} eight.
 at the edge. It went through every panel that was already there.
 
 \begin{center}
-\foldsheet{three}{blank}{eight, not six}
+\foldsheet[expects=edge]{three}{blank}{as Achilles expects}\quad\foldsheet[marks=on]{three}{blank}{eight, not six}
 \end{center}
 
 \emph{{[}Out in the yard the pear tree is bare, and with the snow off it
@@ -6949,12 +6961,13 @@ pencil.{]}} Mark where each panel goes.
 each string and walks the pair along together, level, from the left
 upright; at the clip the silk coin is flipped, head going under and
 wreath coming up and the hemp coin below passes it untouched.{]}} Upper
-left goes to lower left. \emph{{[}He draws a blue arrow on the
-sheet.{]}} Heads above, tails below: arrives tails above, tails below.
-Upper right goes to lower right.
+left goes to lower left. \emph{{[}He draws a blue arrow on the sheet,
+sets the coins back at the left upright, and walks again.{]}} Heads
+above, tails below: arrives tails above, tails below. Upper right goes
+to lower right.
 
 \begin{center}
-\stringframe[end]{silk heads: over; hemp tails; gut; horsehair}{over on the silk}
+\framewalk[to=end]{silk heads: over; hemp tails; gut; horsehair}{laid on; past the clip; over on the silk}
 \end{center}
 
 \textbf{Tortoise:} And from the lower panels?
@@ -6966,7 +6979,7 @@ halves made by the first fold have changed places, upper for lower. The
 shares looked the same only because the two halves were twins.
 
 \begin{center}
-\foldsheet{twice}{patchwork: a half, three-quarters; arrows: silk-over}{blue: over the first fold}
+\foldsheet[expects=untouched]{twice}{patchwork: a half, three-quarters; arrows: silk-over}{as Achilles expects}\quad\foldsheet{twice}{patchwork: a half, three-quarters; arrows: silk-over}{blue: across the first fold}
 \end{center}
 
 \emph{{[}By the door, where Achilles stamped his boots, the puddle has
@@ -7035,14 +7048,9 @@ check it.{]}} Walk them. Heads above, tails below.
 meets its clip first: heads up. Then the silk coin meets its own: over.
 They arrive tails above, heads below.
 
-\begin{center}
-\stringframe[end]{silk heads: -, over, -; hemp tails: heads, -, -; gut; horsehair}{hers to the left}
-\end{center}
-
 \textbf{Tortoise:} \emph{{[}She slides her clip rightward and it passes
 clean under his --- the two never so much as graze, being on strings one
-above the other --- and comes to rest beyond it.{]}} I slide it past
-yours. Again.
+above the other.{]}} I slide it past yours. Again.
 
 \textbf{Achilles:} \emph{{[}walking the coins, level, from heads above
 and tails below: now the silk coin reaches its clip and is turned before
@@ -7051,7 +7059,7 @@ changed, only which one a coin meets first{]}} The silk coin first, this
 time. The same!
 
 \begin{center}
-\stringframe[end]{silk heads: -, over, -; hemp tails: -, -, heads; gut; horsehair}{slid past his}
+\stringframe[end;slide=hemp first to third;cols=4]{silk heads: -, over, -; hemp tails: heads, -, -; gut; horsehair}{slid past his}
 \end{center}
 
 \textbf{Tortoise:} \emph{{[}She slides her clip back until it stands
@@ -7115,7 +7123,7 @@ two walks nobody touched a clip. \ldots Oh. Nothing was moved. It was
 one frame, and I read it two ways.
 
 \begin{center}
-\stringframe[end]{silk tails: -, over, heads; hemp heads: -, heads, over; gut; horsehair}{nothing moved}
+\stringframe[end;cols=4]{silk tails: -, over, heads; hemp heads: -, heads, over; gut; horsehair}{nothing moved}
 \end{center}
 
 \emph{{[}He looks up from the frame. On the wall beside the door hangs a
@@ -7129,12 +7137,17 @@ For the length of his look no drop falls anywhere along the eave.{]}}
 just so, and nobody asks which of them comes first. Though the middle
 one has both its neighbours in its shine.
 
-\textbf{Tortoise:} \emph{{[}On the silk string she pushes the ``turn it
-over'' clip to the right, towards its neighbour.{]}} Now I slide this
-one past that one.
+\textbf{Tortoise:} \emph{{[}Achilles takes the two coins off the
+right-hand hooks. On the silk string she pushes the ``turn it over''
+clip to the right, towards its neighbour.{]}} Now I slide this one past
+that one.
 
 \textbf{Achilles:} It won't go. They knock together. They are on the
 same string!
+
+\begin{center}
+\stringframe[off;slide=silk over second to fourth;cols=4]{silk: -, over, heads; hemp: -, heads, over; gut; horsehair}{they knock}
+\end{center}
 
 \emph{{[}Down any one icicle the water goes in file. The drop behind
 cannot get by the drop in front, and they come to the tip in the order
@@ -7147,17 +7160,16 @@ where a moment ago, on two strings, the sliding had needed no lifting at
 all.{]}} It must come off, and go back on the far side. Walk the silk.
 Tails up.
 
-\textbf{Achilles:} \emph{{[}He lifts the hemp coin off the frame and
-lays it aside, and walks the silk coin alone from tails: at the dark
-clip it is laid heads up, the wreath going under; at the pale clip
-beyond it, it is turned, and the wreath comes up again. The hemp clips
-have not moved; only the silk's two have changed places.{]}} Silk
-arrives \emph{tails}, and a moment ago it arrived heads. So the old fact
-stands: along one string there is an order, and it is part of what the
-string says.
+\textbf{Achilles:} \emph{{[}He lays the hemp coin aside, and walks the
+silk coin alone from tails: at the dark clip it is laid heads up, the
+wreath going under; at the pale clip beyond it, it is turned, and the
+wreath comes up again. The hemp clips have not moved; only the silk's
+two have changed places.{]}} Silk arrives \emph{tails}, and a moment ago
+it arrived heads. So the old fact stands: along one string there is an
+order, and it is part of what the string says.
 
 \begin{center}
-\stringframe[end]{silk tails: -, -, heads, over; hemp: -, heads, over, -; gut; horsehair}{off and on again: tails}
+\stringframe[off;lift=silk over third to fourth;cols=4]{silk: -, -, over>heads; hemp: -, heads, over; gut; horsehair}{lifted over}\quad\stringframe[end]{silk tails: -, -, heads, over; hemp: -, heads, over, -; gut; horsehair}{off and on again: tails}
 \end{center}
 
 \textbf{Tortoise:} \emph{{[}She takes the clip off once more and
@@ -7207,7 +7219,7 @@ neither is turned on the way.{]}} They have changed hooks, and neither
 has changed its face.
 
 \begin{center}
-\stringframe[end]{silk; hemp; gut heads: -, cross, -; horsehair tails: -, cross, -}{crossed once}
+\stringframe[off;exchange=gut and horsehair]{silk; hemp; gut; horsehair}{crossed once}\quad\framewalk[to=end]{silk; hemp; gut heads: -, cross, -; horsehair tails: -, cross, -}{laid on; changing rows; changed hooks}
 \end{center}
 
 \emph{{[}Two sparrows have the porch rail to themselves, a cock and a
@@ -7241,14 +7253,16 @@ before the slide, face for face. The clip kept its string; the string
 changed its place.
 
 \begin{center}
-\stringframe[end]{silk; hemp; gut heads: -, cross, over; horsehair heads: -, cross, -}{slid through}
+\stringframe[end;expects=row]{silk; hemp; gut heads: -, cross, over; horsehair heads: -, cross, -}{as Achilles expects}\quad\stringframe[end;slide=gut first to third]{silk; hemp; gut heads: over, cross, -; horsehair heads: -, cross, -}{slid through}
 \end{center}
 
 \textbf{Tortoise:} \emph{{[}She takes the clip off and puts it in the
 box.{]}} Your turn to say it.
 
-\emph{{[}The lower pair still lies crossed once: at the right-hand end
-the horsehair is uppermost now, the gut beneath it.{]}}
+\emph{{[}Achilles lifts the two coins off the lower pair's right-hand
+hooks and lays them aside with the others. The lower pair still lies
+crossed once: at the right-hand end the horsehair is uppermost now, the
+gut beneath it.{]}}
 
 \textbf{Achilles:} I unhook the right-hand loops of the gut and the
 horsehair. The upper comes down in front, the lower goes up behind, and
@@ -7256,14 +7270,19 @@ each takes the other's hook. \emph{{[}He does so, the same hand-movement
 as before --- but the loop now uppermost is the horsehair, so this time
 the horsehair passes in front and the gut behind; each string has now
 gone in front just once. The right ends come home to their own hooks,
-and still the pair will not lie flat.{]}} There: back on their own
-hooks, and --- they are wound round each other.
+and still the pair will not lie flat. The two crossings lie close
+together about the middle.{]}} There: back on their own hooks, and ---
+they are wound round each other.
 
 \textbf{Tortoise:} Pull them straight.
 
 \textbf{Achilles:} \emph{{[}He draws the strings taut. He plucks at
 them.{]}} It won't pull out. And I said what you said and did what you
 did!
+
+\begin{center}
+\stringframe[off;expects=flat]{silk; hemp; gut: -, cross, cross, -; horsehair: -, cross, cross, -}{as Achilles expects}\quad\stringframe[off;exchange=gut and horsehair]{silk; hemp; gut: -, cross, -; horsehair: -, cross, -}{wound}
+\end{center}
 
 \textbf{Tortoise:} You did. Walk a coin on each.
 
@@ -7330,14 +7349,14 @@ both strings run on beneath it unbroken, a single line through each
 clip. She reads what is burnt into the wood.{]}} ``If the upper coin
 shows tails, turn the lower one over.''
 
-\textbf{Achilles:} \emph{{[}He walks the pairs through it, the last of
-them tails above and heads below.{]}} Heads above: the lower coin goes
-through as it came, heads or tails. Tails above: the lower coin is
-turned. The upper coin is never touched. That is two clips nailed to a
-stick.
+\textbf{Achilles:} \emph{{[}He sets the silk and hemp coins back at the
+left upright, and walks the pairs through it, the last of them tails
+above and heads below.{]}} Heads above: the lower coin goes through as
+it came, heads or tails. Tails above: the lower coin is turned. The
+upper coin is never touched. That is two clips nailed to a stick.
 
 \begin{center}
-\stringframe[end]{silk tails: yoke, -, -, -; hemp heads: yoke, -, -, -; gut: -, cross, cross, -; horsehair: -, cross, cross, -}{tails above}
+\framewalk[to=end]{silk tails: yoke, -, -, -; hemp heads: yoke, -, -, -; gut: -, cross, cross, -; horsehair: -, cross, cross, -}{laid on; the hemp turned; tails above}
 \end{center}
 
 \textbf{Tortoise:} \emph{{[}She unclips the bar and pushes the box of
@@ -7422,7 +7441,7 @@ the upper left panel, and the second the lower right, and those are
 full. It will not multiply out. It isn't a patchwork!
 
 \begin{center}
-\foldsheet{twice}{shares: a half, nothing, nothing, a half; tallies: seven, none, none, five; borders}{not a patchwork}
+\foldsheet[expects=patchwork]{twice}{shares: a half, nothing, nothing, a half; tallies: seven, none, none, five; borders}{as Achilles expects}\quad\foldsheet{twice}{shares: a half, nothing, nothing, a half; tallies: seven, none, none, five; borders}{not a patchwork}
 \end{center}
 
 \textbf{Tortoise:} A pair of gloves, posted in two parcels. Open either
@@ -7477,7 +7496,7 @@ crossing, each keeping its face, and change back at the second. Every
 coin arrives on its own hook, showing the face it set out with.{]}}
 
 \begin{center}
-\stringframe[end]{silk tails: yoke, -, yoke, -; hemp heads: yoke, -, yoke, -; gut heads: -, cross, -, cross; horsehair tails: -, cross, -, cross}{every one home}
+\stringframe[end]{silk tails: yoke, -, yoke, -; hemp heads: yoke, -, yoke, -; gut heads: -, cross, -, cross; horsehair tails: -, cross, -, cross}{all home}
 \end{center}
 
 \textbf{Tortoise:} Every one home. And your tea gone stone cold, never
@@ -9094,8 +9113,6 @@ next chapter sends something down two roads at once.
 
 \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
 
-\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
-
 \emph{{[}Spring dusk on the Tortoise's porch, at the edge of the pond. A
 cat is already there when Achilles comes up the steps --- stretched
 along the railing, or most of it is; the end that ought to be tail is
@@ -9204,16 +9221,17 @@ you care to. You won't enjoy the answer. Watch it walk.
 
 \emph{{[}The Cat walks the willow lane. At the head spreader it goes two
 ways at once, as though it were two cats of one substance; down the lane
-the two roads run together, and each lets fall its token at the foot.
-Both come up silver, the bright face. The foot spreader deals them out
-into the two pockets: into the home pocket it lays both just as they
-fell --- silver upon silver, and they pile; into the away pocket it lays
-them too, but turns the high road's token over as it sets it down ---
-silver beside slate, unlike faces, and the pair lifts out together and
-leaves that pocket bare. The walker has come home.{]}}
+the two roads run together, the high road's token a little ahead of the
+low road's, and each lets fall its token at the foot. Both come up
+silver, the bright face. The foot spreader deals them out into the two
+pockets: into the home pocket it lays both just as they fell --- silver
+upon silver, and they pile; into the away pocket it lays them too, but
+turns the high road's token over as it sets it down --- silver beside
+slate, unlike faces, and the pair lifts out together and leaves that
+pocket bare. The walker has come home.{]}}
 
 \begin{center}
-\conduitboard[end]{willow}{home heaped, away bare}
+\conduitwalk{willow}{set out; dealt; home heaped, away bare}
 \end{center}
 
 \emph{{[}Out on the water the two frogs come down on the very same beat,
@@ -9241,15 +9259,14 @@ just as it was; only now a single pin stands upright in the brass,
 halfway down.{]}}
 
 \emph{{[}The Cat walks again. Two roads again from the one head
-spreader, the high road's token running a little ahead of the low
-road's; but this time, as the high road passes the peg, its token turns
-over --- silver going down, slate coming up --- while the low road slips
-past the pin and stays silver. At the foot, the spreader deals as
-before. The same walk, the same lane; one pin between the spreaders, and
-the walker is turned away.{]}}
+spreader; but this time, as the high road passes the peg, its token
+turns over --- silver going down, slate coming up --- while the low road
+slips past the pin. At the foot, the spreader deals as before. The same
+walk, the same lane; one pin between the spreaders, and the walker is
+turned away.{]}}
 
 \begin{center}
-\conduitboard[past]{willow peg}{past the peg}\quad\conduitboard[end]{willow peg}{home bare, away heaped}
+\conduitboard[end; expects=add]{willow peg}{as Achilles expects}\quad\conduitwalk[from=off]{willow peg}{past the peg; dealt; home bare, away heaped}
 \end{center}
 
 \emph{{[}The two frogs are still going, but they have drifted out of
@@ -9348,7 +9365,7 @@ still cards, summed, gave the same full pocket and the same empty one as
 the Cat's two roads did.{]}}
 
 \begin{center}
-\roadtiles[read]{silver, silver}{a pile}\quad\roadtiles[laid]{silver, slate}{silver beneath slate}\quad\roadtiles[read]{silver, slate}{the pocket bare}
+\roadtiles[read]{silver, silver}{a pile}\quad\roadtiles[laid; turn=high]{silver, silver}{silver beneath slate}\quad\roadtiles[read; marks=on]{silver, slate}{the pocket bare}
 \end{center}
 
 \textbf{Achilles:} So ``both at once'' was never a fork in the road.
@@ -9404,19 +9421,19 @@ road runs the low value the bar does nothing. To ask it a plain question
 I want a plain, single road --- so up comes the willow's head spreader
 for a moment.
 
-\emph{{[}She lifts the head spreader off the willow lane. The turnstile
-comes away and the lane lies open at its head; now the willow owes not
-two roads but one --- the single road she chooses to walk by hand. She
-drops a token into the reed's pocket, silver up and lying flat, and
-walks a token down the willow's high road herself. As the hand-walked
-token passes beneath the bar, the bar reaches across and turns the reed
-token --- silver going down, slate coming up --- while the willow token
-runs on and comes home unmarked, silver as it set out. The mark has
-landed on the reed, the lane asked \emph{about}, exactly where Achilles
-would have put it.{]}}
+\emph{{[}She tips the willow's pockets empty, and lifts the head
+spreader off the willow lane. The turnstile comes away and the lane lies
+open at its head; now the willow owes not two roads but one --- the
+single road she chooses to walk by hand. She drops a token into the
+reed's pocket, silver up and lying flat, and walks a token down the
+willow's high road herself. As the hand-walked token passes beneath the
+bar, the bar reaches across and turns the reed token --- silver going
+down, slate coming up --- while the willow token runs on and comes home
+unmarked. The mark has landed on the reed, the lane asked \emph{about},
+exactly where Achilles would have put it.{]}}
 
 \begin{center}
-\conduitboard[before]{willow no head high; reed silver; bar willow high}{the bar across}\quad\conduitboard[past]{willow no head high; reed silver; bar willow high}{the mark on the reed}
+\conduitboard[before; lift=willow head high]{willow; reed silver; bar willow high}{bar laid, head lifted}\quad\conduitboard[past; marks=on]{willow no head high; reed silver; bar willow high}{reed token turned}
 \end{center}
 
 \textbf{Achilles:} Just as I'd expect. The bar wrote its mark on the
@@ -9428,18 +9445,19 @@ with one face up, but wedged upright on its edge, so it shows silver to
 one side and slate to the other, both at once. Two-faced. That is the
 difference setting.
 
-\emph{{[}She lifts the reed's token out of its pocket and stands it up
-on its edge in the deep lane, just short of the bar, wedged there,
-silver to one hand and slate to the other, and walks a token down the
-willow's high road once more. The bar reaches across to turn the reed
-token --- but a two-faced token turned end for end shows the very same
-two faces, and stands entirely unchanged. The turn has nothing there to
-spend itself on. So it jumps: back along the bar to the willow road that
+\emph{{[}She tips the willow's pockets empty again, lifts the reed's
+token out of its pocket, carries it over the bar, and stands it up on
+its edge in the deep lane, just short of the bar, wedged there, silver
+to one hand and slate to the other, and walks a token down the willow's
+high road once more. The bar reaches across to turn the reed token ---
+but a two-faced token turned end for end shows the very same two faces,
+and stands entirely unchanged. The turn has nothing there to spend
+itself on. So it jumps: back along the bar to the willow road that
 called it, and turns \emph{that} token over instead, while the reed
 token stands exactly as it was wedged.{]}}
 
 \begin{center}
-\conduitboard[before]{willow no head high; reed two-faced; bar willow high}{two-faced}\quad\conduitboard[past]{willow no head high; reed two-faced; bar willow high}{the mark on the willow}
+\conduitboard[before; wedge=reed]{willow no head high; reed slate; bar willow high}{two-faced}\quad\conduitboard[past; expects=reed]{willow no head high; reed two-faced; bar willow high}{as Achilles expects}\quad\conduitboard[past; marks=on]{willow no head high; reed two-faced; bar willow high}{jumped to the willow}
 \end{center}
 
 \emph{{[}Out on the pond a frog launches itself at the moon's broken
@@ -9489,12 +9507,12 @@ face, so the rule cannot be read.{]}}
 \textbf{Achilles:} The plain way first. Up comes the head spreader, and
 I walk one road by hand --- the low one --- beneath your hidden bar.
 
-\emph{{[}He lifts the head spreader, walks a single token down the
-willow's low road under the covered bar, and reads the face it brings
-home.{]}}
+\emph{{[}He tips the willow's pockets empty, lifts the head spreader,
+walks a single token down the willow's low road under the covered bar,
+and reads the face it brings home.{]}}
 
 \begin{center}
-\conduitboard*[home]{willow no head low; reed two-faced; bar hidden never}{one answer}
+\conduitboard*[home]{willow no head low; reed two-faced; bar hidden never}{the low road's answer}
 \end{center}
 
 \textbf{Achilles:} One answer, there in the pocket. Now to
@@ -9512,10 +9530,11 @@ the bar beneath her hand.{]}} A fresh rule. Try again --- better.
 Achilles laughs under his breath, half at himself, and squares up to the
 board again.{]}}
 
-\textbf{Achilles:} Then I won't plod. \emph{{[}He sets the head spreader
-back, so both roads open again.{]}} Let the Cat take both roads in the
-one walk, and I'll read just the road I want out of it. \emph{{[}to the
-Cat{]}} Which road brought the mark home?
+\textbf{Achilles:} Then I won't plod. \emph{{[}He tips the willow's
+pockets empty and sets the head spreader back, so both roads open
+again.{]}} Let the Cat take both roads in the one walk, and I'll read
+just the road I want out of it. \emph{{[}to the Cat{]}} Which road
+brought the mark home?
 
 \textbf{Cat:} \emph{{[}eyes drifting half-shut{]}} The one, and the
 other, and a little of the way between.
@@ -9529,10 +9548,11 @@ for your life which of the two it was you last heard.{]}}
 the \emph{foot} spreader --- let the two roads simply \emph{arrive},
 unsorted, and read whichever token lands.
 
-\emph{{[}He lifts the foot spreader clear of the willow. The Cat walks
-under the covered bar; the two roads come down and drop their tokens
-into the pocket with nothing to sort them --- silver, then slate, then
-silver, no telling which walk gave which.{]}}
+\emph{{[}He lifts the foot spreader clear of the willow, and tips the
+lane's pockets empty. The Cat walks under the covered bar; the two roads
+come down and drop their tokens into the pocket with nothing to sort
+them --- silver, then slate, then silver, no telling which walk gave
+which.{]}}
 
 \emph{{[}A moth has found the lamp and beats at the hot glass, struck
 away and falling and climbing back, and there is no calling in advance
@@ -9547,17 +9567,18 @@ spreader back, leave the reed wedged two-faced, and simply walk the
 whole thing once --- head spreader, bar, foot spreader --- and read the
 pockets.
 
-\emph{{[}He sets the foot spreader back. The Cat walks. At the head
-spreader both roads open; each runs under the hidden bar, and wherever
-the rule acts the reed's two-faced kick turns its token --- the low road
-carrying the rule's answer for the low value, the high road its answer
-for the high value. At the foot the spreader brings the two together.
-This rule has given them opposite faces: silver and slate meet in the
-home pocket and lift out as a pair, leaving it bare, while the away
-pocket fills. The walker is turned away.{]}}
+\emph{{[}He sets the foot spreader back. He tips the willow's pockets
+empty, and the Cat walks. At the head spreader both roads open; each
+runs under the hidden bar, and wherever the rule acts the reed's
+two-faced kick turns its token --- the low road carrying the rule's
+answer for the low value, the high road its answer for the high value.
+At the foot the spreader brings the two together. This rule has given
+them opposite faces: silver and slate meet in the home pocket and lift
+out as a pair, leaving it bare, while the away pocket fills. The walker
+is turned away.{]}}
 
 \begin{center}
-\conduitboard[home settled]{willow; reed two-faced; bar hidden willow low}{the home pocket bare}
+\conduitboard[home settled]{willow; reed two-faced; bar hidden willow low}{home bare}
 \end{center}
 
 \textbf{Achilles:} Turned away --- the home pocket empty. So the two
@@ -9617,11 +9638,12 @@ opposite face in the home pocket, and lift out pair by pair, and leave
 nothing at all.
 
 \textbf{Tortoise:} Then here is a rule, and I shan't tell you which it
-is. \emph{{[}She sets the bar to a hidden rule and lays her hand over
-its face.{]}} Walk it, and read the home pocket alone.
+is. \emph{{[}She tips the willow's pockets empty, sets the bar to a
+hidden rule and lays her hand over its face.{]}} Walk it, and read the
+home pocket alone.
 
 \begin{center}
-\conduitboard{willow; alder; hazel; rowan; reed two-faced; bar hidden willow high}{the whole board in play}
+\conduitboard{willow; alder; hazel; rowan; reed two-faced; bar hidden willow high}{all in play}
 \end{center}
 
 \emph{{[}The moon stands high over the pond at last, and its light has
@@ -9640,7 +9662,7 @@ after pair lifts out. The road-book's tally reads sixteen roads walked;
 the home pocket holds none of them.{]}}
 
 \begin{center}
-\conduitboard[home]{willow; alder; hazel; rowan; reed two-faced; bar hidden willow high}{eight and eight}\quad\conduitboard[home settled]{willow; alder; hazel; rowan; reed two-faced; bar hidden willow high}{not a token left}
+\conduitboard[home]{willow; alder; hazel; rowan; reed two-faced; bar hidden willow high}{eight and eight}\quad\conduitboard[home settled]{willow; alder; hazel; rowan; reed two-faced; bar hidden willow high}{all lifted out}
 \end{center}
 
 \textbf{Achilles:} Empty --- not a token left at home. Eight cancelled
@@ -10522,8 +10544,6 @@ Boxes}\label{obbligato-for-six-music-boxes}}
 
 \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
 
-\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
-
 \emph{{[}Achilles and the Tortoise have come to the Crab's for the
 afternoon; the Crab meets them at the door, squinting into the low
 sun.{]}}
@@ -10592,15 +10612,13 @@ the daughter tells every customer is---
 inside it, whole. Achilles's thumb catches the lid and lifts it --- the
 box itself does not move, only the little hinged lid swings up --- and
 the note springs out into the room: a single high tone, clear as a
-struck glass.{]}}
+struck glass. Then it is gone, and the lid settles back on a box with
+nothing left inside to sound. What was held is spent; what stays is a
+small pearwood box that will never sing again.{]}}
 
 \begin{center}
-\musicboxes*{tray; left pearwood open}{the lid up}
+\boxsteps*{tray}{open=left pearwood; close=left pearwood}{shut and full; the lid up; spent}
 \end{center}
-
-\emph{{[}Then it is gone, and the lid settles back on a box with nothing
-left inside to sound. What was held is spent; what stays is a small
-pearwood box that will never sing again.{]}}
 
 \textbf{Achilles:} Oh, that's lovely. How do you wind it again?
 
@@ -10613,12 +10631,12 @@ low; you have had high. It is now a very small pearwood box with nothing
 further to say. \emph{{[}He writes a single word, in fresh ink, in the
 left-hand column of the ledger --- the first of a pair --- and leaves
 the space beside it in the right-hand column blank; then he lifts the
-right pearwood box off the tray and folds it against his shell, shut and
-full, while its spent partner sits shut and silent on the tray{]}} And
-nobody touches this one.
+right pearwood box off the tray, out over its right-hand rim, and folds
+it against his shell, shut and full, while its spent partner sits shut
+and silent on the tray{]}} And nobody touches this one.
 
 \begin{center}
-\musicboxes{tray; left pearwood spent; right pearwood kept}{held apart}\quad\crabledger*{low, high, high, low, tonight high}{one word waiting}
+\musicboxes[keep=right pearwood]{tray; left pearwood spent}{held apart}\quad\crabledger*{low, high, high, low, tonight high}{one word waiting}
 \end{center}
 
 \textbf{Achilles:} I'm terribly sorry. One note? It seems a great deal
@@ -10773,7 +10791,7 @@ column instead, and uncovering the right; the same eleven years, read
 down the other side now{]}} And the right boxes.
 
 \begin{center}
-\crabledger[blotter left]{high, low, low, high, low, high, high, high}{the right boxes alone}
+\crabledger[blotter right; slide=blotter left]{high, low, low, high, low, high, high, high}{the right boxes alone}
 \end{center}
 
 \textbf{Achilles:} Another coin. Just as fair and just as empty. If you
@@ -10785,7 +10803,7 @@ columns lie open to the lamp at once, side by side --- neither column
 changed by a single mark from what it was under cover{]}} And now.
 
 \begin{center}
-\crabledger{high, low, low, high, low, high, high, high}{the blotter lifted}
+\crabledger[blotter left; lift=off]{high, low, low, high, low, high, high, high}{the blotter lifted}
 \end{center}
 
 \textbf{Achilles:} \emph{{[}reading across{]}} It's the same column
@@ -10904,16 +10922,17 @@ still be all one thing --- and your agreement, Achilles, has to be kept
 somewhere that is in two places at once. Watch what the two ends of it
 have to do with each other.
 
-\textbf{Tortoise:} \emph{{[}she takes the loose straight string and lays
-it on the cloth in a single hairpin --- one end set down at the left
-walnut box, the string carried away from the pair, towards the company,
-round in one soft bend, and back again to rest its other end at the
-right walnut box: two ends now at two boxes, joined behind by one
-unbroken length{]}} There is a pair. Achilles, put your hand over one
-end and tell me what the other is the end of.
+\textbf{Tortoise:} \emph{{[}she draws the loose string out straight on
+the cloth in front of the left walnut box, then lays it in a single
+hairpin --- one end set down at the left walnut box, the string carried
+away from the pair, towards the company, round in one soft bend, and
+back again to rest its other end at the right walnut box: two ends now
+at two boxes, joined behind by one unbroken length{]}} There is a pair.
+Achilles, put your hand over one end and tell me what the other is the
+end of.
 
 \begin{center}
-\walnutstring*{hairpin}{a pair}
+\walnutsteps*{straight}{bend=hairpin}{straight; a pair}
 \end{center}
 
 \textbf{Achilles:} Of a string. From here I couldn't say more; it might
@@ -10958,14 +10977,13 @@ coins.
 
 \emph{{[}Each takes an end and draws it away from the other. The slack
 runs out of the loop; the two bends slide toward one another, meet, and
-pull through into nothing --- out and back and out drawing straight.
-What was three legs and two bends is one taut line from Achilles's hand
-to the Tortoise's, and the two walnut boxes it bent around a moment ago
-sit untouched to either side. The kinks are gone; the string is the same
-string, and just as long as it ever was.{]}}
+pull through into nothing --- out and back and out drawing straight. The
+two walnut boxes it bent around a moment ago sit untouched to either
+side. The kinks are gone; the string is the same string, and just as
+long as it ever was.{]}}
 
 \begin{center}
-\walnutstring[pulled]{out back out}{pulled straight}
+\walnutsteps[from=off]{out back out}{pull=half; pull=ends}{drawn apart; pulled straight}
 \end{center}
 
 \textbf{Achilles:} \ldots Oh. It's a string. It was only ever a string
@@ -10977,12 +10995,12 @@ spout of the hot-water pot, which has been leaning, doubling back on
 itself and leaning again, stands up in a single thread, as if it had
 never done anything else.{]}}
 
-\textbf{Tortoise:} \emph{{[}laying it out again the other way about, the
-first bend now facing down where it faced up --- the same S turned into
-a Z{]}} And bent like this?
+\textbf{Tortoise:} \emph{{[}taking it up and laying it out again the
+other way about, the first bend now facing down where it faced up ---
+the same S turned into a Z{]}} And bent like this?
 
 \begin{center}
-\walnutstring{the other way about}{the other way about}
+\walnutstring{the other way about}{the bends swapped}
 \end{center}
 
 \textbf{Achilles:} \emph{{[}taking his end and pulling without being
@@ -11025,17 +11043,22 @@ which is just what you wanted to know.
 One end comes to a point. And there's a notch cut into one flank, like a
 bite out of a biscuit. Lopsided twice over.
 
-\textbf{Tortoise:} Twice over is what we shall need. \emph{{[}She bends
-the string once round the left walnut box, so that two legs run back
-from the bend side by side: a far leg, over nearer the window, and a
-near leg, nearer the company. She slides the bead onto the far leg and
-settles it face-up on the cloth, its point aimed along the string toward
-the bend, its notched flank turned to face the window.{]}} Point towards
-the bend. Notch towards the window. \emph{{[}On a napkin she draws the
-bead exactly as it lies now: a long tile, a point at its left-hand end,
-a bite out of the flank on the window side --- a fixed record of how it
-went in.{]}} That is how it goes in. I am going to slide it along the
-string, round the bend, and onto the near leg. How does it arrive?
+\emph{{[}The Crab, with the string about to come near his boxes again,
+draws the right walnut box back towards the window, clear of it, and
+eases its partner a little aside to the left, towards the company.{]}}
+
+\textbf{Tortoise:} Twice over is what we shall need. \emph{{[}She takes
+the string up and bends it once round the left walnut box, so that two
+legs run back from the bend side by side: a far leg, over nearer the
+window, and a near leg, nearer the company. She slides the bead onto the
+far leg and settles it face-up on the cloth, its point aimed along the
+string toward the bend, its notched flank turned to face the window.{]}}
+Point towards the bend. Notch towards the window. \emph{{[}On a napkin
+she draws the bead exactly as it lies now: a long tile, a point at its
+left-hand end, a bite out of the flank on the window side --- a fixed
+record of how it went in.{]}} That is how it goes in. I am going to
+slide it along the string, round the bend, and onto the near leg. How
+does it arrive?
 
 \begin{center}
 \beadstring*{point to the bend, notch to the window}{going in}
@@ -11052,7 +11075,7 @@ hand, only carried round the corner by the string it rides on{]}} It
 went in point first. Look how it comes out.
 
 \begin{center}
-\beadstring[near leg]{point to the bend, notch to the window}{coming out}
+\beadstring[near leg; expects=unchanged]{point to the bend, notch to the window}{as Achilles expects}\quad\beadsteps[from=off]{point to the bend, notch to the window}{slide=in the bend; slide=near leg}{round the bend; coming out}
 \end{center}
 
 \textbf{Achilles:} Point first still --- but pointing to the
@@ -11073,7 +11096,7 @@ the bead as it went in, and there behind it is your looking-glass bead.
 Read it to me.
 
 \begin{center}
-\beadstring[glass]{point to the bend, notch to the window}{in the glass}
+\beadstring[glass]{point to the bend, notch to the window}{point to point}
 \end{center}
 
 \textbf{Achilles:} In the glass the point is turned about: pointing
@@ -11140,25 +11163,27 @@ post, packed in wood-wool, and you could drop them down a well. The key
 would not survive a sorting office. The key does not survive being
 looked at sternly.
 
+\emph{{[}The Crab sets both walnut boxes back where they stood, side by
+side as before, the window behind them both.{]}}
+
 \textbf{Tortoise:} May I thread it? \emph{{[}She slips the bead off the
 string and back into her shell, passes the string through the bow of the
-key and draws it out straight on the cloth in front of the walnut pair,
-the key riding at the middle of one taut line: a note comes in along the
-string at the left end, passes through the key, and leaves at the right
-end --- a wire in, a wire out, and the key at work between{]}} Here is
-the key as a thing one \emph{does}. A box's note comes along the string
-from this end; the key turns it; it goes out at that end, changed. Too
-delicate to travel. Now. \emph{{[}She carries the right end across and
-up to the left walnut box, and swings the left end down, round and up to
-the right one, until both ends point the same way: the one straight line
-closes into a hairpin, and where a moment ago there was one wire in and
-one wire out there are now two legs lying side by side --- one running
-to the left walnut box with the key still upon it, the other running
-bare to the right. The key has not moved a hair; but it sits on a pair
-now, not on a through-line.{]}}
+key and draws it out straight on the cloth in front of the left walnut
+box, the key riding at the middle of one taut line: a note comes in
+along the string at the left end, passes through the key, and leaves at
+the right end --- a wire in, a wire out, and the key at work between{]}}
+Here is the key as a thing one \emph{does}. A box's note comes along the
+string from this end; the key turns it; it goes out at that end,
+changed. Too delicate to travel. Now. \emph{{[}She carries the right end
+across and up to the left walnut box, and swings the left end down,
+round and up to the right one, until both ends point the same way: the
+one straight line closes into a hairpin, and where a moment ago there
+was one wire in and one wire out there are now two legs lying side by
+side. The key has not moved a hair; but it sits on a pair now, not on a
+through-line.{]}}
 
 \begin{center}
-\walnutstring{straight, key}{the key at work}\quad\walnutstring{hairpin, key}{a pair now}
+\walnutsteps{straight, key}{bend=hairpin}{the key at work; a pair now}
 \end{center}
 
 \textbf{Achilles:} That's the bead's picture again. A bend, two legs, a
@@ -11195,6 +11220,10 @@ and laying the right end back down, so the two legs open out into one
 line again, and pulling it taut: the hairpin gone, the string straight,
 the key riding at the middle exactly as before{]}} The key again.
 Nothing lost on the way.
+
+\begin{center}
+\walnutstring[bend=straight]{hairpin, key}{at work again}
+\end{center}
 
 \textbf{Crab:} And my cousin performs that last manoeuvre how,
 precisely? He has no string. He has a parcel from me and a breakfast
@@ -11246,11 +11275,12 @@ other.
 \emph{{[}The Tortoise slips the tuning key off the string and hands it
 back to the Crab, who lays it in its open case. The whole row now stands
 ready along the far edge of the cloth, every box shut and silent; the
-freed string lies loose and bare in front of them, nothing threaded on
-it and nothing yet bent.{]}}
+Tortoise lays the freed string loose and bare in front of them, from one
+end of the row to the other, nothing threaded on it and nothing yet
+bent.{]}}
 
 \textbf{Tortoise:} \emph{{[}laying the string on the cloth in front of
-the row as he speaks, a leg of string for each box, like a garden path
+the row as she speaks, a leg of string for each box, like a garden path
 to each door: up to the left pearwood box, round in a bend, and back
 from the right pearwood box{]}} Let Bob draw a path to the first pair;
 one bend. \emph{{[}The string turns about at the near side and runs up
@@ -11268,7 +11298,7 @@ the near edge, one below the far-left box and one below the
 far-right.{]}}
 
 \begin{center}
-\musicboxes*[three bends]{row; left pearwood spent}{the whole row laid}
+\boxsteps*[string=bare]{row; left pearwood spent}{lay=next pair; lay=next pair; lay=next pair}{loose; first pair; next pair; last pair}
 \end{center}
 
 \textbf{Achilles:} So the first station is holding the right pearwood
@@ -11324,10 +11354,11 @@ the right ebony box.{]}}
 stand in the same row. Only the string has changed --- every turn at the
 stations pulled out, and the two end legs, still resting at the far-left
 and far-right boxes, joined now by one unbroken bend across the whole
-front of the row.{]}}
+front of the row, and its two free ends set down again at the near
+edge.{]}}
 
 \begin{center}
-\musicboxes[three bends pulled]{row; left pearwood spent}{both ends drawn in}
+\musicboxes[three bends pulled; expects=gaps]{row; left pearwood spent}{as Achilles expects}\quad\musicboxes[three bends; pull=ends, walnut bend held]{row; left pearwood spent}{both ends drawn in}
 \end{center}
 
 \textbf{Achilles:} One bend. From Alice's box to Bob's. But that's a
@@ -11384,7 +11415,7 @@ the evening began; and now the two words stand side by side, the same
 word twice, one line of a pair completed a whole evening late.{]}}
 
 \begin{center}
-\musicboxes[three bends pulled]{row; left pearwood spent; right pearwood open}{the last note}\quad\crabledger{low, high, high, low, tonight high completed}{the same word twice}
+\musicboxes[three bends pulled]{row; left pearwood spent; right pearwood open}{the last note}\quad\ledgersteps{low, high, high, low, tonight high}{write=right}{one word waiting; the same word twice}
 \end{center}
 
 \textbf{Achilles:} High. Of course it's high. But was it in there all
@@ -12807,9 +12838,8 @@ what that asking wants. \emph{{[}She takes them from the packet.{]}} One
 asking to a mask. Let me lay them over what you have written, one at a
 time.
 
-\emph{{[}The card as it stands: four white counters. She lays the first
-mask; its two windows sit over the left-lid and the right-door squares,
-both white, and the word on it is ALIKE.{]}}
+\emph{{[}She lays the first mask; its two windows sit over the left-lid
+and the right-door squares, both white, and the word on it is ALIKE.{]}}
 
 \textbf{Tortoise:} Left lid, right door: alike, and alike it is.
 \emph{{[}She lays the second, windows over the two lids, word ALIKE ---
@@ -12829,21 +12859,21 @@ mask.{]}}
 kept.
 
 \begin{center}
-\notecard*[masks]{front; all white}{one button}
+\cardsteps*[from=off]{front; all white}{lay=next mask; lay=next mask; lay=next mask; lay=next mask}{the first mask; the second; the third; one button}
 \end{center}
 
 \textbf{Achilles:} A slip, only. \emph{{[}He turns the right-lid counter
 over.{]}} Make the right box answer dark when it is asked the lid. Now
 the unlike mask has a white and a black --- unlike, mended.
 
-\emph{{[}The card as it was: four white counters, one button on the
-unlike mask. He turns one counter, the right-lid square, white to black;
-the other three do not move, and the button leaves the unlike mask and
-crosses to another. One counter turned, two masks changed their verdict,
-and there is still exactly one button on the card.{]}}
+\emph{{[}The one turn, followed through. He turns one counter, the
+right-lid square, white to black; the other three do not move, and the
+button leaves the unlike mask and crosses to another. One counter
+turned, two masks changed their verdict, and there is still exactly one
+button on the card.{]}}
 
 \begin{center}
-\notecard[masks]{front; all white, right lid black}{one counter turned}
+\notecard[masks; turn=right lid; expects=mended]{front; all white}{as Achilles expects}\quad\notecard[masks; turn=right lid]{front; all white}{one counter turned}
 \end{center}
 
 \textbf{Achilles:} \ldots The button has only moved. It has gone to the
@@ -12990,11 +13020,11 @@ decide it is cheating.
 \textbf{Tortoise:} Let Bob draw a stroke for every evening they won,
 sorted by which pair of questions was asked. \emph{{[}Bob, in the tale,
 gathers the strokes into four heaps; the Tortoise turns from the open
-page, where the evenings run in the order they fell, to the last page of
-the book, where Bob wrote the same evenings out again sorted by kind ---
-not a stroke added or lost, only the order changed --- and blocks it
-into four with her hand.{]}} Lid-and-door here, lid-and-lid here,
-door-and-door, door-and-lid. Count each heap.
+page and the page facing it, where the evenings run in the order they
+fell, to the last page of the book, where Bob wrote the same evenings
+out again sorted by kind --- not a stroke added or lost, only the order
+changed --- and blocks it into four with her hand.{]}} Lid-and-door
+here, lid-and-lid here, door-and-door, door-and-lid. Count each heap.
 
 \begin{center}
 \scorebook[heaps]{sorted by kind}
@@ -13054,7 +13084,7 @@ spoilt on the rest.
 Inside, in three shaped nests, lie three small brass boxes.{]}}
 
 \begin{center}
-\halltable*{case open}{in their nests}
+\hallsteps*{case shut}{open=case}{lid down; in their nests}
 \end{center}
 
 \textbf{Tortoise:} These never lose.
@@ -13075,14 +13105,15 @@ case the way one watches a thing one has been told not to touch.{]}}
 at eighty-five.
 
 \textbf{Tortoise:} The wedge is a pair. This is a trio. \emph{{[}She
-lifts the three boxes from their nests, one, and one, and one, and
-stands them on the cloth, shut.{]}} Made together at one bench on one
-afternoon, sent in one case. No lids on these --- two ways in only: a
-little door in the side, and a drawer underneath. I shall not open one;
-I only want them standing where you can see them.
+lifts the three boxes from their nests, one, and one, and one, from the
+left, and stands them on the cloth, shut, in a row between the case and
+the envelopes.{]}} Made together at one bench on one afternoon, sent in
+one case. No lids on these --- two ways in only: a little door in the
+side, and a drawer underneath. I shall not open one; I only want them
+standing where you can see them.
 
 \begin{center}
-\halltable{boxes out}{out on the cloth}\quad\triobox*{shut}{a door and a drawer}
+\hallsteps[from=off]{case open}{lift=next box; lift=next box; lift=next box}{lifted out; then the next; out on the cloth}\quad\triobox*{shut}{a door and a drawer}
 \end{center}
 
 \textbf{Achilles:} And the guarantee?
@@ -13132,7 +13163,7 @@ egg-cup on the flat of the mask, over the third window. What is fixed
 and hidden now is the one note under the cup.{]}}
 
 \begin{center}
-\notecard*[under even, cup on right door]{back; left door white, middle door white, right door white}{one under the cup}
+\notecard*[under even, cup on right door]{back; left door white, middle door white, right door white}{one hidden}
 \end{center}
 
 \textbf{Anteater:} Turn round. The mask says EVEN --- all three by the
@@ -13146,6 +13177,10 @@ one, which is odd and forbidden. So: bright.
 \emph{{[}The Anteater lifts the egg-cup. The counter beneath shows
 white.{]}}
 
+\begin{center}
+\notecard[under even, cup on right door; lift=cup]{back; left door white, middle door white, right door white}{the cup lifted}
+\end{center}
+
 \textbf{Anteater:} Bright. Again --- turn round.
 
 \emph{{[}Achilles turns away. The same EVEN mask stays where it is, and
@@ -13155,7 +13190,7 @@ stands the egg-cup over the left window --- not the right one, this
 time.{]}}
 
 \begin{center}
-\notecard[under even, cup on left door]{back; left door black, middle door white, right door black}{a different window}
+\cardsteps[view=under even; from=off]{back; left door white, middle door white, right door white}{turn=left door and right door; cup=left door}{set back black; a different window}
 \end{center}
 
 \textbf{Anteater:} Same mask, same word. One bright, one dark shown.
@@ -13240,16 +13275,15 @@ Three broken, one kept.
 \notecard*[masks]{back; all white}{three buttons}
 \end{center}
 
-\textbf{Achilles:} Then a dark is wanted. \emph{{[}The card as it
-stands: three buttons, on the three ODD masks. He turns the middle box's
-drawer counter, white to black; the five others hold still. That one
-drawer-square lies under two of the ODD masks --- and both of them,
+\textbf{Achilles:} Then a dark is wanted. \emph{{[}He turns the middle
+box's drawer counter, white to black; the five others hold still. That
+one drawer-square lies under two of the ODD masks --- and both of them,
 wanting a dark and now given one, read odd and are kept: two buttons
 lift off together. One is left standing, on the ODD mask over the middle
 door, which cannot see this square.{]}} Two gone at a stroke!
 
 \begin{center}
-\notecard[masks]{back; all white, middle drawer black}{three become one}
+\notecard[masks; turn=middle drawer]{back; all white}{three become one}
 \end{center}
 
 \textbf{Achilles:} Now mend the last. \emph{{[}He turns another drawer
@@ -13263,7 +13297,7 @@ card.{]}} \ldots And it only walks. The very same walk as the front of
 the card, six squares wide instead of four.
 
 \begin{center}
-\notecard[masks]{back; all white, middle drawer black, left drawer black}{the button crosses}
+\notecard[masks; turn=left drawer; expects=mended]{back; all white, middle drawer black}{as Achilles expects}\quad\notecard[masks; turn=left drawer]{back; all white, middle drawer black}{the button crosses}
 \end{center}
 
 \textbf{Anteater:} Because it is the same machine, only larger. One mask
@@ -13364,7 +13398,7 @@ should have heard whatever this box was going to say. It might as well
 have been a coin that sent me up here.
 
 \begin{center}
-\triobox[door]{door open}{in the attic}
+\triosteps[envelope=door]{shut}{open=door}{shut and full; attic}
 \end{center}
 
 \emph{{[}The Tortoise, alone in the cellar.{]}}
@@ -13378,7 +13412,7 @@ and the door in its side will never be worth trying.{]}} Bright. That is
 all of mine. You have two of the three now; hold on to them.
 
 \begin{center}
-\triobox[drawer]{drawer out}{in the cellar}
+\triosteps[envelope=drawer]{shut}{open=drawer}{shut and full; cellar}
 \end{center}
 
 \emph{{[}The Anteater, alone in the garden room.{]}}
@@ -13393,7 +13427,7 @@ itself; it is in the three of them at once --- and only you are standing
 where that can be seen.
 
 \begin{center}
-\triobox[drawer]{drawer out}{in the garden room}
+\triobox[drawer]{drawer out}{garden room}
 \end{center}
 
 \emph{{[}The same low sun is standing in all three rooms at once ---
@@ -13414,11 +13448,11 @@ the envelope in front of it.{]}}
 spent box. \emph{{[}He lays a black counter by his own.{]}} Dark, for
 mine. \emph{{[}The Tortoise lays white by hers, the Anteater white by
 his.{]}} Bright, and bright. One dark among the three. \emph{{[}He
-slides the glass paperweight off the slip and unfolds it.{]}} Odd. One
-black. Won.
+slides the glass paperweight off the slip, towards the case, and unfolds
+it.{]}} Odd. One black. Won.
 
 \begin{center}
-\halltable{boxes out; spent; deal door drawer drawer; envelopes open; counters black white white; slip open}{the slip read}
+\hallsteps{boxes out; spent; deal door drawer drawer; envelopes open; counters black white white}{open=slip}{the counters laid; the slip read}
 \end{center}
 
 \textbf{Achilles:} We won it. Every one of us opened blind, and it came
@@ -14618,19 +14652,23 @@ Turn}}{First Challenge --- A Name, a Colour, a Turn}}\label{first-challenge-a-na
 
 \textbf{Achilles:} \emph{{[}looking up at the beam, where one ring sits
 on its peg with three cords tied to it --- one running in from a hook at
-the beam's left end, two running out to hooks at its right{]}} Wait ---
-I know that. Or I knew its plainer cousin. Last autumn you showed us a
-bare dot where three cords met, that already knew things about itself:
-any one of its cords foretold by the other two. But that one had no
-colour, and no more than the three legs. This has a colour, and --- how
-many legs is it wearing?
+the beam's left end, two running out to hooks at its right, the left
+hook high and the right ones high and low{]}} Wait --- I know that. Or I
+knew its plainer cousin. Last autumn you showed us a bare dot where
+three cords met, that already knew things about itself: any one of its
+cords foretold by the other two. But that one had no colour, and no more
+than the three legs. This has a colour, and --- how many legs is it
+wearing?
 
 \textbf{Crab:} As many as I care to give it. \emph{{[}He runs a fourth
-cord into the ring from the left, then a fifth out of it to the
-right.{]}} That is the whole point of the family. The dot has grown up.
+cord into the ring from the left, then a fifth out of it to the right.
+Each hangs from a hook of its own along the beam: the new one in, from a
+hook low on the left; the new one out, from a hook on the right between
+the other two.{]}} That is the whole point of the family. The dot has
+grown up.
 
 \begin{center}
-\ringcords*[beam]{green ring, five cords}{grown a family}
+\ringsteps*[view=beam]{green ring, in at top, out at top and bottom}{add=in; add=out}{as he found it; another in; another out}
 \end{center}
 
 \textbf{Achilles:} It has a family now. Has it a name?
@@ -14674,7 +14712,7 @@ quarter together. Two rings have become one; the far end of the cord is
 exactly where it was.{]}}
 
 \begin{center}
-\ringcords{two green rings, turns a third and a quarter}{two rings, two turns}\quad\ringcords[slid]{two green rings, turns a third and a quarter}{slid into one}
+\ringcords{two green rings, turns a third and a quarter}{two rings, two turns}\quad\ringcords[slid; marks=on]{two green rings, turns a third and a quarter}{slid into one}
 \end{center}
 
 \textbf{Tortoise:} Two green rings sharing a cord are one green ring,
@@ -14699,12 +14737,12 @@ green ring wearing the sum of all their turns. Tidy. \emph{{[}He looks
 up at the beam.{]}} And you want to build something. Where do we start?
 
 \textbf{Crab:} Here. \emph{{[}He lifts the first ring down off the beam,
-cords and all, and the loose lengths hanging beside it with their small
-rings, and lays them at the end of the table; then he fixes two green
-rings to the beam, one above the other on the left, and runs a cord into
-each from the left side.{]}} Two green rings, and a cord fed to each ---
-one for you to hold responsible, one for the Tortoise. The beginning of
-the thing.
+peg, cords and all, and the loose lengths hanging beside it with their
+small rings, and lays them at the end of the table; then he fixes two
+green rings to the beam, one above the other on the left, and runs a
+cord into each from the left side.{]}} Two green rings, and a cord fed
+to each --- one for you to hold responsible, one for the Tortoise. The
+beginning of the thing.
 
 \emph{{[}Achilles steadies the cord into the upper green ring; the
 Tortoise sets the cord into the lower one. Two cords now run in from the
@@ -14749,14 +14787,14 @@ one way --- all-agree, bright-together or dark-together. Feed its cord
 through the slot, and out comes a ring that counts the \emph{other} way.
 A \textbf{red ring}.
 
-\emph{{[}The green ring sits on its loose cord. He draws the cord
-through the flip-slot; the cord runs through and the ring at its end, as
-it comes clear of the slot, is red where it was green. Its cord and its
-bead have not moved -- same cord, same turn -- only the colour, and with
-the colour the question it asks.{]}}
+\emph{{[}The green ring sits on its loose cord, on the far side of the
+rim. He draws the cord through the flip-slot; the cord runs through and
+the ring at its end, as it comes clear of the slot, is red where it was
+green. Its cord and its bead have not moved -- same cord, same turn --
+only the colour, and with the colour the question it asks.{]}}
 
 \begin{center}
-\koekpan[slot green]{through the slot}
+\koekpan[slot green; marks=on]{through the slot}
 \end{center}
 
 \textbf{Achilles:} One slot, and it changes sides. But that's only the
@@ -14828,7 +14866,7 @@ the one cord, the plainest red thing there is. And here is a green ring
 made to fork: one cord in, two cords out, its bead at the top, no turn.
 
 \begin{center}
-\ringcords{red point, green fork}{a point and a fork}
+\ringcords{red point, green fork}{point and fork}
 \end{center}
 
 \textbf{Achilles:} Then I can tell you what happens without your pan.
@@ -14852,7 +14890,7 @@ one cord out, there are two, and each is a red point, the very twin of
 the one that went in.{]}}
 
 \begin{center}
-\ringcords*[pressed]{red point, green fork}{off the second hooks}
+\ringcords[pressed; expects=passes]{red point, green fork}{as Achilles expects}\quad\ringcords*[pressed]{red point, green fork}{off the second hooks}
 \end{center}
 
 \textbf{Achilles:} \emph{{[}staring{]}} Two. There are two of them, and
@@ -14887,11 +14925,12 @@ red half-turn waits on the cord before it. She pushes the red half-turn
 along the cord and through the green ring to the far side. What passes
 through is unchanged -- still a red half-turn, its bead square at the
 mark. But the green ring it passed through has its bead swung clean over
-to the mirror side, the same turn the other way about. The traveller is
-the same; the thing it travelled through is reversed.{]}}
+to the mirror side, round beneath the cord, the same turn the other way
+about. The traveller is the same; the thing it travelled through is
+reversed.{]}}
 
 \begin{center}
-\ringcords{red half-turn, green ring, turn a third}{before the push}\quad\ringcords[pushed]{red half-turn, green ring, turn a third}{pushed through}
+\ringcords{red half-turn, green ring, turn a third}{before the push}\quad\ringcords[pushed; marks=on]{red half-turn, green ring, turn a third}{gone through}
 \end{center}
 
 \textbf{Achilles:} The green ring's turn has flipped to the far side,
@@ -15000,7 +15039,7 @@ two rings -- but with nothing between them at all: the two cords gone,
 the green loose on its side, the red loose on its own.{]}}
 
 \begin{center}
-\ringcords{green and red, two cords}{doubly joined}\quad\ringcords[pressed]{green and red, two cords}{nothing between}
+\ringcords{green and red, two cords}{doubly joined}\quad\ringcords[pressed; expects=tighter]{green and red, two cords}{as Achilles expects}\quad\ringcords[pressed]{green and red, two cords}{nothing between}
 \end{center}
 
 \textbf{Achilles:} They fell apart. Two cords between a green and a red
@@ -15047,7 +15086,7 @@ red-green, then green-red --- the middle one reversed.{]}} Top, then
 bottom, then top. Three crossings' worth of gate.
 
 \begin{center}
-\ringcords{three gates}{the middle reversed}
+\ringcords{three gates}{its middle reversed}
 \end{center}
 
 \textbf{Achilles:} \emph{{[}quick, tracing it in the air{]}} Let me run
@@ -15124,7 +15163,7 @@ the cross, the two draw-cords out to the right, and nothing else strung
 anywhere.{]}}
 
 \begin{center}
-\ringcords{cradle}{waiting on the beam}
+\ringcords{cradle}{untouched}
 \end{center}
 
 \textbf{Achilles:} \emph{{[}reaching up, touching each cord as he
@@ -15143,20 +15182,20 @@ built.{]}}
 
 \textbf{Tortoise:} And here is the last thing worth seeing. \emph{{[}She
 takes hold of the cradle's cords and begins to reshape them --- sliding
-the rings along the beam, bending the cross into new curves, drawing the
-whole tangle into a shape that looks nothing like it did.{]}}
+the rings along the beam, each ring with its peg, bending the cross into
+new curves, drawing the whole tangle into a shape that looks nothing
+like it did.{]}}
 
-\emph{{[}The cradle as it stood: two greens left, two reds right, a neat
-cross between. Her hands move the rings along the beam and coax the four
-crossed cords into long looping bends, until the shape on the beam is a
-different picture entirely -- crooked where it was square, curved where
-it was straight. But she has untied nothing and joined nothing new:
-every cord still runs from the ring it left to the ring it reached. Only
-where the rings sit, and the path each cord takes to get there, has
-changed.{]}}
+\emph{{[}Her hands move the rings along the beam, and then coax the
+cords, the crossed ones most of all, into long looping bends, until the
+shape on the beam is a different picture entirely -- crooked where it
+was square, curved where it was straight. But she has untied nothing and
+joined nothing new: every cord still runs from the ring it left to the
+ring it reached. Only where the rings sit, and the path each cord takes
+to get there, has changed.{]}}
 
 \begin{center}
-\ringcords{reshaped cradle}{as she left it}
+\ringsteps[from=off; marks=off]{cradle}{reshape=rings; reshape=cords}{the rings moved; as she left it}
 \end{center}
 
 \emph{{[}The snow-hush deepens until the room is wholly still, and the
@@ -16320,7 +16359,7 @@ two notes on you --- which one, nobody can say beforehand --- swings the
 needle to that side, and breathes once into the flask below.
 
 \begin{center}
-\crabviewer*{restless stone}{the viewer}
+\crabviewer*{restless stone}{the Crab's viewer}
 \end{center}
 
 \textbf{Crab:} The answer it forces is cut here. \emph{{[}He stands a
@@ -16356,7 +16395,7 @@ into the slate's top edge. And the stone in the dish that trembled a
 moment ago lies quite still now: it has an answer, and it is spent.{]}}
 
 \begin{center}
-\crabviewer{spent stone, needle high}{looked through}\quad\notchslate*{high}{cut at the top}
+\crabviewer[step=look high; expects=spyglass]{restless stone}{as Achilles expects}\quad\crabviewer[step=look high]{restless stone}{looked through}\quad\notchslate*[step=cut high]{clean}{cut at the top}
 \end{center}
 
 \textbf{Achilles:} High. \emph{{[}He looks again; the needle stays hard
@@ -16420,7 +16459,7 @@ settled, decided. Only \emph{which way} it decided, no one in the room
 knows. It is a stone that has been looked at and never read.{]}}
 
 \begin{center}
-\crabviewer{spent stone, dial covered}{looked through, unseen}\quad\notchslate[covered]{high, high, low, low, high, low, unread}{cut, unread}
+\crabviewer[step=look]{restless stone, dial covered}{looked through, unseen}\quad\notchslate[covered; step=cut unread]{high, high, low, low, high, low}{cut, unread}
 \end{center}
 
 \textbf{Achilles:} So it has an answer, and I can't get at it. It isn't
@@ -16473,7 +16512,7 @@ partner's exact time. The same stone, the same twin thrown back in the
 glass; only the coupling between them has gone loose.{]}}
 
 \begin{center}
-\blackslab{looked-at stone}{spent and unread}
+\blackslab[expects=tighter]{looked-at stone}{as Achilles expects}\quad\blackslab{looked-at stone}{spent and unread}
 \end{center}
 
 \textbf{Tortoise:} And a thing that has been looked at --- still a thing
@@ -16535,15 +16574,16 @@ plain pair --- two stones with nothing between them, cut from different
 pieces and each cut alone, the far one at the slab's far end and the
 near one at Achilles's --- each with its reflection standing beneath it
 in the black. The near stone is Achilles's; the far one is no business
-of his. The Tortoise tips the near stone down toward the glass; its
-reflection rises to meet it, mirror-fashion; they touch at the surface
---- and where thing met twin there is now neither, only a bare patch of
-black slab. The near stone is not spent, not looked at, not read: simply
-gone, folded into its own mirror. The far stone, and its reflection,
-stand exactly where they stood, not stirred by a hair.{]}}
+of his. The Tortoise tips the near stone down toward the glass, over
+toward Achilles's end; its reflection rises to meet it, mirror-fashion;
+they touch at the surface --- and where thing met twin there is now
+neither, only a bare patch of black slab. The near stone is not spent,
+not looked at, not read: simply gone, folded into its own mirror. The
+far stone, and its reflection, stand exactly where they stood, not
+stirred by a hair.{]}}
 
 \begin{center}
-\blackslab*{plain pair}{nothing between them}\quad\blackslab[tip near stone]{plain pair}{the near stone tipped}\quad\blackslab[fold near stone]{plain pair}{folded away, the far stone unstirred}
+\blackslab*{plain pair}{nothing between them}\quad\blackslab[step=tip near stone]{plain pair}{near stone tipped}\quad\blackslab[tip near stone, fold near stone; expects=along]{plain pair}{as Achilles expects}\quad\blackslab[tip near stone; step=fold near stone]{plain pair}{folded away, far stone unstirred}
 \end{center}
 
 \emph{{[}On the roof of the house across the lane the afternoon's snow
@@ -16675,7 +16715,7 @@ string and its mirror, with the near half pinched away in the
 middle.{]}}
 
 \begin{center}
-\blackslab{pair of one piece, strung}{joined, far to near}\quad\blackslab[fold near stone]{pair of one piece, strung}{the near stone folded}
+\blackslab{pair of one piece, strung}{joined, far to near}\quad\blackslab[fold near stone]{pair of one piece, strung}{near stone folded}
 \end{center}
 
 \emph{{[}She sets one finger on the far stone to hold it, and with her
@@ -16689,7 +16729,7 @@ joined to nothing but its own reflection in the black. Beside it she
 chalks the one word: \emph{half}.{]}}
 
 \begin{center}
-\blackslab[fold near stone, pull]{pair of one piece, strung}{drawn in to the far stone}
+\blackslab[fold near stone; step=pull]{pair of one piece, strung}{drawn in to the stone under its cloth}
 \end{center}
 
 \textbf{Achilles:} The far half, bent round to its own reflection, and a
@@ -16754,7 +16794,7 @@ the black, in front of the slab at Achilles's end, the Crab lays a clean
 slate.{]}}
 
 \begin{center}
-\blackslab*{the look laid out}{stood out on the black}
+\blackslab*{the look laid out}{stood out for the look}
 \end{center}
 
 \emph{{[}The needle and its reflection stand together, two pointers,
@@ -16773,7 +16813,7 @@ breathed into, stoppered, let go, and lifted off to stand by the
 viewer's base.{]}}
 
 \begin{center}
-\blackslab[pin needle low, fold flask]{the look laid out}{pinned, and the flask let go}
+\slabsteps[from=off; marks=off]{the look laid out}{pin needle low; fold flask}{the needle pinned; the flask let go}
 \end{center}
 
 \textbf{Achilles:} So pinning is reading --- the way a finger stops a
@@ -16807,7 +16847,7 @@ works reached it not at all. The Crab lifts the works clear, by feel,
 and sets them by the case.{]}}
 
 \begin{center}
-\blackslab*{the look on a string}{through the works}\quad\blackslab[pull]{the look on a string}{drawn in to the far stone}
+\blackslab*{the look on a string}{through the works}\quad\blackslab[pull]{the look on a string}{drawn in to the stone under its cloth}
 \end{center}
 
 \emph{{[}Up the chimney the fire is pouring out everything it has ---
@@ -17952,12 +17992,12 @@ what Alice's glass has dropped, letter by letter. Watch the tokens.
 
 \emph{{[}The Crab lifts the two tokens out of their trays into the dish,
 both still blank side up. He sets a claw at the first line of the ledger
-and turns the brass token over: it rocks onto its back and shows its
-stamp, face-up, while the copper token lies exactly as it was. One token
-has changed; the other has held still.{]}}
+and turns the brass token over towards the copper: it rocks onto its
+back and shows its stamp, face-up, while the copper token lies exactly
+as it was. One token has changed; the other has held still.{]}}
 
 \begin{center}
-\twotokens*{brass up}{the brass turned, the copper still}
+\twotokens*[step=turn brass]{both down}{the brass turned, the copper still}
 \end{center}
 
 \textbf{Achilles:} Brass up, copper down.
@@ -18072,7 +18112,7 @@ exactly halfway round. Nothing about it has changed but the leg it sits
 on.{]}}
 
 \begin{center}
-\ringstring[slide the flip round]{the four bends}{round the bend, unchanged}
+\ringstring[step=slide the flip round]{the four bends}{round the bend, unchanged}
 \end{center}
 
 \textbf{Achilles:} It came round exactly as it went. Your bead in the
@@ -18153,7 +18193,7 @@ string is no longer and no shorter than it was; only the bends are
 gone.{]}}
 
 \begin{center}
-\ringstring[pull]{the tale, both up}{pulled straight}
+\ringstring[step=pull; expects=apart]{the tale, both up}{as Achilles expects}\quad\stringsteps[from=off]{the tale, both up}{pull halfway; pull}{drawn in; pulled straight}
 \end{center}
 
 \textbf{Achilles:} It's at Bob's end. The message runs straight through
@@ -18268,7 +18308,7 @@ to Bob: green, red, red, green --- Alice's two and Bob's two, facing
 each other across the middle.{]}}
 
 \begin{center}
-\ringstring[pull, corrections]{the tale, both up}{as the letter says}
+\ringstring[pull; step=corrections]{the tale, both up}{as the letter says}
 \end{center}
 
 \textbf{Tortoise:} Let Bob draw kin to kin.
@@ -18286,7 +18326,7 @@ the message end to Bob's end --- nothing on it at all, and no longer or
 shorter than before.{]}}
 
 \begin{center}
-\ringstring[pull, corrections, red to red]{the tale, both up}{red to red, lifted off}\quad\ringstring[pull, corrections, kin to kin]{the tale, both up}{green to green, and bare}
+\ringstring[pull, corrections; step=kin to kin; expects=more turned]{the tale, both up}{as Achilles expects}\quad\stringsteps[after=pull, corrections; from=off]{the tale, both up}{red meets red; lift off}{red to red; lifted off}\quad\ringstring[pull, corrections, kin to kin]{the tale, both up}{green to green, and bare}
 \end{center}
 
 \textbf{Tortoise:} A whole turn is no turn.
@@ -18441,7 +18481,7 @@ still red, its bead still halfway round, with no red anywhere to meet
 it; and the green has no green to meet. Nothing comes off.{]}}
 
 \begin{center}
-\ringstring[slide round]{the loop, writing copper up, answer brass up}{round the loop, and nothing meets}
+\ringstring[step=slide round]{the loop, writing copper up, answer brass up}{round the loop, and nothing meets}
 \end{center}
 
 \textbf{Tortoise:} A loop with a ring left over is a no: that answer
@@ -18516,7 +18556,7 @@ and spent. At the far end Bob's stone has not moved, and nobody has
 touched it; nothing about it shows anything at all.{]}}
 
 \begin{center}
-\mirrortable*{the last two pairs, with the cloth}{as they lay all morning}\quad\pairingglass{stones in the cups, both up}{chimed, and tipped}\quad\mirrortable[into the glass]{the last two pairs, with the cloth}{read, and Bob's untouched}
+\mirrortable*{the last two pairs, with the cloth}{as they lay all morning}\quad\pairingglass[step=chime both up; marks=off]{message stone in the left cup}{chimed, and tipped}\quad\mirrortable[step=into the glass; marks=off]{the last two pairs, with the cloth}{read, and Bob's untouched}
 \end{center}
 
 \textbf{Tortoise:} The letter never went, and then the glass chimed.
@@ -18564,23 +18604,23 @@ end he lays it on the cloth in front of the Tortoise.{]}}
 reflection beneath it. The Tortoise keeps her eyes on the two tokens in
 the open envelope and puts out a claw to the stone by feel. She turns it
 over, top to bottom, about a level line through its middle: what lay
-uppermost goes down against the black, and what lay against the black
-comes up. Beneath it the reflection turns over too, mirror-fashion, and
-meets it again face to face at the surface. The stone has not left its
-spot and no one has looked at it; only which way up it lies has
-changed.{]}}
+uppermost goes down against the black, its crown tipping over towards
+the far end, and what lay against the black comes up. Beneath it the
+reflection turns over too, mirror-fashion, and meets it again face to
+face at the surface. The stone has not left its spot and no one has
+looked at it; only which way up it lies has changed.{]}}
 
 \emph{{[}Then, still by feel, she turns it half round where it stands,
 about its upright: the side that faced the window now faces the room,
-and its top stays its top. Its reflection turns the same half round
-beneath it. The stone is where it was, and still unread; only the way it
-faces has changed, and with no mark on it, it looks just as it did. She
-tips the two tokens out of the envelope onto the cloth beside her, faces
-as they fell, brass up, copper up, and hands the empty envelope up to
-Achilles.{]}}
+coming round on the company's side, and its top stays its top. Its
+reflection turns the same half round beneath it. The stone is where it
+was, and still unread; only the way it faces has changed, and with no
+mark on it, it looks just as it did. She tips the two tokens out of the
+envelope onto the cloth beside her, faces as they fell, brass up, copper
+up, and hands the empty envelope up to Achilles.{]}}
 
 \begin{center}
-\mirrortable[into the glass, letter both up, flip, spin, tip out]{the last two pairs, with the cloth}{turned by feel, and unread}
+\tablesteps[after=into the glass, letter both up; from=off]{the last two pairs, with the cloth}{flip; spin; tip out}{flipped, by feel; spun, by feel; tokens out, and unread}
 \end{center}
 
 \textbf{Tortoise:} The glass chimed, and then the letter went.
@@ -20307,7 +20347,7 @@ longer and no shorter, and only the green ring and its in-cord have
 gone.{]}}
 
 \begin{center}
-\copycloth*{the fork, red point}{a green ring made to fork}\quad\copycloth[thread]{the fork, red point}{slid through, the green ring gone}
+\copycloth*{the fork, red point}{a green ring made to fork}\quad\copycloth[step=thread]{the fork, red point}{slid through, the green ring gone}
 \end{center}
 
 \textbf{Achilles:} Two, and both red. That's the plain page of the book.
@@ -20324,7 +20364,7 @@ Nothing has slid out along either cord. Where two green points might
 have lain, there lies one bend --- two ends, but one piece.{]}}
 
 \begin{center}
-\copycloth[thread, lift off]{the fork, green point}{bent round on itself}
+\copycloth[step=thread; expects=copies anything]{the fork, green point}{as Achilles had it}\quad\copysteps[from=off]{the fork, green point}{thread; lift off}{green into green; bent round on itself}
 \end{center}
 
 \textbf{Tortoise:} Red goes through as two. Green goes in, and one bend
@@ -20374,7 +20414,7 @@ back to the start. A closed loop, with two points on it and the two
 cards between them.{]}}
 
 \begin{center}
-\copycloth*{the likeness loop}{the press and its mirror in the way}
+\copycloth*{the likeness loop}{the cards between the points}
 \end{center}
 
 \textbf{Tortoise:} That is how alike the two stones are before any
@@ -20382,14 +20422,15 @@ pressing --- the press and its mirror both in the way. A fair press that
 loses nothing always meets its own mirror like this.
 
 \emph{{[}She slides the card along the string towards the mirror card.
-The string does not move; only the card travels. The two cards touch,
-face to face, and she lifts them off the string together, as one, and
-puts them away in her shell, still face to face. The loop lies closed as
-before, the red point and the mirrored green point still on it, the
-string no shorter than it was; only the cards are gone.{]}}
+The string does not move; only the card travels, up onto the mirror
+card. The two cards touch, face to face, and she lifts them off the
+string together, as one, and puts them away in her shell, still face to
+face. The loop lies closed as before, the red point and the mirrored
+green point still on it, the string no shorter than it was; only the
+cards are gone.{]}}
 
 \begin{center}
-\copycloth[slide the cards together]{the likeness loop}{the cards gone, the points still on the loop}
+\copysteps[from=off]{the likeness loop}{slide the card along; lift the cards off}{face to face; the cards gone, the points still on the loop}
 \end{center}
 
 \textbf{Tortoise:} One loop. The press has left no mark on it at all:
@@ -20524,7 +20565,7 @@ its reflection still come in, and one stone and its reflection still go
 out.{]}}
 
 \begin{center}
-\copycloth*{the fork and its mirror}{as the slab would show it}\quad\copycloth[fold the second copy]{the fork and its mirror}{fork to mirror fork}\quad\copycloth[fold the second copy, slide the forks together]{the fork and its mirror}{the forks slid into each other}
+\copysteps*{the fork and its mirror}{fold the second copy; slide the forks together}{as the slab would show it; fork to mirror fork; the forks slid into each other}
 \end{center}
 
 \textbf{Tortoise:} Stone and reflection in, stone and reflection out,
@@ -20597,7 +20638,7 @@ to leave. Nothing is on either line that was not there before, and
 nothing is missing; only which one ends where has changed.{]}}
 
 \begin{center}
-\copycloth*{the knot}{the middle tied the other way about}\quad\copycloth[pull]{the knot}{pulled, and undone}
+\copycloth*{the knot}{the middle tied the other way about}\quad\copycloth[step=pull; expects=deleted]{the knot}{as Achilles expects}\quad\copycloth[step=pull]{the knot}{pulled, and undone}
 \end{center}
 
 \textbf{Achilles:} A crossing. The stone went down into the tell, and
@@ -20684,6 +20725,10 @@ black its reflection sinks from the surface and goes down, into the
 hopper of the press's reflection. The Crab lets the lid fall. The far
 stone is inside now; the place where it stood is bare black.{]}}
 
+\begin{center}
+\presssteps[from=off]{the fresh pair}{read near crosswise high; far into the hopper}{read at cross; into the hopper}
+\end{center}
+
 \textbf{Crab:} Shutter shut. \emph{{[}He tries it with a claw: shut.{]}}
 And eyes on the fire.
 
@@ -20697,7 +20742,7 @@ its reflection slack as the fresh pair's were, and nothing about either
 says which, if either, was the stone he put in.{]}}
 
 \begin{center}
-\presstable[read near crosswise high, far into the hopper, strike]{the fresh pair}{nothing about either says which}
+\presstable[read near crosswise high, far into the hopper; step=strike; marks=off]{the fresh pair}{nothing about either says which}
 \end{center}
 
 \emph{{[}The patch of sun, which has been creeping down the room all
@@ -20759,7 +20804,7 @@ into a single green ring, with every counter's cord hanging from it.
 Pull any one of them, and the rest come with it.{]}}
 
 \begin{center}
-\copycloth*[slide together]{the reading rings, plain}{slid together, all green}
+\copycloth*[slide together]{the reading rings, plain}{all green, run together}
 \end{center}
 
 \emph{{[}Then she gathers the plain ring into her shell and lays it out
@@ -20775,7 +20820,7 @@ cord is free of the far ones. What held: the far cords still hang as
 one.{]}}
 
 \begin{center}
-\copycloth{the reading rings, crosswise}{joined by the stone's and its reflection's}\quad\copycloth[draw apart]{the reading rings, crosswise}{red drawn away from green}
+\copycloth{the reading rings, crosswise}{joined by the stone's and its reflection's}\quad\copycloth[step=draw apart]{the reading rings, crosswise}{red drawn away from green}
 \end{center}
 
 \textbf{Achilles:} At cross, my counter isn't tied to theirs at all. And
@@ -22787,7 +22832,7 @@ end, and that each of the two readers has seen a window flash that the
 other has not.{]}}
 
 \begin{center}
-\glinttray*[flash yes yes]{as set out}{a window lit at each end}
+\traysteps*{as set out}{flash yes yes}{the windows dark; a window lit at each end}
 \end{center}
 
 \textbf{Achilles:} Yes.
@@ -22930,7 +22975,7 @@ Alice's short cord running straight on into Bob's. The rings and the
 glint's cords have gone; nothing has been added.{]}}
 
 \begin{center}
-\keycloth*{green to green}{sending upright, reading upright}\quad\keycloth[slide together, lift off]{green to green}{slid together and lifted off}
+\keyclothsteps*{green to green}{slide together; lift off}{sending upright, reading upright; run into a joint; the joint lifted off}
 \end{center}
 
 \textbf{Achilles:} Straight through. What she sends is what he reads.
@@ -22948,7 +22993,7 @@ Bob still has an answer to read out --- only it is joined to nothing
 Alice put in.{]}}
 
 \begin{center}
-\keycloth[draw apart]{green to red}{green and red drawn apart}
+\keyclothsteps{green to red}{draw apart}{sending upright, reading crosswise; green and red drawn apart}
 \end{center}
 
 \textbf{Achilles:} Tied to nothing she put in. \emph{{[}He looks from
@@ -22973,9 +23018,12 @@ takes the first mixed round's piece from her row, and Achilles, at her
 nod, the same round's piece from his, and they drop them back into the
 box; the other two mixed rounds go the same way, a piece from each row
 for each round. Nothing else on the table moves. Each row is shorter
-now, and ends where the matching ended: white, black, white, black,
-white at his end, and the same at hers, every piece still opposite its
+now, and ends where the matching ended, every piece still opposite its
 own round's partner.{]}}
+
+\begin{center}
+\traysteps{his: white black white black white then white white black; hers: white black white black white then black white white}{strike the first, the second and the third}{the rows as they stood; struck, the rows alike}
+\end{center}
 
 \textbf{Achilles:} So a key needs the settings to match. But if Alice
 and Bob agree their settings by post beforehand, anyone who reads the
@@ -23180,7 +23228,7 @@ tell's key, and turns that key's collar till it stops at the upright
 stroke. Beneath the new rod, in the lacquer, its reflection lies.{]}}
 
 \begin{center}
-\glinttray*[set the tell's key; set in the tell-glass; lay the side rod]{his: white black white black white black white black; hers: white black white black white black white black}{the tell-glass in the sleeve's place}
+\traysteps*[set the tell's key]{his: white black white black white black white black; hers: white black white black white black white black}{set in the tell-glass; lay the side rod}{a key beside hers, the sleeve closed; the glass set in; the side rod laid}
 \end{center}
 
 \emph{{[}For a moment the room makes no sound at all: the stove has left
@@ -23405,7 +23453,7 @@ to go out. What has held: every ring and every cord, each ring still
 threaded as before, and where each short cord ends.{]}}
 
 \begin{center}
-\keycloth*{the lamp's bend}{bent round where the lamp stands}\quad\keycloth[pull straight]{the lamp's bend}{pulled, the bend run out}
+\keyclothsteps*{the lamp's bend}{pull straight}{bent round where the lamp stands; pulled, the bend run out}
 \end{center}
 
 \textbf{Achilles:} A sending ring and a reading ring on the same cords
@@ -23468,18 +23516,22 @@ has somebody put something on the line?
 \textbf{Tortoise:} Nothing is on the line. Look at your collar in the
 tray.
 
+\begin{center}
+\sparkey[expects=same setting]{the curl}{as Achilles expects}
+\end{center}
+
 \emph{{[}Achilles bends down to the lacquer. His collar stands at the
 curl, the little mark facing him and turning, as he looks at it straight
 on, the way the sun goes round. In the black beneath, the collar's
 reflection shows its curl turning the other way. He turns the collar
 back to the cross: the cross in the tray is a cross, the same as the one
 above. On to the stroke: the reflected stroke is just the stroke. He
-turns it to the curl again, and the curl beneath turns against the curl
-above. The stroke and the cross hold still in the mirror; only the curl
-changes hands.{]}}
+turns it onward, the same way round, to the curl again, and the curl
+beneath turns against the curl above. The stroke and the cross hold
+still in the mirror; only the curl changes hands.{]}}
 
 \begin{center}
-\sparkey*{the cross}{the cross, unchanged beneath}\quad\sparkey{the curl}{the curl, winding the other way beneath}
+\sparksteps*{the curl}{the cross; the stroke; the curl}{as he found it; back to the cross; on to the stroke; round again, winding the other way beneath}
 \end{center}
 
 \textbf{Tortoise:} Round the bend, your question reaches my end as its
@@ -23648,7 +23700,7 @@ running out to the right, the upper one Alice's and the lower one
 Bob's.{]}}
 
 \begin{center}
-\keycloth[slide off red round the turn, slide off green]{the pair's bend, red then green}{bare, the turn where it was}
+\keyclothsteps[from=off]{the pair's bend, red then green}{slide off red round the turn; slide off green}{red round the turn and off; bare, the turn where it was}
 \end{center}
 
 \textbf{Tortoise:} Let Bob draw empty paper between the pair and anyone
@@ -25925,12 +25977,21 @@ more to say.
 \textbf{Tortoise:} Choose, then. \emph{{[}She hands him the disc, black
 up.{]}}
 
+\begin{center}
+\wishslip*[folded]{first and fifth; disc black}{the black face up}\quad
+\wishslip[folded; step=wish every place; expects=every mark]{first and fifth; disc black}{as Achilles expects}
+\end{center}
+
 \emph{{[}Every place lit. Achilles runs his thumb along the whole slip
 under his hand and turns the disc once for each inked square he passes:
 over to gilt, and then over again to black. It comes to rest on his palm
 black up, exactly as she handed it to him. The slip and its marks are as
 they were; the disc shows the same face as before the wish, as though
 nothing had been asked.{]}}
+
+\begin{center}
+\wishslipsteps[folded; from=off]{first and fifth; disc black}{turn at the first; turn at the fifth}{over to gilt; and over again to black}
+\end{center}
 
 \textbf{Achilles:} Black. As if I'd made no marks at all. \emph{{[}He
 frowns at the slip.{]}} Or two, or four. Every mark turns it over, and a
@@ -26143,17 +26204,19 @@ all; and a tube slid out onto an end-ring changes its colour.
 flag crosswise and dark as well.
 
 \emph{{[}Each wish-cord begins at a red end-ring, bead at rest. She
-clips a tube from the packet onto the cord near the end and slides it
-outward until it runs onto the ring; the tube goes into the ring and is
-gone, and the ring is green, its bead still at rest, the cord behind it
-just as it was. Down the web, one after another, every wish-cord's
-end-ring goes from red to green. The ties, the green rings on the first
-and fifth squares' cords and the red rings on the flag cord are
-untouched. Last she does the same to the flag's own end-ring: green, at
-rest.{]}}
+clips a tube from the packet onto the cord near the end, just inside its
+end-ring, and another onto the next cord, and so on down the web, the
+flag cord too, till a tube sits by every end-ring. Then she slides the
+top tube outward until it runs onto the ring; the tube goes into the
+ring and is gone, and the ring is green, its bead still at rest, the
+cord behind it just as it was. Down the web, one after another, every
+wish-cord's end-ring goes from red to green. The ties, the green rings
+on the first and fifth squares' cords and the red rings on the flag cord
+are untouched. Last she does the same to the flag's own end-ring: green,
+at rest.{]}}
 
 \begin{center}
-\wishcloth*[tubes out]{marks first and fifth; wish-knobs dark; flag dark}{every end-ring turned green}
+\wishclothsteps*{marks first and fifth; wish-knobs dark; flag dark}{clip the tubes on; tubes out}{every knob dark; a tube by every end-ring; every end-ring turned green}
 \end{center}
 
 \textbf{Tortoise:} A window reads the far end of its cord by the same
@@ -26199,7 +26262,7 @@ it. Every wish-cord ends as it began. The flag cord ends as it began
 too, green and at rest.{]}}
 
 \begin{center}
-\wishcloth[tubes out, push the flag, slide together]{marks first and fifth; wish-knobs dark; flag dark}{every bead still at rest}
+\wishclothsteps[after=tubes out; from=off]{marks first and fifth; wish-knobs dark; flag dark}{push into the next ring; slide together; push into the next ring; slide together}{into a red ring; slid out to its end-ring; on into the other; every bead still at rest}
 \end{center}
 
 \textbf{Achilles:} Then the web is empty. There are no marks.
@@ -26237,7 +26300,7 @@ bead halfway round. It has given its turn away twice and still has
 it.{]}}
 
 \begin{center}
-\wishcloth[push the flag]{marks first and fifth; wish-knobs crosswise dark; flag crosswise lit}{turned at the marks, the flag as it began}
+\wishclothsteps{marks first and fifth; wish-knobs crosswise dark; flag crosswise lit}{push into the next ring; push into the next ring}{laid afresh, lit at the start; climbed to a mark, a turn; turned at the marks, still lit at the end}
 \end{center}
 
 \textbf{Achilles:} The flag's turn has gone to the first and the fifth,
@@ -26273,7 +26336,7 @@ no tie to climb. Every wish-cord lies as she set it, green and at rest,
 and every bead on the cloth is where it was before she pushed.{]}}
 
 \begin{center}
-\wishcloth[push the flag]{no marks; wish-knobs crosswise dark; flag crosswise lit}{run clear to the far end}
+\wishcloth[step=push the flag]{no marks; wish-knobs crosswise dark; flag crosswise lit}{run clear to the far end}
 \end{center}
 
 \textbf{Tortoise:} If every wish-window stays dark, the box has no
@@ -26430,7 +26493,7 @@ joins the same two cords it joined before; but a tie runs from a green
 ring to a red one, and now the green is on the flag.{]}}
 
 \begin{center}
-\wishcloth[thread the tubes, slide the tubes in]{marks first and fifth; wish-knobs dark; flag lit}{colours swapped, the end-rings unchanged}
+\wishclothsteps{marks first and fifth; wish-knobs dark; flag lit}{thread the tubes; slide the tubes in}{laid again for the casket; the tubes clipped on; colours swapped, the end-rings unchanged}
 \end{center}
 
 \textbf{Achilles:} The ties run the other way. They came down from my
@@ -26519,6 +26582,11 @@ One wish.
 
 \textbf{Genie:} Granted.
 
+\begin{center}
+\wishcasket*[windows]{collars crosswise; flag knob lit}{set, every pane plain}\quad
+\wishcasket[windows; step=granted; expects=my marks]{collars crosswise; flag knob lit}{as Achilles expects}
+\end{center}
+
 \emph{{[}The casket as it stands: every collar at the cross, the flag
 knob up, the wish-knobs down, every window a plain pane, the seal whole.
 At the word, nothing on it moves: no knob, no collar, not the lid.
@@ -26531,7 +26599,7 @@ has changed: the gleams, the lock, the seal. What has held: every
 setting, every collar, and the lid, still down.{]}}
 
 \begin{center}
-\wishcasket*[windows]{collars crosswise; flag knob lit; granted}{the gleams come up, the seal parted}
+\wishcasket[windows; step=granted]{collars crosswise; flag knob lit}{the gleams come up, the seal parted}
 \end{center}
 
 \textbf{Achilles:} The second and the fourth, and the flag. Not my marks
@@ -26579,7 +26647,7 @@ held is everything the windows say, and every gleam can now be followed
 back, length by length, to the knob it came from.{]}}
 
 \begin{center}
-\wishcasket*[inside]{collars crosswise; flag knob lit; granted; lid lifted}{inside, from the top down}
+\wishcasket*[inside]{collars crosswise; flag knob lit; granted; lid lifted}{inside, top to bottom}
 \end{center}
 
 \emph{{[}A smell comes up out of the open casket, of old wood and
@@ -26699,7 +26767,7 @@ each answer-cord's start and its red rings have gone into one ring. What
 has held: the ties, the wish-cords, and the fold.{]}}
 
 \begin{center}
-\wishcloth[fold, slide together]{pairs box}{run together above the fold}
+\wishcloth[fold; step=slide together]{pairs box}{run together above the folded edge}
 \end{center}
 
 \textbf{Tortoise:} A red ring counts the ties that come into it, odd or
@@ -28686,7 +28754,7 @@ is the same slip of paper, the same length, pinned at the same place;
 only what it points at has changed. One has become seven.{]}}
 
 \begin{center}
-\tickdial{hand ticked once}{after a tick}
+\tickdial[step=tick]{hand at one}{after a tick}
 \end{center}
 
 \textbf{Achilles:} Two ticks. Seven sevens are forty-nine; less three
@@ -28706,7 +28774,7 @@ thirteen on the way; now it points at one, as though it had never
 left.{]}}
 
 \begin{center}
-\tickdial{hand ticked four times}{home again}
+\tickdialsteps[from=off]{hand ticked once}{tick; tick; tick}{on past the top; round again; home again}
 \end{center}
 
 \emph{{[}Up the lane, after all their tumbling, the bells fall back into
@@ -28774,10 +28842,6 @@ quarters back. The loop runs straight from each ring to the next in the
 order the hand went, and from the last back to the first, crossing
 itself once.{]}}
 
-\begin{center}
-\tickdial*{first round}{the round as laid}
-\end{center}
-
 \textbf{Tortoise:} Tick it.
 
 \emph{{[}The round lies on the dial: at rest at one, a quarter back at
@@ -28793,7 +28857,7 @@ a quarter back stood, a bead at rest. At four, where the half stood, a
 quarter back. At thirteen, where three quarters back stood, a half.{]}}
 
 \begin{center}
-\tickdial{first round ticked once}{the round, ticked}
+\tickdialsteps*{first round}{tick the round}{the round as laid; the round, ticked}
 \end{center}
 
 \textbf{Achilles:} Every ring has gone to a new hour, and not one hour
@@ -28877,22 +28941,27 @@ then its green ring at an eighth; the two green rings tied to the bare
 red hub, and the bob hanging from the hub at an eighth back.{]}}
 
 \begin{center}
-\tickcloth*{one listener; wheel lit}{a controlled turn, the wheel lit}
+\tickcloth*{one listener; wheel lit}{a controlled turn, its wheel lit}
 \end{center}
 
 \emph{{[}First she slides the eighth off the wheel's green ring onto a
 little green bob of its own, hung from that ring on a short length: the
 ring is at rest now, its new bob at an eighth, and nothing else has
-changed. Then she pushes the lit end-ring along the wheel cord into the
-ring, the stretch of wheel cord it ran along swallowed with it. It goes
-in, and the ring is gone; out come copies of the lit end, one on each
-length that led into the ring: one on the wheel cord beyond, one at the
-foot of the tie, one on the short length to the new bob. That last copy
-meets the new bob, and the two close up into no ring at all, only a turn
-of the whole picture, an eighth, which she sets aside, off the cloth.
-The copy at the foot of the tie she slides along it into the red hub,
-the tie swallowed behind it: red into red, and the hub, bare a moment
-ago, stands at a half.{]}}
+changed. The new bob comes from her little box of rings and hangs to the
+ring's left, between the cords. Then she pushes the lit end-ring along
+the wheel cord into the ring, the stretch of wheel cord it ran along
+swallowed with it. It goes in, and the ring is gone; out come copies of
+the lit end, one on each length that led into the ring: one on the wheel
+cord beyond, one at the foot of the tie, one on the short length to the
+new bob. That last copy meets the new bob, and the two close up into no
+ring at all, only a turn of the whole picture, an eighth, which she sets
+aside, off the cloth. The copy at the foot of the tie she slides along
+it into the red hub, the tie swallowed behind it: red into red, and the
+hub, bare a moment ago, stands at a half.{]}}
+
+\begin{center}
+\tickclothsteps[from=off]{one listener; wheel lit}{slide off the eighth; push into the ring}{the ring given its own bob; pushed into the ring}
+\end{center}
 
 \textbf{Tortoise:} An eighth set aside. Now the hub goes through the
 bob.
@@ -28922,7 +28991,7 @@ holds a quarter. What has held is the wheel, lit going in and lit coming
 out.{]}}
 
 \begin{center}
-\tickcloth[push the wheel]{one listener; wheel lit}{the turn landed}
+\tickclothsteps[after=slide off the eighth, push into the ring; from=off]{one listener; wheel lit}{hub through the bob; bob into the ring; slide together}{through the bob; up into the listener's ring; the turn landed}
 \end{center}
 
 \textbf{Achilles:} So what you're saying is that the wheel gave its
@@ -29028,6 +29097,10 @@ the upper from at rest to a half.{]}}
 onto the upper listener's end-ring, where it goes in and is gone; the
 ring turns red, its bead still at a half{]}} Lit.
 
+\begin{center}
+\tickclothsteps[from=off]{two listeners}{push the wheel; on to the far end; tube on the upper}{pushed through; run on to the far end; the upper listener read}
+\end{center}
+
 \textbf{Achilles:} And if the wheel turned three quarters? Twice three
 quarters is one and a half, and a whole turn is no turn, so a half. Lit
 again. For a half, twice a half is a whole: dark. For none, dark.
@@ -29090,7 +29163,7 @@ down again. Not a bead on either cord has changed, nor an end; only
 which lies on top. The lower listener's reading now lies uppermost.{]}}
 
 \begin{center}
-\tickcloth[push the wheel, on to the far end, tube on the upper, lay the correction, push the upper, tube on the lower, cross]{two listeners}{read, and the far ends crossed}
+\tickclothsteps[after=push the wheel, on to the far end, tube on the upper; from=off]{two listeners}{lay the correction; push the upper; tube on the lower; cross}{the correction laid; the upper pushed; the lower listener read; the far ends crossed}
 \end{center}
 
 \textbf{Tortoise:} The half first, then the quarter.
@@ -29249,7 +29322,7 @@ the middle. What has changed: two gleams, the lock, the seal. What has
 held: the knob, up; the first pane, plain; the front, still shut.{]}}
 
 \begin{center}
-\clockcase*[windows]{knob up; granted}{after the passage}
+\clockcasesteps*[windows]{knob up}{granted}{the seal whole, every pane plain; after the passage}
 \end{center}
 
 \textbf{Achilles:} The first plain, the second lit, and the wheel lit.
@@ -29403,7 +29476,7 @@ every hour the hand visits but one shows nothing. What has held: the
 hour one, and the four beads on it, at rest, where the hand began.{]}}
 
 \begin{center}
-\tickdial{every round; pairs face down}{turned face down}
+\tickdial[step=pairs face down]{every round}{turned face down}
 \end{center}
 
 \textbf{Achilles:} So all the rounds laid together are the hand at one,
@@ -29434,13 +29507,17 @@ inside it where the wheel was, had shown you a half.
 
 \textbf{Tortoise:} Tick it and see.
 
+\begin{center}
+\tickdial[step=tick twice; expects=two ticks home]{every round; pairs face down}{as Achilles expects}
+\end{center}
+
 \emph{{[}The paper hand stands at one. Achilles carries it once round to
 seven, and once more, seven sevens less three fifteens, to the fourth
 mark; and there he lets go. It points at four, not at one. Two ticks
 have moved it twice, and it has not come home.{]}}
 
 \begin{center}
-\tickdial{hand ticked twice; every round; pairs face down}{the hand gone on}
+\tickdial[step=tick twice]{every round; pairs face down}{the hand gone on}
 \end{center}
 
 \textbf{Achilles:} Four. Not home.
@@ -29502,12 +29579,13 @@ table's edge on his side; the short one lies beside it, further from
 him, their left ends level. He lays the short strip at the long one's
 left end, pencils a tick where it stops, and lays it again from the
 tick, and again: three times it fits, and past the last tick there is a
-piece of the long strip that the four cannot cover. He sets the short
-strip back beside it.{]}}
+piece of the long strip that the four cannot cover.{]}}
 
 \begin{center}
-\tickstrips*{fifteen and four}{the short strip laid along}
+\tickstripssteps*{fifteen and four}{lay; lay; lay}{as cut; laid along; laid on; and on again}
 \end{center}
+
+\emph{{[}He sets the short strip back beside the long one.{]}}
 
 \emph{{[}He pencils the count on the long strip and snips it at the last
 tick; the measured part, with its count on it, he lays aside, and the
@@ -29517,7 +29595,7 @@ in its place lies the piece it could not measure, three thumbs long.
 What has held: the four-thumb strip, which has not been cut at all.{]}}
 
 \begin{center}
-\tickstrips[first cut]{fifteen and four}{after the snip}
+\tickstripssteps[first laid three times; from=off]{fifteen and four}{set back; snip}{the short strip set back; after the snip}
 \end{center}
 
 \emph{{[}The three goes along the four once, and one thumb is left over;
@@ -31852,7 +31930,7 @@ second peg is exactly as far from the line as it was, only on the other
 side: under. Its square is what it was.{]}}
 
 \begin{center}
-\pegcard[touch the second]{even row}{the marked peg under}
+\pegcard[step=touch the second]{even row}{the marked peg under}
 \end{center}
 
 \textbf{Achilles:} One, one, one, one. The squares haven't changed.
@@ -31942,7 +32020,7 @@ tonight. What has held: the average, still half a notch; and the four
 squares together, still four.{]}}
 
 \begin{center}
-\pegcard[touch the second, mark the average, turn about]{even row}{turned about, a tall peg}
+\pegcardsteps[after=touch the second]{even row}{mark the average; turn about the first, third and fourth; turn about the second}{the marked peg under again; the average ticked; the level pegs down; turned about, a tall peg}
 \end{center}
 
 \textbf{Tortoise:} Now the odds.
@@ -31972,10 +32050,18 @@ from two notches to one: level again, every peg a notch up, and a
 quarter of the odds on each.{]}} The even row, and no touch. Turn it
 about.
 
+\begin{center}
+\pegcard[step=turn about; expects=does the finding]{even row; tick at half a notch}{as Achilles expects}
+\end{center}
+
 \textbf{Achilles:} One and one and one and one: four, and a quarter of
 four is one. Every peg stands at the average already. \emph{{[}He puts a
 finger to each peg in turn and moves none of them.{]}} Nothing moves. It
 found nothing.
+
+\begin{center}
+\pegcard[step=turn about]{even row; tick at half a notch}{not a peg moved}
+\end{center}
 
 \textbf{Tortoise:} It turns an even row into itself. It needs the
 touch's mark to find anything: two hands.
@@ -32040,6 +32126,10 @@ a green end-ring at rest, with only the short loose end of its cord
 beyond it, bare; and nothing set aside. Everything between has gone, and
 the setting has come out just as it went in.{]}}
 
+\begin{center}
+\aboutclothsteps[from=off]{even setting}{through the tubes; through the half-rings; through the controlled turn; through the far tubes}{dark through the tubes; the ends past the rings; the turn fallen away; the ends green again, at rest}
+\end{center}
+
 \textbf{Achilles:} It comes out as it went in. Like the even row on the
 pegs.
 
@@ -32062,7 +32152,13 @@ through its ring at a half: the ring is gone, and a half is set aside:
 she lays a small green bob from her work-bag, its bead at a half, off
 the cloth just beyond its near edge at the right-hand end, by the
 candlestick. The dark lower end passes its own ring with nothing set
-aside. The lit upper end runs on into the controlled turn: the whole
+aside.{]}}
+
+\begin{center}
+\aboutclothsteps{tilted setting}{through the tubes; through the half-rings}{tilted, as laid; lit above, dark below; a bob laid off the cloth}
+\end{center}
+
+\emph{{[}The lit upper end runs on into the controlled turn: the whole
 turn vanishes from between the cords, and on the lower cord, where its
 ring was, lies a single green ring at a half. The dark lower end reaches
 that ring and passes it, with nothing set aside. At the far tubes the
@@ -32073,7 +32169,7 @@ set aside by the candlestick, and a half set aside turns the whole
 picture over.{]}}
 
 \begin{center}
-\aboutcloth[push through]{tilted setting}{the tilted setting, pushed through}
+\aboutclothsteps[after=through the tubes, through the half-rings; from=off]{tilted setting}{the upper through the controlled turn; the lower through the controlled turn; through the far tubes}{the turn vanished, a ring landed; the lower end past the ring; the tilted setting, pushed through}
 \end{center}
 
 \textbf{Tortoise:} The same setting, with a half set aside: turned over.
@@ -32103,7 +32199,7 @@ and every square is what it was. Only the sides have changed, every one
 of them.{]}}
 
 \begin{center}
-\pegcard[turn about]{one, one, under, under; tick at half a notch}{tilted, then turned about}
+\pegcard[step=turn about]{one, one, under, under; tick at half a notch}{tilted, then turned about}
 \end{center}
 
 \textbf{Achilles:} Under, under, one, one. The whole row turned over,
@@ -32255,7 +32351,7 @@ has changed: one gleam, and the locks. What has held: the upper pane,
 plain; the back, still sealed; every drawer still shut.{]}}
 
 \begin{center}
-\drawercase{granted}{upper plain, lower gleaming}
+\drawercasesteps{}{granted}{the case as set on the table; upper plain, lower gleaming}
 \end{center}
 
 \textbf{Achilles:} Upper dark, lower lit. The second drawer.
@@ -32278,7 +32374,7 @@ again. He draws out the second towards him. On its floor lies a small
 brass key.{]}}
 
 \begin{center}
-\drawercase{granted; first drawer open; first drawer shut; second drawer open}{the key, found}
+\drawercasesteps[from=off]{granted}{first drawer open; first drawer shut; second drawer open}{the drawer pulled out, empty; the drawer pushed shut; the key, found}
 \end{center}
 
 \emph{{[}He takes the key up. Nothing else on the case has stirred: the
@@ -32442,6 +32538,10 @@ to the new hole. The hand is the same length and turns on the same pin,
 and it reaches just as far along the unmarked line as it did. Only its
 height has gone to the other side: the tip stands four thumbs under.{]}}
 
+\begin{center}
+\handsheet[step=the marker's fold]{four drawers}{the tip turned under}
+\end{center}
+
 \textbf{Achilles:} Four thumbs under. The second peg, under the line.
 
 \emph{{[}The tip stands four thumbs under the unmarked line. The
@@ -32456,7 +32556,7 @@ stood four thumbs under, now stands eight thumbs up, the hand's whole
 length.{]}}
 
 \begin{center}
-\handsheet[a step]{four drawers}{after the folds, upright}
+\handsheet[the marker's fold; step=the turn-about's fold]{four drawers}{after the folds, upright}
 \end{center}
 
 \textbf{Achilles:} \emph{{[}laying her rule from the unmarked line to
@@ -32609,6 +32709,10 @@ be surer.
 
 \textbf{Tortoise:} \emph{{[}with perfect courtesy{]}} By all means.
 
+\begin{center}
+\handsheet[six steps; step=a step; expects=surer]{sixty-four drawers}{as Achilles expects}
+\end{center}
+
 \emph{{[}The hand as it stands: upright, leaning a whisker past the
 marked line, its tip all but a hair of eight. Achilles dots the tip,
 lifts the hand, folds along the unmarked line and pricks. Unfolded, the
@@ -32622,7 +32726,7 @@ the turn has been just as large as every other. But the tip, that had
 all but reached eight, has come down.{]}}
 
 \begin{center}
-\handsheet[seven steps]{sixty-four drawers}{turned too far}
+\handsheetsteps[after=six steps; from=off]{sixty-four drawers}{the marker's fold; the turn-about's fold}{the hand down below the pin; turned too far}
 \end{center}
 
 \textbf{Achilles:} \emph{{[}measuring{]}} Seven and five eighths. It's
@@ -34982,7 +35086,7 @@ waist. What has held: the top, the bottom, and the order of the four
 colours round the middle.{]}}
 
 \begin{center}
-\cradlemodel[quarter]{home}{Turned about the upright}
+\cradlemodel[step=quarter]{home}{Turned about the upright}
 \end{center}
 
 \textbf{Achilles:} Dark green up, pale gold front.
@@ -35014,17 +35118,17 @@ dark red at the left, the pale green in the socket. Achilles takes it by
 the top tip and the front tip, one between the fingers of each hand,
 lifts it clear, and turns it a half turn about the middle of the edge
 that runs between those two tips, as one turns a pillow over by its
-corner. The dark green comes down and forward into the front lug, and
-the dark gold goes up to the top. The pale red and the dark red change
-sides, right for left. The pale gold at the back swings down into the
-socket, and the pale green comes up out of the socket into the back lug.
-He sets it down, and it drops into its lugs with one knock. What has
-changed: every tip's place, and, for the first time, the top. What has
-held: every tip still has its opposite straight across from it, and
-every lug has a tip in it.{]}}
+corner. The dark green comes down and forward into the front lug, round
+by the left, and the dark gold goes up to the top. The pale red and the
+dark red change sides, right for left. The pale gold at the back swings
+down into the socket, and the pale green comes up out of the socket into
+the back lug. He sets it down, and it drops into its lugs with one
+knock. What has changed: every tip's place, and, for the first time, the
+top. What has held: every tip still has its opposite straight across
+from it, and every lug has a tip in it.{]}}
 
 \begin{center}
-\cradlemodel[over]{Dark green up, dark gold front}{Turned over}
+\cradlemodelsteps{Dark green up, dark gold front}{over}{The model, gold in front; Turned over}
 \end{center}
 
 \textbf{Achilles:} Dark gold up, dark green front.
@@ -35258,7 +35362,7 @@ tip to its opposite, which still runs up and down, or front to back, or
 side to side.{]}}
 
 \begin{center}
-\cradlemodel[a half about the red line]{home}{Turned like a spit}
+\cradlemodelsteps{home}{a half about the red line}{The model at home; Turned like a spit}
 \end{center}
 
 \textbf{Crab:} A half about the red line.
@@ -35412,7 +35516,7 @@ its bead at a half; on each of the four corner rings' loose cords she
 threads a green ring at a half.{]}}
 
 \begin{center}
-\bowcloth{the knot's touch}{Threaded for the knot}
+\bowcloth[step=the knot's touch]{bare}{Threaded for the knot}
 \end{center}
 
 \textbf{Tortoise:} Three rules you know. Two rings of one colour joined
@@ -35453,7 +35557,7 @@ What has changed: every piece of the touch is gone. What has held:
 everything else, exactly as she laid it.{]}}
 
 \begin{center}
-\bowcloth[push]{the knot's touch}{Every piece gone}
+\bowclothsteps[from=off]{the knot's touch}{push the red half in; through the tubes; into the far rings; the waiting halves in}{The red ring, pushed into the knot; Green past the tubes; Into the corner rings; Every piece gone}
 \end{center}
 
 \textbf{Achilles:} It's the net you laid. Not a thing set aside.
@@ -35589,23 +35693,30 @@ I keep that to one side, as ever.
 \emph{{[}The cloth net as it stands: five green rings at rest in the bow
 tie, the ties in their tubes, the loose cords bare. On the left-back
 ring's loose cord the Tortoise threads a red ring a quarter round; on
-the left-front ring's and the knot's, a green ring a quarter back each.
-The left-back ring is tied to two rings, the left-front and the knot,
-and those two are tied to each other. She unknots that tie, the one
-between the left-front ring and the knot, draws its tube off, and lays
-the tie at the near edge of the drawing-cloth, at its left, and the tube
-just beyond the tie's right-hand end. Then she takes the three quarter
-rings off their loose cords by their free ends, back into her box of
-rings, and sets a small bone counter from her work-bag to one side, off
-the cloth just beyond its near edge at the right-hand end, by the
-teapot. What lies on the cloth now: the left-back ring tied to the
+the left-front ring's and the knot's, a green ring a quarter back
+each.{]}}
+
+\begin{center}
+\bowcloth[step=half the left-back's touch]{bare}{The bow, threaded}\quad
+\bowcloth[half the left-back's touch; step=re-knot at the left-back; expects=the same tray]{bare}{as Achilles expects}
+\end{center}
+
+\emph{{[}The left-back ring is tied to two rings, the left-front and the
+knot, and those two are tied to each other. She unknots that tie, the
+one between the left-front ring and the knot, draws its tube off, and
+lays the tie at the near edge of the drawing-cloth, at its left, and the
+tube just beyond the tie's right-hand end. Then she takes the three
+quarter rings off their loose cords by their free ends, back into her
+box of rings, and sets a small bone counter from her work-bag to one
+side, off the cloth just beyond its near edge at the right-hand end, by
+the teapot. What lies on the cloth now: the left-back ring tied to the
 left-front ring and to the knot, but the left-front ring and the knot no
 longer tied to each other; the left wing opened from a triangle into a
 vee. The right wing as it was. Every ring at rest, every loose cord
 bare; and at the near edge, the tie and its tube.{]}}
 
 \begin{center}
-\bowcloth[re-tie at the left-back]{half the left-back's touch}{A vee on the left}
+\bowclothsteps[after=half the left-back's touch; from=off]{bare}{re-knot at the left-back; the quarter rings off}{The bow, unknotted; A vee on the left}
 \end{center}
 
 \textbf{Achilles:} So the tray has every one of its cords, and the net
@@ -35660,7 +35771,7 @@ has changed since the first half: one tie, back. What has held, from the
 start of the afternoon to now: the net.{]}}
 
 \begin{center}
-\bowcloth[re-tie at the left-back, half the left-back's touch, re-tie at the left-back]{half the left-back's touch}{Back to the bow}
+\bowclothsteps[after=re-tie at the left-back; from=off]{half the left-back's touch}{half the left-back's touch; re-knot at the left-back; the quarter rings off}{The vee, threaded again; Knotted as before; Back to the bow}
 \end{center}
 
 \textbf{Tortoise:} A tie lost moved the number one way, and a tie gained
@@ -35815,7 +35926,7 @@ it: a quarter round and at rest make a quarter round. Now every ring is
 a quarter round, and not one has a loose cord.{]}}
 
 \begin{center}
-\bowcloth[cap every loose cord]{bare}{No loose end left}
+\bowclothsteps{bare}{cap the loose cords; slide the caps in}{The cloth net, bare; Closed with green rings; No loose end left}
 \end{center}
 
 \emph{{[}She takes hold of the left-back ring. It is tied to the
@@ -35843,7 +35954,7 @@ the net is gone, and the picture is smaller than it has ever been. What
 has held: the number it stands for, with what lies by the teapot.{]}}
 
 \begin{center}
-\bowcloth[cap every loose cord, pull out the left-back, pull out the right-back]{bare}{Pulled out to the last}
+\bowclothsteps[after=cap every loose cord; from=off]{bare}{pull out the left-back; pull out the right-back}{The left-back ring lifted away; Pulled out to the last}
 \end{center}
 
 \textbf{Tortoise:} Nothing left but lone rings, and each of them is a
@@ -35895,7 +36006,7 @@ lost its tip. What has held: the top, the bottom, and the order of the
 colours round the middle; nothing else.{]}}
 
 \begin{center}
-\cradlemodel[an eighth]{home}{Rocking, crooked}
+\cradlemodelsteps{home}{an eighth}{The model at home again; Rocking, crooked}
 \end{center}
 
 \textbf{Achilles:} It won't sit. The front lug has an edge in it,
@@ -36001,7 +36112,7 @@ carries the eighth. What has held: everything else on the upper
 cord.{]}}
 
 \begin{center}
-\eighthcloth[the dark reading]{the eighth-end}{Carried up}
+\eighthclothsteps[after=close dark]{the eighth-end}{slide the end-ring in; lift the red ring; slide the eighth-end up}{The far end closed, bead up; The red rings run together; Lifted into the box; The end carried up}
 \end{center}
 
 \textbf{Tortoise:} Dark: the eighth is on, the right way round.
@@ -36025,18 +36136,23 @@ eighth-end and the green ring above. The Tortoise slides the eighth-end
 along the lower cord up to the red half, the stretch between swallowed,
 and pushes the red half into it: the red half is gone, and the
 eighth-end's bead is turned the other way round, an eighth back; a
-counter goes by the teapot. The eighth-end, an eighth back now, slides
-up the short length into the green ring on the upper cord, the short
-length swallowed with it. Then she threads a green ring a quarter round
-on the upper cord from its right-hand end, to lie beside it at its
-right, and slides it in: a quarter round and an eighth back make an
-eighth. What has changed: the lower cord gone again, and the upper cord
-carrying an eighth. What has held: the rest of the upper cord. And the
-eighth on it faces the same way as in the dark reading, once the quarter
-is in.{]}}
+counter goes by the teapot.{]}}
 
 \begin{center}
-\eighthcloth[the lit reading]{the eighth-end}{Carried up again}
+\eighthclothsteps[after=close lit]{the eighth-end}{slide the end-ring in; push the half into the eighth-end}{The far end closed, bead down; The red rings run together; The other end turned round}
+\end{center}
+
+\emph{{[}The eighth-end, an eighth back now, slides up the short length
+into the green ring on the upper cord, the short length swallowed with
+it. Then she threads a green ring a quarter round on the upper cord from
+its right-hand end, to lie beside it at its right, and slides it in: a
+quarter round and an eighth back make an eighth. What has changed: the
+lower cord gone again, and the upper cord carrying an eighth. What has
+held: the rest of the upper cord. And the eighth on it faces the same
+way as in the dark reading, once the quarter is in.{]}}
+
+\begin{center}
+\eighthclothsteps[after=close lit, slide the end-ring in, push the half into the eighth-end; from=off]{the eighth-end}{slide the eighth-end up; a quarter round beside it; slide it in}{The turned end slid up; A green ring set beside; Carried up again}
 \end{center}
 
 \textbf{Tortoise:} Lit: it went on the wrong way round, and a quarter
@@ -38346,16 +38462,18 @@ on the upper line{]}} Slide them together.
 along a plain cord, each with a sleeved string hanging down to a ring on
 the lower line. The Tortoise slides them along the cord towards its
 middle, the first and the second into one, then the third into those,
-then the fourth, so that they meet above the third eighth. The cord does
-not move and its two ends do not stir; only the rings travel, and where
-they meet they knot into one green ring. At rest and at rest make rest:
-the bead does not move. Every string that hung from one of the four now
-hangs from that ring, and each still reaches the same ring below. What
-has changed: four rings are one, and the strings fan down from it. What
-has held: which ring below each string reaches, and every bead.{]}}
+then the fourth, so that they meet above the third eighth. The first
+goes into the second where it lies, those and the third meet between
+them, and the fourth comes the whole way to them. The cord does not move
+and its two ends do not stir; only the rings travel, and where they meet
+they knot into one green ring. At rest and at rest make rest: the bead
+does not move. Every string that hung from one of the four now hangs
+from that ring, and each still reaches the same ring below. What has
+changed: four rings are one, and the strings fan down from it. What has
+held: which ring below each string reaches, and every bead.{]}}
 
 \begin{center}
-\cardcloth[reds made green, upper rings slid together]{A fan of sleeves}
+\cardclothsteps[after=reds made green; from=off]{first and second into one; third into those; fourth into those}{Leftmost rings met; Joined midway; A fan of sleeves}
 \end{center}
 
 \emph{{[}The ring at the head of the fan now holds both leads of the
@@ -38444,8 +38562,10 @@ other into one, meeting above the eighth; that one ring now holds both
 short strings. She slides the eighth apart, into a plain green ring on
 the lower line and a small green end hanging from it by a plain cord:
 the bead goes with the end, an eighth round, and the ring left on the
-line is at rest. She slides the upper ring apart too, so that one part
-keeps the upper line and the other holds both short strings.{]}}
+line is at rest. The end lies up from the ring, towards the upper line,
+between the short strings. She slides the upper ring apart too, so that
+one part keeps the upper line and the other holds both short
+strings.{]}}
 
 \emph{{[}Now four rings sit in a square: two greens, the upper part
 holding the strings and the plain ring on the lower line, and two reds,
@@ -38466,7 +38586,7 @@ one hub, with the eighth hanging from it. What has held: the eighth's
 turn, whole, hanging now where both lines can reach it.{]}}
 
 \begin{center}
-\cardcloth[second eighth hung]{The cradle, undone}
+\cardclothsteps{upper greens together above the second eighth; second eighth slid apart; cradle undone at the second eighth}{The card laid again; Greens met above; Bead sent to an end; The cradle, undone}
 \end{center}
 
 \textbf{Achilles:} It hangs from something tied to both lines at once.
@@ -38502,7 +38622,7 @@ quarter. What has held: the other two, still hanging from their hubs,
 untouched.{]}}
 
 \begin{center}
-\cardcloth[second eighth hung, fourth eighth hung, slid together]{Feet slid together}
+\cardclothsteps[after=second eighth hung, fourth eighth hung]{upper feet slid together; lower line slid together}{A hub at each side; The upper feet met; Lower feet slid together}
 \end{center}
 
 \textbf{Achilles:} Two hubs, and both hung from the same two rings.
@@ -38522,6 +38642,10 @@ round. A third counter goes by the teapot, on the other two. What has
 changed: two eighths on two hubs are one quarter on one hub. What has
 held: the rings on the lines, and what the whole picture does.{]}}
 
+\begin{center}
+\cardcloth[second eighth hung, fourth eighth hung, slid together; step=one hub]{The hubs merged}
+\end{center}
+
 \emph{{[}The rain has thickened, and the window over the sink is busy
 with it: all over the glass drops are meeting drops, and every meeting
 leaves one where there were two. There are fewer of them on the pane
@@ -38535,19 +38659,21 @@ move for; I've tried it on every way the lines can start, and it holds.
 quarter round, the hub between with its quarter hanging. The Tortoise
 slides each line's ring apart so that the part holding the hub's cord is
 turned a quarter back: the upper ring leaves a ring a quarter round on
-its line, and the lower leaves a ring at a half. The hub stands now on
-two feet a quarter back, with a quarter round hanging from it. She lifts
-it away whole, feet and hub and end, unclipping the feet from the lines,
-into her box of rings; and in its place ties a single sleeved string
-between two green rings at rest, one on each line; and those two slide
-into their neighbours on the lines. What lies on the cloth now: on the
-upper line one green ring, a quarter round; on the lower, one green ring
-at a half; between them one sleeved tie. No eighth anywhere. What has
+its line, and the lower leaves a ring at a half. The parts that hold the
+hub's cords slide off to the left. The hub stands now on two feet a
+quarter back, with a quarter round hanging from it. She lifts it away
+whole, feet and hub and end, unclipping the feet from the lines, into
+her box of rings; and in its place ties a single sleeved string between
+two green rings at rest, one on each line; and those two slide into
+their neighbours on the lines. What lies on the cloth now: on the upper
+line one green ring, a quarter round; on the lower, one green ring at a
+half; between them one sleeved tie. No eighth anywhere. What has
 changed: four eighths have become a quarter, a half and a tie. What has
 held: what the card does, with the counters by the teapot.{]}}
 
 \begin{center}
-\cardcloth[second eighth hung, fourth eighth hung, slid together, one hub, sleeved tie]{Nothing hanging}
+\cardcloth[expects=the joiners cancel]{as Achilles expected}\quad
+\cardclothsteps[after=second eighth hung, fourth eighth hung, slid together, one hub; from=off]{the feet slid apart; the hub lifted away; into their neighbours}{Feet slid left; Hub lifted, sleeve laid; Nothing hanging}
 \end{center}
 
 \textbf{Tortoise:} A quarter on the upper line, a half on the lower, and
@@ -38749,7 +38875,7 @@ Lit.
 front of their hollows, knob up, and the tin is spent.{]}}
 
 \begin{center}
-\onewaytin*[first lit, second dark, last lit]{Every lid lifted}
+\onewaytinsteps*{first lit; second dark; last lit}{The tin as set; Left lid off, lit; Centre lid up, dark; Every lid lifted}
 \end{center}
 
 \textbf{Achilles:} It's a coin. They all are.
@@ -38786,6 +38912,10 @@ and on, until the pointer stands the same distance on the far side: an
 eighth round. The lid has not lifted; the hollow under it is unread.
 What has changed: the setting, from an eighth back to an eighth round.
 What has held: the lid, and whatever is under it.{]}}
+
+\begin{center}
+\onewaytin[first dark, second lit; step=last dial the other way]{Pointer turned past rest}
+\end{center}
 
 \emph{{[}He lifts the last lid. The drop is dark.{]}}
 
@@ -38825,7 +38955,7 @@ The lid is still down.{]}}
 \textbf{Achilles:} Dark. Both times dark, whatever the first two did.
 
 \begin{center}
-\onewaytin[first lit, second dial the other way, a half on the last dial, second lit, last dial the other way, last dark]{Read by the rules}
+\onewaytinsteps[after=first lit, second dial the other way; from=off]{a half on the last dial; second lit; last dial the other way; last dark}{Pointer swung round; Centre lid up, lit; Pointer back past rest; Tin read by the rules}
 \end{center}
 
 \textbf{Tortoise:} My cloth can show you why. \emph{{[}She lays three
@@ -38872,7 +39002,7 @@ and so has the last. What has held: every ring at rest, every tie, and
 the second end.{]}}
 
 \begin{center}
-\tincloth[first half sent on]{lit, dark, lit}{Like a tin read dark}
+\tinclothsteps[from=off]{lit, dark, lit}{the first half off its end; through the tube; out on every other cord; on to the ends}{A turn sent off the left end; Red past the tube; Out by the middle; Like a tin read dark}
 \end{center}
 
 \textbf{Tortoise:} So your last reading was turned over before you
@@ -38958,7 +39088,7 @@ the upper line and a half on the lower. What has changed: where the
 turns sit. What has held: every turn, and the tie.{]}}
 
 \begin{center}
-\outcloth*[slid apart]{the pan's answer}{The turns slid off}
+\outclothsteps*{the pan's answer}{upper ring slid apart; lower ring slid apart}{The pan's answer, laid back; Upper turn carried right; The turns slid off}
 \end{center}
 
 \textbf{Achilles:} A sleeved tie between the lines; then a quarter on
@@ -41347,7 +41477,7 @@ read, and one of them out of step with the others. What has held: the
 two that agree.{]}}
 
 \begin{center}
-\plaintin*[first dark, second dark, third lit]{A tin, spent}
+\plaintinsteps*{first dark; second dark; third lit}{The tin as set; Left lid off; Centre lid up; A tin, spent}
 \end{center}
 
 \textbf{Crab:} Dark, dark, lit. The damp got the last one. Trust the
@@ -41410,7 +41540,7 @@ changed: one point has become three, and the green ring has gone into
 them. What has held: dark. Each of the three is as dark as the one.{]}}
 
 \begin{center}
-\partcloth*[pushed in]{the dark point}{Out at the ends}
+\partclothsteps*{the dark point}{pushed in}{The dark point; Out at the ends}
 \end{center}
 
 \textbf{Achilles:} Three dark copies. That's what I asked for.
@@ -41435,7 +41565,8 @@ held: one ring, with all three cords still on it. No turned point has
 come out anywhere.{]}}
 
 \begin{center}
-\partcloth[pushed in]{the turned point}{Taken in}
+\partcloth[expects=three copies]{the turned point}{as Achilles expects}\quad
+\partclothsteps{the turned point}{pushed in}{The turned point; Taken in}
 \end{center}
 
 \textbf{Achilles:} But I wanted three points, each a quarter round, one
@@ -41692,7 +41823,7 @@ tell ring's other cords. What has held: the tell ring at rest; and the
 first and third strands, untouched.{]}}
 
 \begin{center}
-\linecloth[halves set, gust's half sent through]{Gone through}
+\linecloth[halves set; step=gust's half sent through]{The gust gone through}
 \end{center}
 
 \textbf{Achilles:} Into both bells at once. And on into the mending
@@ -41710,6 +41841,10 @@ mending rings alike. What has changed: the gust's half, the bells'
 halves and the Crab's half have met and cancelled. What has held: the
 green rings, all at rest, and every cord.{]}}
 
+\begin{center}
+\linecloth[halves set, gust's half sent through; step=halves slid in]{Reds at rest again}
+\end{center}
+
 \textbf{Crab:} So my half went to meet the gust's.
 
 \textbf{Tortoise:} Exactly there. And a red ring at rest on a strand is
@@ -41725,12 +41860,20 @@ first strand, and the middle and third strands at both their ends. She
 slides the middle tell ring into it along the middle strand's cord from
 the door end; what is left of the middle strand now runs from that ring
 back to itself, a loop, and a loop comes off, so she lifts it off into
-her work-bag. She does the same with the third tell ring, and the third
-strand's loop. What lies on the cloth now: one green ring at rest, with
-the lead in and the lead out on it, and each bell tied twice to it. What
-has changed: every green ring has gone into one, and the strands' loops
-are gone. What has held: every bead at rest, and every tie of each bell
-still where it runs.{]}}
+her work-bag. She lays the first bell, tied twice to the parting ring
+now, beside it. She does the same with the third tell ring, and the
+third strand's loop. She lays the second bell beside the parting ring
+too, and smooths the lead out straight from it. Each red ring at rest
+goes as a green ring slides past it, being only cord, or with its loop.
+What lies on the cloth now: one green ring at rest, with the lead in and
+the lead out on it, and each bell tied twice to it. What has changed:
+every green ring has gone into one, and the strands' loops are gone.
+What has held: every bead at rest, and every tie of each bell still
+where it runs.{]}}
+
+\begin{center}
+\lineclothsteps[after=halves set, gust's half sent through, halves slid in; from=off]{first tell ring in; joining ring in; middle strand in; third strand in}{Greens start to gather; The joining ring follows; The middle loop gone; Every green gathered}
+\end{center}
 
 \textbf{Tortoise:} And a bell at rest, tied twice to one green ring and
 to nothing else, comes off it.
@@ -41746,7 +41889,7 @@ gust and bells and mending, has come down to one plain cord. What has
 held: whatever goes in at one end comes out at the other, untouched.{]}}
 
 \begin{center}
-\linecloth[halves set, gust's half sent through, halves slid in, green rings slid together, bells off, drawn straight]{Drawn straight}
+\lineclothsteps[after=halves set, gust's half sent through, halves slid in, green rings slid together; from=off]{bells off; drawn straight}{Ring and leads; Drawn straight}
 \end{center}
 
 \textbf{Achilles:} A plain cord. \emph{{[}He looks up at the line, and
@@ -41815,6 +41958,7 @@ and every other bead at rest.{]}}
 glass's lid at his mark. The glass clouds over.{]}}
 
 \begin{center}
+\stormline[middle tell ring at a half, glass cloudy; expects=nothing gets past the bells]{as Achilles expects}\quad
 \stormline[middle tell ring at a half, glass cloudy]{Turned in passing}
 \end{center}
 
@@ -41869,7 +42013,7 @@ lead in and a tube on each strand. What has changed: the ring's colour.
 What has held: its bead, its cords, and everything the picture does.{]}}
 
 \begin{center}
-\tubecloth*[pairs put on, drawn through]{a fresh parting ring}{Come out red}
+\tubeclothsteps*[after=pairs put on]{a fresh parting ring}{drawn through}{A fresh ring, with tubes; Come out red}
 \end{center}
 
 \textbf{Tortoise:} The same ring, asking in the other colour. Hang a
@@ -42166,7 +42310,7 @@ the half has moved from between the rings onto the upper line. What has
 held: the red ring, the lower line, the long string, and every knot.{]}}
 
 \begin{center}
-\splitcloth[drawn out, half on the string, slid into the split, slid apart]{Slid back and apart}
+\splitclothsteps[after=drawn out; from=off]{half on the string; slid into the split; slid apart}{A green ring set on; Back into the split; Then slid apart}
 \end{center}
 
 \textbf{Tortoise:} Tails leaves a half behind. It isn't lost; it's only
@@ -42177,15 +42321,15 @@ sitting on the upper line, where a hand can reach it.
 hers, on the side away from the split.{]}}
 
 \emph{{[}The upper line as it stands: two green rings, each at a half,
-plain cord between them. The Tortoise slides one into the other. A half
-and a half make none, and the ring that is left stands at rest, with
-only the upper line through it: just cord, and she unclips it into her
-box. What lies on the cloth now: the split, the long string, the merge.
-What has changed: the half is gone. What has held: the joiner,
-whole.{]}}
+plain cord between them. The Tortoise slides one into the other. The
+Crab's goes into hers. A half and a half make none, and the ring that is
+left stands at rest, with only the upper line through it: just cord, and
+she unclips it into her box. What lies on the cloth now: the split, the
+long string, the merge. What has changed: the half is gone. What has
+held: the joiner, whole.{]}}
 
 \begin{center}
-\splitcloth[drawn out, half on the string, slid into the split, slid apart, crab's half beside, slid together]{Nothing left over}
+\splitclothsteps[after=drawn out, half on the string, slid into the split, slid apart; from=off]{crab's half beside; slid together}{The Crab's ring beside; Nothing left over}
 \end{center}
 
 \textbf{Crab:} A joiner again.
@@ -45104,7 +45248,7 @@ cord and ring on it.{]}}
 same way{]}} And this one?
 
 \begin{center}
-\rulecard[through]{sliding}{Held to the lamp}
+\rulecardsteps{sliding}{held to the lamp}{The card face up; Held to the lamp}
 \end{center}
 
 \textbf{Achilles:} Two rings sliding into one, the beads turned the
@@ -45120,7 +45264,7 @@ passes; the little dial has crossed with its picture, and stands now
 under the left-hand one, pointing the other way round.{]}}
 
 \begin{center}
-\rulecard[through]{half passing}{Read from behind}
+\rulecardsteps{half passing}{held to the lamp}{The card as dealt; Read from behind}
 \end{center}
 
 \textbf{Achilles:} The half on the other side of the turn, and the dial
@@ -45274,6 +45418,10 @@ colour and its bead, and the corner, which holds one slip now. What has
 held: the hub, the two feet, both lines, and what the picture does; the
 crossed card says so.{]}}
 
+\begin{center}
+\hingecloth[; step=red point]{The point exchanged}
+\end{center}
+
 \textbf{Achilles:} A red point on a red hub. Red into red?
 
 \textbf{Tortoise:} Red into red.
@@ -45284,6 +45432,10 @@ is gone, the point is gone into the ring, and the hub's bead, which
 stood at rest, now stands a quarter back. What has changed: the hub has
 lost its short cord and taken the point's turn. What has held: the hub's
 two ties to the feet, the feet, and the one slip in the corner.{]}}
+
+\begin{center}
+\hingecloth[red point; step=slid into the hub]{The point slid in}
+\end{center}
 
 \textbf{Achilles:} So now the hub is only a red ring a quarter back,
 sitting on the tie between the two feet.
@@ -45299,7 +45451,7 @@ line, the red ring in the middle, and the corner; nothing goes to the
 corner for this.{]}}
 
 \begin{center}
-\hingecloth[red point, slid into the hub, feet slid apart]{Feet at rest}
+\hingecloth[red point, slid into the hub; step=feet slid apart]{Feet at rest}
 \end{center}
 
 \textbf{Achilles:} \emph{{[}reading the tie from top to bottom{]}} Green
@@ -45316,19 +45468,24 @@ and lays it in the corner beside the first. What has changed: three
 rings have become one tube, and the corner holds two slips. What has
 held: the ring at rest on each line, and the tie's two ends.{]}}
 
+\begin{center}
+\hingecloth[red point, slid into the hub, feet slid apart; step=tube]{Rings off, tube on}
+\end{center}
+
 \textbf{Anteater:} And your two slips, Madam? One says an eighth round,
 and one an eighth back.
 
 \textbf{Tortoise:} Then they go together.
 
 \emph{{[}The corner as it stands: two slips, their arrows turned
-opposite ways. She picks them up one on the other and puts them in her
-bag. What has changed: the corner is empty. What has held: everything on
-the cloth, on each line a green ring at rest, and between them a tie
-with a tube on it.{]}}
+opposite ways. She lays the slip an eighth back on the slip an eighth
+round. She picks them up one on the other and puts them in her bag. What
+has changed: the corner is empty. What has held: everything on the
+cloth, on each line a green ring at rest, and between them a tie with a
+tube on it.{]}}
 
 \begin{center}
-\hingecloth[red point, slid into the hub, feet slid apart, tube, slips gone]{The corner empty}
+\hingecloth[red point, slid into the hub, feet slid apart, tube; step=slips gone]{The corner empty}
 \end{center}
 
 \textbf{Achilles:} A sleeved tie. \ldots Oh. The eighth the ball
@@ -45394,6 +45551,10 @@ into it, and it comes out red, its bead still a quarter round. What has
 changed: the ring's colour, and two tubes fewer on the cord. What has
 held: the ring's bead, and everything to the right of it.{]}}
 
+\begin{center}
+\darecloth[; step=drawn through]{Tubes into the ring}
+\end{center}
+
 \textbf{Tortoise:} A red quarter round. And this tube I read by the new
 card, backwards.
 
@@ -45418,6 +45579,10 @@ left-hand ring into the right-hand one, and each pair becomes one green
 ring at a half. The cord reads red quarter, green half, red quarter,
 green half.{]}}
 
+\begin{center}
+\darecloth[drawn through, card backwards; step=halves]{Greens together}
+\end{center}
+
 \emph{{[}The first green half as it stands, with a red quarter round
 just after it. She slides the half along the cord, past the red ring to
 just beyond it: as it passes, the red ring's bead swings from a quarter
@@ -45428,7 +45593,7 @@ gone by, and the ring it passed turns the other way. What has held: the
 half itself, and every ring's colour.{]}}
 
 \begin{center}
-\darecloth[drawn through, card backwards, halves, half passed]{Slid past}
+\darecloth[drawn through, card backwards, halves; step=half passed]{Green slid past red}
 \end{center}
 
 \textbf{Achilles:} A red quarter round and a red quarter back, side by
@@ -45438,14 +45603,16 @@ side.
 quarter back make rest, and the ring at rest, with only the cord through
 it, slips off into her box. Then the two green halves: a half and a half
 make a whole turn, which is rest, and that ring slips off into her box
-too. What lies there now is a bare cord, not a ring on it. In the corner
-lie a slip an eighth back and a slip a quarter round; she lays them one
-on the other, puts them in her work-bag, and lays a single slip in their
-place, its arrow an eighth round. What has changed: every ring and tube
-gone, and two slips become one. What has held: the cord's two ends.{]}}
+too. Each time, the left-hand ring goes into the right-hand one. What
+lies there now is a bare cord, not a ring on it. In the corner lie a
+slip an eighth back and a slip a quarter round; she lays them one on the
+other, puts them in her work-bag, and lays a single slip in their place,
+its arrow an eighth round. The slip a quarter round went onto the slip
+an eighth back. What has changed: every ring and tube gone, and two
+slips become one. What has held: the cord's two ends.{]}}
 
 \begin{center}
-\darecloth[drawn through, card backwards, halves, half passed, bare cord, one slip]{A new slip}
+\dareclothsteps[after=drawn through, card backwards, halves, half passed; from=off]{bare cord; one slip}{Rings gone; A new slip}
 \end{center}
 
 \textbf{Tortoise:} A bare cord, and the whole turned an eighth round.
@@ -45563,6 +45730,10 @@ each look's short tie runs on as plain cord from its green ring to
 wherever the page went. What has held: the green rings, the let-go
 cords, the read ring.{]}}
 
+\begin{center}
+\boxcloth[; step=red points slid in]{Red points slid in}
+\end{center}
+
 \textbf{Achilles:} My page is gone into your ring, and yours into
 nowhere.
 
@@ -45572,12 +45743,15 @@ cord. She slides them together, his look's ring and hers along the cord
 to the Cat's point, where they meet: the Cat's point, his look's ring
 and hers become one green ring at rest, with a cord to the read ring and
 the let-go cords running down to the same kind of ring on the copy
-below. The same on the copy. What has changed: the whole company on each
-layer has become one ring. What has held: the read ring, and the let-go
-cords between the layers.{]}}
+below. His look's ring goes first, and Achilles's page, whose cord ran
+from that ring, runs now from the point it went into, down and to the
+right. Then hers, and her own page runs from that point too, straight
+down the cloth's left-hand side. The same on the copy. What has changed:
+the whole company on each layer has become one ring. What has held: the
+read ring, and the let-go cords between the layers.{]}}
 
 \begin{center}
-\boxcloth[red points slid in, slid together]{Slid together}
+\boxclothsteps[after=red points slid in; from=off]{his look's ring slid along; her look's ring slid along}{His look along; Her look follows}
 \end{center}
 
 \textbf{Anteater:} Two rings now, one above and one below, and joined
@@ -45597,7 +45771,7 @@ ring's rest, which was the Cat's point's, and the cord out to the
 edge.{]}}
 
 \begin{center}
-\boxcloth[red points slid in, slid together, loops off]{Loops lifted off}
+\boxcloth[red points slid in, slid together; step=loops off]{Loops lifted off}
 \end{center}
 
 \textbf{Tortoise:} There's the Cat's own point, on the answer's cord,
@@ -45643,7 +45817,7 @@ there is one, and it hangs in the room. What has held: every string, in
 tune, as he tuned it.{]}}
 
 \begin{center}
-\crablute*[top string sounding]{Plucked alone}
+\crablutesteps*{top string sounding}{The lute, quiet; Top note alone}
 \end{center}
 
 \textbf{Tortoise:} Those pairs of strings are like my cords and their

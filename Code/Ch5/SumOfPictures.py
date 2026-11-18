@@ -49,7 +49,7 @@ def blackboard():
 
 # --------------------------------------------------------------------------
 # The pictures.  The dialogue draws the Tortoise's two one-road tiles with
-#   \roadtiles[view]{low face, high face}{caption}     (pdf/props/ch05.tex)
+#   \roadtiles[view; opts]{low face, high face}{caption}     (pdf/props/ch05.tex)
 # and, in the First Challenge, the conduit-board; tools/props_ch05.py
 # transcribes what the Lua computes.  The calls are read out of dialog.md
 # (tools/dfp_props.py), never copied.
@@ -58,12 +58,17 @@ def blackboard():
 # its road, silver = +1, slate = -1; `read` shows the net of the two faces,
 # the two roads of H|0> carried to the home pocket by the second spreader:
 #   net = s_low + s_high = 2 <0| H diag(s_low, s_high) H |0>.
+# The tiles laid for the plain walk are sqrt2 H|0> (silver, silver); turning
+# the high-road tile is Z on the high road: sqrt2 Z H|0> (silver, slate).
 # --------------------------------------------------------------------------
-DIALOGUE = Dialogue(__file__, macros=("conduitboard", "roadtiles"))
+DIALOGUE = Dialogue(__file__, macros=("conduitboard", "conduitwalk", "roadtiles"))
 NOT_IN_CAPTIONS = ("wire", "wires", "diagram", "diagrams", "drawing", "drawings", "picture",
                    "pictures", "box", "boxes", "dot", "dots", "node", "nodes", "lanes",
                    "strings", "five")
 PAIRS = [(a, b) for a in P.FACES for b in P.FACES]
+Z = np.array([[1, 0], [0, -1]], dtype=complex)
+PILE_PLACES = tuple((P.CX + dx, P.CY + dy, rot) for dx, dy, rot in P.PILE)
+LAID_PLACES = tuple((P.CX + dx, P.CY + dy, rot) for dx, dy, rot in P.LAID)
 
 
 def tile_net(t):
@@ -76,6 +81,11 @@ def home_net(board):
     return 0 if heap is None else P.SIGN[heap[0]] * heap[1]
 
 
+def faces(signs):
+    assert np.allclose(np.abs(signs), 1) and np.allclose(np.imag(signs), 0)
+    return tuple(P.face(float(np.real(s))) for s in signs)
+
+
 def check_transcription():
     for low, high in PAIRS:
         s = np.array([P.SIGN[low], P.SIGN[high]])
@@ -85,54 +95,123 @@ def check_transcription():
         assert t.drawn == ((low, high) if low == high else ())         # a stack, or bare
         laid = P.roadtiles("laid", f"{low}, {high}")
         assert laid.where == "pocket" and laid.drawn == (low, high)   # the high tile on top
+        assert laid.places == LAID_PLACES
         assert P.roadtiles("apart", f"{low}, {high}").where == "table"
+        # a turn: that tile's sign changes (Z on its road), and it is laid back where it
+        # lay -- at the pile when the faces before were alike, else where `laid` spreads them
+        for v, which in ((0, "low"), (1, "high")):
+            tt = P.clean(P.roadtiles, f"laid; turn={which}", f"{low}, {high}")
+            flip = np.diag([-1 if u == v else 1 for u in (0, 1)])
+            assert tt.before == (low, high) and tt.turned == which
+            assert tt.faces == faces(flip @ s)
+            assert tt.places == (PILE_PLACES if low == high else LAID_PLACES)
+            assert tt.halo[:3] == tt.places[v] and tt.flip is not None
+            (x0, y0), _, _, (x1, _) = tt.flip
+            assert np.isclose((x0 + x1) / 2, tt.places[v][0]) and y0 > tt.places[v][1]
+            assert [d.split(" at ")[1] for d in tt.dump if d.startswith("turned")] == \
+                ["pile" if low == high else "laid"]
+        # a read with marks lifts an unlike pair out of the pile
+        if low != high:
+            r = P.clean(P.roadtiles, "read; marks=on", f"{low}, {high}")
+            assert r.ghosts == tuple((f,) + pl for f, pl in zip((low, high), PILE_PLACES))
+            assert r.drawn == () and r.marked
     # row 33: the tiles of H|0> are silver, silver; of H|1>, silver, slate
-    for x, faces in ((0, ("silver", "silver")), (1, ("silver", "slate"))):
-        assert np.allclose(np.sqrt(2) * (H @ ket(x)).ravel(), [P.SIGN[f] for f in faces])
+    for x, fs in ((0, ("silver", "silver")), (1, ("silver", "slate"))):
+        assert np.allclose(np.sqrt(2) * (H @ ket(x)).ravel(), [P.SIGN[f] for f in fs])
     # the macro's own rules
     assert P.faults(P.roadtiles, "read", "silver") != []                 # two faces
     assert P.faults(P.roadtiles, "read", "silver, slate, silver") != []
     assert P.faults(P.roadtiles, "read", "silver, gold") != []
     assert P.faults(P.roadtiles, "stacked", "silver, slate") != []
+    assert P.faults(P.roadtiles, "read; turn=high", "silver, silver") == [
+        "roadtiles: turn= turns a tile laid in the pocket: the laid view"]
+    assert P.faults(P.roadtiles, "read; marks=on", "silver, silver") == [
+        "roadtiles: marks=on: like faces lie together; nothing lifts out"]
 
 
 def pictures():
+    P.check_lua()                                  # the Lua and .tex the transcription was proved on
     check_transcription()
-    p21, p22, p23, p24 = DIALOGUE.check_layout("Second", sizes=[1, 3])
+    found = P.check_section(DIALOGUE, "Second", sizes=[1, 3], frames=[1, 3],
+                            forbidden=NOT_IN_CAPTIONS)
+    (p21, [(t21, _)]), = found[0]
+    (p22, [(t22, _)]), (p23, [(t23, _)]), (p24, [(t24, _)]) = found[1]
     for c in (p21, p22, p23, p24):
         assert c.macro == "roadtiles"
-        assert words_only(c.caption, forbidden=NOT_IN_CAPTIONS), c.caption
-    t21, t22, t23, t24 = (P.picture(c) for c in (p21, p22, p23, p24))
 
-    a1, a2 = P.anchors(DIALOGUE, "Second")
-    assert "blank but for its face" in a1
-    assert "silver over silver" in a2 and "silver beneath slate" in a2
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        a1, a2 = DIALOGUE.anchors("Second", path)
+        assert "blank but for its face" in a1
+        assert "silver over silver" in a2 and "silver beneath slate" in a2
+        assert "lifts the high-road tile, turns it to its slate face, and lays it back" in a2
 
     # P2.1: two blank tiles on the table, both silver, keyed low road / high road
-    assert p21.keyed and t21.view == "apart" and t21.where == "table"
+    assert p21.keyed and t21.view == "apart" and t21.where == "table" and not t21.marked
     assert t21.faces == ("silver", "silver") and t21.labels == ("low road", "high road")
 
-    # P2.2: silver over silver, read -- a doubled stack, net +2
-    assert not p22.keyed and t22.view == "read" and t22.faces == ("silver", "silver")
-    assert t22.drawn == ("silver", "silver") and tile_net(t22) == 2
+    # the model, moment by moment: laid for the plain walk, the high tile turned, read
+    s = np.sqrt(2) * (H @ ket(0)).ravel()                    # (+1, +1): silver, silver
+    turned = Z @ s                                           # (+1, -1): silver, slate
 
-    # P2.3: laid in the home pocket, the high tile (slate) over the low (silver)
-    assert t23.view == "laid" and t23.where == "pocket"
+    # F10: silver over silver, read -- a doubled stack at the pile's places, net +2
+    assert not p22.keyed and P.options(p22) == {"view": "read"} and not t22.marked
+    assert t22.faces == faces(s) and t22.drawn == faces(s) and tile_net(t22) == 2
+    assert np.isclose(tile_net(t22), 2 * (ket(0).conj().T @ H @ np.diag(s) @ H @ ket(0)).item())
+    assert t22.places == PILE_PLACES
+
+    # F11: the high tile lifted, turned to slate and laid back where it lay -- both
+    # tiles still at the pile (the low one never moved): a halo and a flip on it
+    assert P.options(p23) == {"view": "laid", "turn": "high"} and t23.marked
+    assert t23.before == t22.faces                           # the faces before the turn: F10's
+    assert t23.turned == "high" and t23.faces == faces(turned)
     assert t23.drawn == ("silver", "slate")                  # drawn bottom first: silver beneath
+    assert t23.places == t22.places == PILE_PLACES           # laid back: nothing else moved
+    assert t23.halo == t23.places[1] + (0.014,)              # its ghost, at its own place
+    (x0, y0), _, _, (x1, _) = t23.flip
+    assert np.isclose((x0 + x1) / 2, t23.places[1][0])        # over the turned tile
+    assert y0 > t23.places[1][1] + P.TILE / 2
+    assert t23.dump[0] == "turned high silver to slate at pile"
 
-    # P2.4: silver and slate, read -- lifted out, the pocket bare, net 0
-    assert t24.view == "read" and t24.faces == ("silver", "slate")
-    assert t24.drawn == () and tile_net(t24) == 0
-    assert t23.faces == t24.faces                            # the pair that was laid is the pair read
+    # F12: silver and slate, read -- the pair lifts out from the pile, the pocket bare
+    assert P.options(p24) == {"view": "read", "marks": "on"} and t24.marked
+    assert t24.faces == t23.faces and t24.drawn == () and tile_net(t24) == 0
+    assert t24.ghosts == tuple((f,) + pl for f, pl in zip(t23.faces, t23.places))  # where they lay
+    assert np.isclose(tile_net(t24), 2 * (ket(0).conj().T @ H @ np.diag(turned) @ H @ ket(0)).item())
+    # the tiles are turned once and lifted out once
+    assert [t.turned for t in (t21, t22, t23, t24)] == [None, None, "high", None]
+    assert [bool(t.ghosts) for t in (t21, t22, t23, t24)] == [False, False, False, True]
 
-    # nothing walked, the same pockets as the Cat's walks (P1.2's home, P1.4's home)
-    first = [c for b in DIALOGUE.blocks("First") for c in b]
-    walk1, walk2 = P.picture(first[1]), P.picture(first[3])
-    assert walk1.view == walk2.view == "end" and walk1.pegs == () and walk2.pegs == ("willow",)
-    assert tile_net(t22) == home_net(walk1) == 2
-    assert tile_net(t24) == home_net(walk2) == 0
-    # and the tiles' faces are the faces the roads carry (P1.3, just past the peg)
-    assert tuple(f for _, f, _ in P.picture(first[2]).walking) == t24.faces
+    # nothing walked, the same pockets as the Cat's walks (walk 1's end, the peg walk's)
+    first = DIALOGUE.blocks("First")
+    walk1 = [f for f, _ in P.pictures(first[1][0])]
+    expects, walk2 = P.picture(first[2][0]), [f for f, _ in P.pictures(first[2][1])]
+    assert walk1[-1].view == walk2[-1].view == "end" and expects.expects == "add"
+    assert walk1[-1].pegs == () and walk2[-1].pegs == ("willow",)
+    assert tile_net(t22) == home_net(walk1[-1]) == 2
+    assert tile_net(t24) == home_net(walk2[-1]) == 0
+    # and the tiles' faces are the faces the roads carry (just past the peg)
+    assert tuple(t["face"] for t in walk2[0].tokens) == t23.faces == t24.faces
+    # and the piles agree: two like faces pile in the tiles' pocket and in walk 1's
+    assert walk1[1].cups["home"][:2] == (list(t22.faces), "piled")
+
+    # the block replaced this round: the turn drawn on the faces before it
+    P.check_edits(DIALOGUE, "Second", [
+        ("\\roadtiles[laid]{silver, slate}{silver beneath slate}",
+         "\\roadtiles[laid; turn=high]{silver, silver}{silver beneath slate}"),
+        ("\\roadtiles[read]{silver, slate}{the pocket bare}",
+         "\\roadtiles[read; marks=on]{silver, slate}{the pocket bare}")])
+
+    assert P.section_dumps(found) == [
+        "roadtiles: apart | silver,silver",
+        "roadtiles: read | silver,silver",
+        "roadtiles: + read stack silver 2",
+        "roadtiles: laid turn high | silver,slate",
+        "roadtiles: + turned high silver to slate at pile",
+        "roadtiles: + halo high",
+        "roadtiles: + flip high",
+        "roadtiles: read marks | silver,slate",
+        "roadtiles: + lifted silver,slate from pile",
+        "roadtiles: + read bare"]
 
 
 # A generic one-wire box for the sketchbook: a chain of three phase nodes.

@@ -230,8 +230,8 @@ def pictures(ledger):
         ("glinttray", False, "set back the tell-glass; ring the bell", (V0,), "lifted by its handle and rung"),
         ("glinttray", False, "set back the tell-glass; lay white black black", (V0,), "his white, hers black"),
         ("keycloth", True, "", ("the pair's bend, red then green",), "red close in, green further out"),
-        ("keycloth", False, "slide off red round the turn, slide off green", ("the pair's bend, red then green",),
-         "bare, the turn where it was")]
+        ("keyclothsteps", False, "from=off", ("the pair's bend, red then green", "slide off red round the turn; slide off green"),
+         "red round the turn and off; bare, the turn where it was")]
     PC.check_captions(DIALOGUE, "Fifth", calls)
     PC.check_section(DIALOGUE, "Fifth", calls)
     assert [[PC.height(c) for c in b] for b in DIALOGUE.blocks("Fifth")] == \
@@ -257,7 +257,43 @@ def pictures(ledger):
     text = DIALOGUE.read(DIALOGUE.dialog)
     assert not DIALOGUE.call_re.search(text[text.index(p54.text) + len(p54.text):])    # none after P5.4
 
-    t51, t52, c53, c54 = (PC.picture(c) for c in calls)
+    t51, t52, c53 = (PC.picture(c) for c in calls[:3])
+    # B5.4 (round 4), a strip of two with from=off (its before-frame is P5.3, a paragraph up):
+    # red slid round the turn and off, then green off its own leg's end
+    assert [(f.keyed, PC.bracket(f)) for f in PC.frame_calls(p54)] == [
+        (False, "step=slide off red round the turn"), (False, "slide off red round the turn; step=slide off green")]
+    (mid, _), (c54, _) = PC.pictures(p54)
+    assert mid.before == c53.state and c54.before == mid.state
+    assert PC.frame_of(PC.twin(PC.frame_calls(p54)[0])) == PC.frame_of(PC.keycloth("slide off red round the turn", "the pair's bend, red then green"))
+    assert PC.frame_of(PC.twin(PC.frame_calls(p54)[1])) == PC.frame_of(
+        PC.keycloth("slide off red round the turn, slide off green", "the pair's bend, red then green"))   # round 3's P5.4
+    # F28: red's ghost where it stood, and a slide arc from it into the bend, round it, and (card
+    # 3e.8, E2) out along the lower leg -- above it, inside the bend -- and off its end, to the
+    # very x where F29's arc ends ("and out along the lower leg and off its end"); F29: green's
+    # ghost, and a slide arc beneath the upper leg past its free end
+    assert PC.ghost_places(mid) == [((-0.3, -0.18), 0.09)] and PC.ghost_places(c54) == [((0.15, -0.18), 0.09)]
+    assert PC.arc_ends(mid) == [("slide", (-0.33, -0.325), (1.057, -0.575))]
+    assert PC.arc_ends(c54) == [("slide", (0.177, -0.325), (1.057, -0.325))]
+    assert PC.arc_ends(mid)[0][2][0] == PC.arc_ends(c54)[0][2][0]                 # the same end, off the same edge
+    _, cords28 = PC.cloth_drawn(mid)
+    (_, _, _, legs28, _), = cords28
+    (xu, yu), (xt0, _), (xt1, yl), (xl, _) = legs28                               # upper leg, the turn, lower leg
+    assert yl < -0.575 < yu and PC.arc_ends(mid)[0][2][0] > xl                    # above the lower leg; past its end
+    run_out = re.findall(r"\.\. controls \(([-\d.]+),([-\d.]+)\) and \(([-\d.]+),([-\d.]+)\) \.\. \(([-\d.]+),([-\d.]+)\)",
+                         PC.arc_lines(mid)[0])[-1]                                # its last piece, along the leg
+    assert all(yl < float(y) < yu for y in run_out[1::2])                         # inside the bend all the way
+    assert [g for g, _ in PC.ghost_places(mid)] == [PC.cloth_cm(mid, PC.PAIRX[0], 0)]
+    assert [g for g, _ in PC.ghost_places(c54)] == [PC.cloth_cm(c54, PC.PAIRX[1], 0)]
+    _, cords54 = PC.cloth_drawn(c54)
+    (_, _, _, turn_pts, _), = cords54
+    assert PC.arc_ends(c54)[0][2][0] > max(x for x, _ in turn_pts)                 # past the leg's free end
+    assert PC.arc_ends(mid)[0][2][1] < PC.arc_ends(mid)[0][1][1]                    # down round the turn, to the lower leg
+    for p, cords in ((mid, 0.076), (c54, 0.084)):
+        assert round(PC.mark_clearance(p), 3) == 0.082 and round(PC.cord_clearance(p), 3) == cords
+    assert PC.ring_clearance(mid) > 0 and PC.ring_clearance(c54) is None        # no ring left on the cloth
+    assert mid.log[-1].endswith("the least gap to its edge 0.138; clear of every cord by 0.073 and of every ring by "
+                                "0.272 (edge to edge)")
+    assert c54.log[-1].endswith("clear of every cord by 0.082 (no ring on the cloth) (edge to edge)")
     his12, hers12 = f"{R8} white white black black", f"{R8} white black black black"
     assert t51.dump == (f"sleeve off, tell-glass in; tell's key set; side rod at the side port; his [{his12}]; "
                         f"hers [{hers12}]; tell's [white black black white]; bell rung")
@@ -315,7 +351,6 @@ def pictures(ledger):
     PC.check_band_words(c53)
     # L1's route, keyed on x (the dump renumbers the staying ring): red goes round the
     # turn and the green ring keeps its place; then green goes off its own end
-    mid = PC.keycloth("slide off red round the turn", "the pair's bend, red then green")
     at = lambda pic: {r["x"]: (r["c"], r["y"]) for r in pic.cloth["things"]}
     assert at(c53) == {PC.PAIRX[0]: ("red", 0), PC.PAIRX[1]: ("green", 0)}
     assert at(mid) == {PC.PAIRX[1]: ("green", 0)} and at(c54) == {}
@@ -362,24 +397,97 @@ def clear(A, B):
 
 def whole():
     D = DIALOGUE
-    assert D.check_whole(PC.ORDER) == 19
+    assert D.check_whole(PC.ORDER) == 18                               # calls (a strip is one call)
     text = D.read(D.dialog)
     first = text.index("## First Challenge")
     assert not D.call_re.search(text[:first])                          # none before the First
-    D.keyed_first(PC.ORDER, kind=PC.keyed_kind)
+    # the keyed rule over true frames only (a prediction is never keyed), each strip's
+    # frames judged in turn: the starred strip keys its first frame.  Since card 3e.8 E3 the
+    # tray's glass family turns on "set the tell's key" too, so B3.1's before-frame (F12a, the
+    # sleeve still closed) is the Third's keyed frame -- the call, starred, is the strip
+    D.keyed_first(PC.ORDER, kind=PC.keyed_kind, select=PC.judged)
     calls = [(o, c) for o in PC.ORDER for b in D.blocks(o) for c in b]
-    names = [f"P{i + 1}.{k + 1}" for i, o in enumerate(PC.ORDER) for k in range(sum(map(len, D.blocks(o))))]
-    assert [n for n, (o, c) in zip(names, calls) if c.keyed] == ["P1.1", "P1.2", "P3.1", "P3.4", "P4.1", "P4.3", "P5.3"]
-    for o, c in calls:                                                  # the places, globally
-        assert PC.place_ok(o, c), (o, c.text)
-        PC.picture(c)                                                   # and no fault
+    frames = [(o, c, fc, p, cap) for o, c in calls for fc, (p, cap) in zip(PC.frame_calls(c), PC.pictures(c))]
+    assert len(frames) == 30 and sum(PC.is_strip(c) for _, c in calls) == 8
+    assert sum(PC.is_prediction(fc) for _, _, fc, _, _ in frames) == 1
+    names = [f"F{i + 1:02d}" for i in range(12)] + ["F12a"] + [f"F{i:02d}" for i in range(13, 30)]   # F-numbers kept
+    assert len(names) == len(frames)
+    keyed = [n for n, (o, c, fc, p, cap) in zip(names, frames) if fc.keyed is True]
+    assert keyed == ["F01", "F03", "F12a", "F17", "F18", "F21", "F27"]
+    # a keyed tray strip's later frames are keyed "new" (the Lua's third value): F02, F13, F14
+    new = [n for n, (o, c, fc, p, cap) in zip(names, frames) if fc.keyed == "new"]
+    assert new == ["F02", "F13", "F14"]
+    assert [fc.keyed for n, (o, c, fc, p, cap) in zip(names, frames)
+            if n not in keyed + new] == [False] * (len(frames) - len(keyed) - len(new))
+    seen = set()                                                        # the keyed rule, frame by frame
+    for n, (o, c, fc, p, cap) in zip(names, frames):
+        if fc.keyed == "new":
+            # never a family's first frame: it follows its strip's keyed frame, of its own kind
+            assert PC.is_strip(c) and c.keyed is True and PC.keyed_kind(fc) in seen, n
+            assert PC.keyed_kind(fc) == PC.keyed_kind(PC.frame_calls(c)[0]), n
+            # it names only the part its step brought, where that part first appears
+            w = PC.new_part(PC.options(fc).get("step"))
+            assert p.labels == ((w,) if w else ()) and p.label_tikz == tuple(PC.new_part_lines(PC.options(fc).get("step"))), n
+            assert ([l for l in p.log if "keyed new" in l] ==
+                    ([f"glinttray: + keyed new: the word for the {w}, the part this step brought"] if w else [])), n
+        elif PC.judged(fc):
+            assert fc.keyed == (PC.keyed_kind(fc) not in seen), n
+            seen.add(PC.keyed_kind(fc))
+            assert bool(p.labels) == fc.keyed, n                        # only a keyed frame names its parts
+        else:
+            assert p.labels == (), n
+        assert PC.place_ok(o, fc), (o, fc.text)                         # the places, globally
+    # the log, as the Lua writes it: the dump list (card section 3e.6), 80 lines in all
+    log = [l for _, c in calls for l in PC.describe(c)]
+    assert len(log) == 80 and sum(1 for l in log if re.match(r"\w+steps: strip of \d frames$", l)) == 8
+    assert [l for l in log if "keyed new" in l] == [
+        "glinttray: + keyed new: the word for the tell-glass, the part this step brought",      # F13
+        "glinttray: + keyed new: the word for the side rod, the part this step brought"]        # F14
     # G11: no tray in the Second before the block after the screens came down
     second = [c.macro for b in D.blocks("Second") for c in b]
     assert second == ["glinttray", "keycloth", "keycloth"]
 
-    # the fixed parts, over every \glinttray of the dialogue, in order
-    trays = [PC.picture(c) for o, c in calls if c.macro == "glinttray"]
-    assert len(trays) == 7
+    # the marks, over every frame: a frame with no step draws none; a step draws its marks
+    # unless the Lua says it has none to draw (the tray's moments, the fork); marks=off leaves
+    # the same frame unmarked; the prediction draws no mark, only its pale group
+    marked = []
+    for n, (o, c, fc, p, cap) in zip(names, frames):
+        if p.step is None:
+            assert p.mark_tikz == () or p.mark_tikz == (
+                "\\begin{scope}[transparency group, opacity=0.500]", "\\end{scope}"), n   # F20's pale group
+        else:
+            off = PC.twin(fc)
+            assert PC.frame_of(off)[:4] == PC.frame_of(p)[:4] and off.mark_tikz == (), n
+            assert off.log[1].endswith(" (no marks)") and off.log[2:] == tuple(l for l in p.log if "keyed new" in l), n
+        if not isinstance(p, PC.TrayPicture) and PC.mark_lines(p):
+            marked.append(n)
+            assert PC.mark_clearance(p) > 0.01, n                       # inside its linen or frame
+            if isinstance(p, PC.ClothPicture) and PC.arc_lines(p):
+                assert PC.cord_clearance(p) > 0.05, n                   # every arc off every cord
+            if isinstance(p, PC.KeyPicture):
+                assert PC.lacquer_clearance(p) > 0, n                    # above the lacquer
+    assert marked == ["F04", "F05", "F07", "F19", "F22", "F23", "F24", "F28", "F29"]
+
+    # the counted frames (card section 3e.5): F15, F16 (the Third's run) and F25, F26 (the
+    # bell): twelve lines each, unmarked and no step's frame; every tray frame's count
+    trays = [p for _, _, _, p, _ in frames if isinstance(p, PC.TrayPicture)]
+    tray_names = [n for n, (_, _, _, p, _) in zip(names, frames) if isinstance(p, PC.TrayPicture)]
+    assert tray_names == ["F01", "F02", "F08", "F09", "F10", "F12a", "F13", "F14", "F15", "F16", "F25", "F26"]
+    assert [PC.lines_drawn(t.shown) for t in trays] == [5, 5, 7, 7, 7, 7, 9, 11, 12, 12, 12, 12]
+    counted = [t for n, t in zip(tray_names, trays) if n in ("F15", "F16", "F25", "F26")]
+    assert [PC.lines_drawn(t.shown) for t in counted] == [12, 12, 12, 12]
+    assert all(t.mark_tikz == () and t.step is None for t in counted)
+    assert all(t.mark_tikz == () for t in trays)                        # the tray carries no mark at all
+    # the pieces told apart at print size (L6): between any two black neighbours, in every
+    # tray frame, the felt shows -- half the 0.8 pt ring, more than a 300-dpi pixel
+    assert PC.FELTRING == 0.8
+    pairs = 0
+    for t in trays:
+        for w, i, vis, felt in PC.felt_between(t.shown):
+            assert felt > 2.54 / 300 and np.isclose(vis, felt), (w, i)
+            pairs += 1
+        assert len(t.felt_tikz) == 3 * sum(c == "black" for w in ("his", "hers", "tell") for c, _, _ in t.shown.rows[w])
+    assert pairs > 0
     home = {"side rod": (PC.XSLEEVE + 0.03, 0.05), "tell's key": (PC.XTELL, PC.DTELL), "his key": (PC.XHIS, 0.0),
             "her key": (PC.XHERS, 0.0), "lamp": (PC.XLAMP, 0.0), "tell-glass": (PC.XSLEEVE, 0.0),
             "sleeve": (PC.XSLEEVE, 0.0)}
@@ -390,7 +498,7 @@ def whole():
     # one pitch for the evening: each row's k-th piece keeps its x from call to call; only a
     # strike closes a gap (P3.3), and there every piece keeps the x of the k-th place
     assert {t.shown.d for t in trays} == {PC.PITCH} and all(t.shown.rx == 0.45 * PC.PITCH for t in trays)
-    struck = {4}                                                        # P3.3 closes the gaps
+    struck = {3, 9}                                                     # F09 and F16 (P3.3) close the gaps
     for i in range(1, len(trays)):
         for w in ("his", "hers", "tell"):
             a, b = trays[i - 1].shown.rows[w], trays[i].shown.rows[w]
@@ -418,12 +526,12 @@ def whole():
         bell = {k: (PC.placed(o, bx, by, 1.0, rot=rot), w) for k, (o, w) in B.items()}
         for w in ("his", "hers", "tell"):
             for c, x, y in v.rows[w]:
-                P = PC.piece_parts(x, y, v.rx)
+                P = PC.piece_parts(x, y, v.rx, c)                       # a black piece with its felt ring
                 g = min(clear(bell[a], P[b]) for a in bell for b in P)
                 bell_gap = g if bell_gap is None else min(bell_gap, g)
         if v.rows["his"] and v.rows["hers"]:
             (_, xh, yh), (_, xs, ys) = v.rows["his"][-1], v.rows["hers"][-1]
-            Ph, Ps = PC.piece_parts(xh, yh, v.rx), PC.piece_parts(xs, ys, v.rx)
+            Ph, Ps = PC.piece_parts(xh, yh, v.rx, v.rows["his"][-1][0]), PC.piece_parts(xs, ys, v.rx, v.rows["hers"][-1][0])
             g = min(clear(Ph[a], Ps[b]) for a in Ph for b in Ps)
             rows_gap = g if rows_gap is None else min(rows_gap, g)
     assert bell_gap > 0 and rows_gap > 0
@@ -517,7 +625,31 @@ FAULT_CASES = [
     ("slide-round-none", PC.cloth_state, ("slide off green round the turn", "the pair's bend, red")),
     ("slide-round-order", PC.cloth_state, ("slide off green round the turn", "the pair's bend, red then green")),
     ("cloth-op", PC.cloth_state, ("fold", "green to green")),
+    # round 4: the bracket (oerr, shared by the three macros), the key's step and rule, the
+    # cloth's one step, the strips
+    ("opt-unknown", PC.sparkey, ("the curl", False, "step=the cross; turns=2")),
+    ("opt-twice", PC.sparkey, ("the curl", False, "step=the cross; step=the cross")),
+    ("opt-bare", PC.keycloth, ("slide together; lift off", "green to green")),
+    ("opt-onoff", PC.sparkey, ("the curl", False, "step=the cross; marks=maybe")),
+    ("marks-nostep", PC.sparkey, ("the curl", False, "marks=on")),
+    ("expects-keyed", PC.sparkey, ("the curl", True, "expects=same setting")),
+    ("expects-marks", PC.sparkey, ("the stroke", False, "step=the curl; expects=same setting; marks=on")),
+    ("key-bare", PC.sparkey, ("the curl", False, "turn")),
+    ("key-step-same", PC.sparkey, ("the curl", False, "step=the curl")),
+    ("key-rule", PC.sparkey, ("the curl", False, "expects=nothing")),
+    ("key-rule-stop", PC.sparkey, ("the cross", False, "expects=same setting")),
+    ("cloth-step-one", PC.keycloth, ("step=slide together, lift off", "green to green")),
+    ("strip-bare", PC.steps, ("key", False, "the curl", "turn", "the cross", "a; b")),
+    ("strip-none", PC.steps, ("key", False, "the curl", "", " ; ", "a")),
+    ("strip-fork", PC.steps, ("cloth", False, "green to red", "", "thread the fork", "a; b")),
+    ("strip-long", PC.steps, ("key", False, "the curl", "", "the cross; the stroke; the curl; the cross", "a; b; c; d; e")),
+    ("strip-captions", PC.steps, ("key", False, "the curl", "", "the cross", "a")),
 ]
+# a round-3 fault raised through a step is the same fault (the step is one more operation)
+STEP_FAULTS = [("tray-op", PC.glinttray, ("step=polish the tray", "as set out")),
+               ("lift-early", PC.keycloth, ("step=lift off", "green to green")),
+               ("key-stop", PC.sparkey, ("the curl", False, "step=sideways")),
+               ("slide-off-order", PC.keycloth, ("step=slide off red", "the pair's bend, red then green"))]
 # calls the macros accept (the Prop Artist's test sheet), each raising nothing
 GOOD_TRAY = [("flash yes yes", "as set out"), ("lay white white", "as set out; his: none; hers: none"),
              ("strike the sixth, seventh and eighth",
@@ -541,7 +673,21 @@ def check_faults():
         msgs = set(PC.messages(fn, *args))
         assert len(msgs) == 1 and not (msgs & set(seen)), site           # one message, its own
         seen[msgs.pop()] = site
-    assert sorted(s for s, _, _ in FAULT_CASES) == sorted(PC.ERROR_SITES) and len(PC.ERROR_SITES) == 51
+    assert sorted(s for s, _, _ in FAULT_CASES) == sorted(PC.ERROR_SITES) and len(PC.ERROR_SITES) == 68
+    for site, fn, args in STEP_FAULTS:
+        assert PC.faults(fn, *args) == [site], site
+    # the bracket is order-free: every order of a frame's items draws the same frame
+    import itertools
+    for fn, a, items in ((PC.glinttray, ("as set out",), ["set the tell's key", "step=set in the tell-glass", "marks=off"]),
+                         (PC.sparkey, ("the curl", False), ["step=the cross", "marks=on"]),
+                         (PC.keycloth, ("green to green",), ["slide together", "step=lift off", "marks=on"])):
+        outs = set()
+        for order in itertools.permutations(items):
+            br = "; ".join(order)
+            pic = fn(br, *a) if fn is not PC.sparkey else fn(*a, br)
+            assert PC.faults(fn, *((br,) + a if fn is not PC.sparkey else a + (br,))) == []
+            outs.add(repr((PC.frame_of(pic), pic.mark_tikz, pic.log[1:])))
+        assert len(outs) == 1, fn
     for ops, st in GOOD_TRAY:
         assert PC.faults(PC.tray_state, ops, st) == [], ops
     for s in GOOD_KEY:
@@ -553,10 +699,14 @@ def check_faults():
 # -- the drift guard: the transcription against pdf/props/ch12.lua as it stands ---------------------
 def check_lua():
     lua = re.sub(r"--[^\n]*", "", PC.LUA_TEXT)
-    # the fault sites: 27 of the tray's (terr), 1 of the key's, 23 of the cloth's (cerr)
+    # the fault sites: 17 of the brackets' and the strips' (oerr), 27 of the tray's (terr), 1 of
+    # the key's stop, 23 of the cloth's (cerr)
     assert len(re.findall(r"\bterr\(", lua)) - 1 == 27 and len(re.findall(r"\bcerr\(", lua)) - 1 == 23
-    assert len(re.findall(r"\btex\.error\(", lua)) == 3                 # terr, cerr, and the key's
-    assert 27 + 1 + 23 == len(PC.ERROR_SITES)
+    assert len(re.findall(r"\boerr\(", lua)) - 1 == 17                    # round 4: the brackets' and strips'
+    assert len(re.findall(r"\btex\.error\(", lua)) == 4                 # terr, cerr, oerr, and the key's
+    assert 17 + 27 + 1 + 23 == len(PC.ERROR_SITES) == 68
+    PC.check_sites()                                                    # each site's message, byte for byte
+    PC.check_lua()                                                      # every chunk as transcribed, pinned
     # the places and sizes the drawn shapes rely on, where the Lua writes them inline
     for pattern in (r"standing\(XTELL, DTELL, function\(\) key\(1, lit\.tell\) end, SC \* KS \* "
                     + re.escape(str(PC.TELLSCALE)) + r"\)",

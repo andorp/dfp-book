@@ -159,11 +159,12 @@ def blackboard():
 # The pictures (pdf/props/ch04.tex; the Lua's rules transcribed in
 # tools/props_ch04.py), read out of this challenge's section of dialog.md.
 # Each frame's walk is checked, from every start, against the columns'
-# matrices; then against the matrix the chapter writes for it.
+# matrices; then against the matrix the chapter writes for it.  A step's
+# frame is checked against the state before it (the call's own state) and the
+# state after it, and its marks against that step.
 # --------------------------------------------------------------------------
-DIALOGUE = Dialogue(__file__, macros=("stringframe", "foldsheet"))
-NOT_IN_CAPTIONS = ("strings", "wires", "wire", "diagram", "diagrams", "drawing", "drawings",
-                   "picture", "pictures", "box", "boxes")
+DIALOGUE = Dialogue(__file__, macros=("stringframe", "foldsheet", "framewalk", "framesteps",
+                                      "foldsteps"))
 CNOT = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]], dtype=complex)
 SWAP = np.array([[1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]], dtype=complex)
 GATES = {"over": X, "heads": S0, "yoke": CNOT, "cross": SWAP}
@@ -174,35 +175,87 @@ def clips_on(fr, name):
     return [(col, rules) for col, n, row, rules in fr.clips() if n == name]
 
 
+def drawn(fr, name):
+    """The clips drawn on a string: (column, rule, x, y), left to right."""
+    return [(j, rule, x, y) for j, n, rule, x, y in fr.clips_drawn if n == name]
+
+
 def pictures():
-    p41, p42, p43, p44 = DIALOGUE.check_layout("Fourth", sizes=[1, 1, 1, 1])
-    for c in (p41, p42, p43, p44):
-        assert c.macro == "stringframe" and not c.keyed
-        assert words_only(c.caption, forbidden=NOT_IN_CAPTIONS), c.caption
-    f1, f2, f3, f4 = (P.picture(c) for c in (p41, p42, p43, p44))
-    for fr in (f1, f2, f3, f4):
-        assert fr.place == ("end", None) and fr.hooked == ("silk", "hemp", "gut", "horsehair")
-        assert fr.yokes() == [] and fr.crossings() == []
+    P.check_lua()                     # ch04.lua and ch04.tex as the transcription was proved
+    # Four moments: the slide past his (4.1), nothing moved (4.2), the knock
+    # (4.3), the lift beside its result (4.4).  Every frame on four columns.
+    found = P.check_section(DIALOGUE, "Fourth", sizes=[1, 1, 1, 2], frames=[1, 1, 1, 2])
+    (p41, [(f1, _)]), = found[0]
+    (p42, [(f3, _)]), = found[1]
+    (p43, [(fk, _)]), = found[2]
+    (p44a, [(fl, _)]), (p44, [(f4, _)]) = found[3]
+    calls = (p41, p42, p43, p44a, p44)
+    for c in calls:
+        assert c.macro == "stringframe" and not c.keyed and not P.is_prediction(c)
+    for c in calls[:4]:                                      # the layout's columns fixed ...
+        assert P.options(c)["cols"] == "4"
+    assert "cols" not in P.options(p44)                      # ... the last has four cells
+    for fr in (f1, f3, fk, fl, f4):
+        assert fr.ncol == 4 and fr.hooked == ("silk", "hemp", "gut", "horsehair")
+        assert fr.yokes() == [] and fr.crossings() == [] and fr.pins == []
+    assert [fr.place[0] for fr in (f1, f3, fk, fl, f4)] == ["end", "end", "off", "off", "end"]
+    assert [fr.step for fr in (f1, f3, fk, fl, f4)] == ["slide", None, "slide", "lift", None]
 
-    # P4.1: her clip to the left of his; heads above, tails below
-    assert clips_on(f1, "silk") == [(2, ("over",))] and clips_on(f1, "hemp") == [(1, ("heads",))]
-    M1 = P.check_walks(f1, GATES)
+    # Block 4.1: her clip slid past his.  Before the step (the call's state, the
+    # old P4.1): her clip to the left of his; heads above, tails below
+    before = P.clean(P.stringframe, "end;cols=4", p41.args[0])
+    assert clips_on(before, "silk") == [(2, ("over",))]
+    assert clips_on(before, "hemp") == [(1, ("heads",))]
+    M1 = P.check_walks(before, GATES)
     assert np.allclose(M1, np.kron(np.kron(X, I2) @ np.kron(I2, S0), I4))   # hemp's first
-    assert f1.coins() == {"silk": ("tails", 1), "hemp": ("heads", 2)}
-    assert np.allclose(np.kron(X, S0) @ ket(0, 1), ket(1, 0))
-
-    # P4.2: slid past his; the same arrival, from every start (Sliding)
-    assert clips_on(f2, "silk") == [(2, ("over",))] and clips_on(f2, "hemp") == [(3, ("heads",))]
-    M2 = P.check_walks(f2, GATES)
+    # after it: slid past his; the same arrival, from every start (Sliding)
+    assert clips_on(f1, "silk") == [(2, ("over",))] and clips_on(f1, "hemp") == [(3, ("heads",))]
+    M2 = P.check_walks(f1, GATES)
     assert np.allclose(M2, np.kron(np.kron(I2, S0) @ np.kron(X, I2), I4))   # silk's first
     assert np.allclose(M1, M2) and np.allclose(M1, np.kron(np.kron(X, S0), I4))
-    assert f2.coins() == f1.coins()
+    assert f1.coins() == before.coins() == {"silk": ("tails", 1), "hemp": ("heads", 2)}
+    assert np.allclose(np.kron(X, S0) @ ket(0, 1), ket(1, 0))
+    assert np.allclose(P.drawn_column(f1, rows=[1, 2]), np.kron(X, S0) @ ket(0, 1))
     for start in P.starts(f1):
-        assert f1.walk(f1.ncol, start) == f2.walk(f2.ncol, start)
+        assert before.walk(4, start) == f1.walk(4, start)
+    # the marks: the ghost of her clip where it stood before the step, and an
+    # arc to where it stands; low (a slide), rightwards, under his clip
+    assert f1.moved["kind"] == "slide" and not f1.moved["knocked"]
+    (_, _, gx0, gy0), = drawn(before, "hemp")
+    assert f1.ghost_clip == ("hemp", "heads", 1, 2, gx0, gy0)
+    (j, rule, nx, ny), = drawn(f1, "hemp")
+    (sj, _, sx, sy), = drawn(f1, "silk")
+    a = f1.move_arc
+    assert (j, sj) == (3, 2) and gx0 < sx < nx                 # "beyond it": to the right of his
+    assert a[0][0] < sx < a[3][0] and not P.leftward(a)
+    # "passes clean under his": the arc, its stroke included, keeps a clear gap below
+    # his clip, its drop shadow included -- lowered for it, starting beside her
+    # clip's ghost and ending beside the clip where it lands
+    lo, hi = P.bezier_y_extent(a)
+    assert hi + P.SWING / 2 < P.clip_extent(sx, sy)[2]
+    assert P.clip_extent(sx, sy)[2] - (hi + P.SWING / 2) > 0.04
+    assert f1.lowered and hi <= f1.slide_ceiling                 # under the ceiling
+    assert f1.follow_arc is None                                 # no crossing on the way
+    assert np.allclose(a, ((0.6365, -0.38), (0.7245, -0.38 + 0.10 / 0.75),
+                           (0.9005, -0.38 + 0.10 / 0.75), (0.9885, -0.38)))
+    assert a[0][0] - P.SWING / 2 > gx0 + P.CLIPW / 2 + 0.014     # the ghost's outline
+    assert a[3][0] + P.SWING / 2 < P.clip_extent(nx, ny)[0]      # the clip landed
+    assert a[0][1] > gy0 and a[3][1] > ny                        # just above the string
+    D5 = ("being on strings one above the other — and comes to rest beyond it.]*",
+          "being on strings one above the other.]*")
+    P.check_edits(DIALOGUE, "Fourth", [D5])
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        at, blocks = P.where(DIALOGUE, "Fourth", D5[1], path)
+        assert at < blocks[0]
+        assert "passes clean under his" in DIALOGUE.paragraphs("Fourth", path)[at]
+        assert DIALOGUE.anchors("Fourth", path)[0].endswith("The silk coin first, this time. "
+                                                             "The same!")
+        assert "{hers to the left}" not in DIALOGUE.read(path)          # P4.1 removed
 
-    # P4.3: nothing moved -- first clips level, second clips level
+    # Block 4.2: nothing moved -- first clips level, second clips level
     assert clips_on(f3, "silk") == [(2, ("over",)), (3, ("heads",))]
     assert clips_on(f3, "hemp") == [(2, ("heads",)), (3, ("over",))]
+    assert f3.moved is None and f3.ghost_clip is None and f3.move_arc is None
     M3 = P.check_walks(f3, GATES)
     by_columns = np.kron(S0, X) @ np.kron(X, S0)             # both firsts, then both seconds
     by_strings = np.kron(I2, X @ S0) @ np.kron(S0 @ X, I2)   # all of the silk, then the hemp
@@ -215,25 +268,142 @@ def pictures():
         assert (face["silk"], face["hemp"]) == ("heads", "tails")
     # the transcribed places, on this frame: stopped before a column, and past it
     for k, word in ((1, "first"), (2, "second"), (3, "third")):
-        at = P.stringframe("at-" + word, p43.args[0]).coins()
-        past = P.stringframe("past-" + word, p43.args[0]).coins()
+        at = P.stringframe("at-" + word, p42.args[0]).coins()
+        past = P.stringframe("past-" + word, p42.args[0]).coins()
         assert at == {n: (f, f3.row_after(n, k - 1))
                       for n, f in f3.walk(k - 1).items() if f}
         assert past == {n: (f, f3.row_after(n, k)) for n, f in f3.walk(k).items() if f}
-    assert P.stringframe("off", p43.args[0]).coins() == {}
-    assert P.faults(P.stringframe, "at-fourth", p43.args[0]) != []     # no fourth column
+    assert P.stringframe("off", p42.args[0]).coins() == {}
+    assert P.faults(P.stringframe, "at-fourth", p42.args[0]) != []     # no fourth column
+    # the macro refuses a walk strip of these two-clip strings: no coin fits
+    # between two columns of clips
+    assert any("too crowded to walk" in e for e in
+               P.faults(P.run_call, "framewalk", False, "to=end", (p42.args[0],),
+                        "laid on; past the first; past the second; at the hooks"))
 
-    # P4.4: off and on again -- heads up now before turn it over, on the silk
+    # Block 4.3: the knock.  D6 has taken the coins off; she pushes the silk's
+    # "turn it over" to the right, towards its neighbour: it stops against it
+    # ("It won't go.") and the two stand struck together, the neighbour where
+    # it stood, at its column's centre
+    assert P.options(p43)["slide"] == "silk over second to fourth"
+    assert fk.drawn_coins == [] and fk.coins() == {}
+    assert fk.moved["knocked"] and (fk.moved["from"], fk.moved["to"]) == (2, 3)
+    assert fk.moved["to"] < 4                                  # it won't go where it was sent
+    assert fk.cellwords("silk") == ["-", "-", "over>heads", "-"]
+    assert fk.cellwords("hemp") == f3.cellwords("hemp")
+    (_, r1, x1, _), (_, r2, x2, y2) = drawn(fk, "silk")
+    assert (r1, r2) == ("over", "heads")                      # its order along the string kept
+    assert np.isclose(x2, P.colx(fk.state, 3))                # struck: the neighbour unmoved
+    (_, _, h3x, _), = [d for d in drawn(f3, "silk") if d[1] == "heads"]
+    assert np.isclose(x2, h3x)
+    gap = P.clip_extent(x2, y2, shadow=False)[0] - P.clip_extent(x1, y2, shadow=False)[1]
+    assert 0 < gap < 0.01                                     # "They knock together"
+    (o3x,) = [x for _, r, x, _ in drawn(f3, "silk") if r == "over"]
+    assert fk.ghost_clip[:4] == ("silk", "over", 2, 1) and np.isclose(fk.ghost_clip[4], o3x)
+    assert fk.move_arc[0][0] < fk.move_arc[3][0]               # to the right
+    assert fk.slide_ceiling is None and not fk.lowered        # nothing above the silk
+    assert fk.follow_arc is None                              # and no crossing: the old arc
+    gx, gy = fk.ghost_clip[4:]
+    assert fk.move_arc == P.arc(gx + 0.02, gy + P.CLIPTOP + 0.03, x1 - 0.02,
+                                y2 + P.CLIPTOP + 0.03, gy + P.CLIPTOP + 0.1, gy + P.CLIPTOP + 0.1)
+    # along one string the order cannot change by sliding: the struck pair walks
+    # as the pair it was
+    Mk = P.check_walks(fk, GATES)
+    assert np.allclose(Mk, M3)
+    # a slide that would knock against two clips, or past its own struck
+    # neighbour, is refused
+    assert P.faults(P.stringframe, "off;slide=silk over second to fourth", "silk: -, over, heads+over") == [
+        "stringframe: slide: it would knock against two clips (one cell holds two at most)"]
+    assert P.faults(P.stringframe, "off;slide=silk over third to fourth", "silk: -, -, over>heads") == [
+        "stringframe: slide: the clip it knocks against is in its way (lift it)"]
+    D6 = ('*[On the silk string she pushes the "turn it over" clip to the right, towards its '
+          'neighbour.]*',
+          '*[Achilles takes the two coins off the right-hand hooks. On the silk string she pushes '
+          'the "turn it over" clip to the right, towards its neighbour.]*')
+    P.check_edits(DIALOGUE, "Fourth", [D6])
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        at, blocks = P.where(DIALOGUE, "Fourth", D6[1], path)
+        assert blocks[1] < at < blocks[2]                     # after nothing moved, before the knock
+        assert DIALOGUE.anchors("Fourth", path)[2].endswith(
+            "It won't go. They knock together. They are on the same string!")
+
+    # Block 4.4: lifted clean off and pinched on again beyond its neighbour, from
+    # where the knock left it; then the silk walked alone from tails
+    assert p44a.args[0].startswith("silk: -, -, over>heads;")   # the knock frame's struck cell
+    assert P.options(p44a)["lift"] == "silk over third to fourth"
+    assert fl.drawn_coins == [] and fl.moved["kind"] == "lift" and not fl.moved["knocked"]
+    assert fl.cellwords("silk") == ["-", "-", "heads", "over"]
+    assert fl.ghost_clip[:4] == ("silk", "over", 3, 1) and np.isclose(fl.ghost_clip[4], x1)
+    (_, hr, hx, hy), (_, orule, ox, oy) = drawn(fl, "silk")
+    assert (hr, orule) == ("heads", "over") and hx < ox        # beyond its neighbour
+    assert np.isclose(hx, x2)                                  # the neighbour still unmoved
+    lo, hi = P.bezier_y_extent(fl.move_arc)
+    assert hi > P.clip_extent(hx, hy)[3]                       # up and over it
+    assert hi > P.bezier_y_extent(fk.move_arc)[1]              # a lift goes higher than a slide
     assert clips_on(f4, "silk") == [(3, ("heads",)), (4, ("over",))]
-    assert [r for c, r in clips_on(f4, "hemp")] == [r for c, r in clips_on(f3, "hemp")]
-    assert [c for c, r in clips_on(f4, "hemp")] == [2, 3]   # the hemp clips unmoved
-    assert f4.face["hemp"] is None                           # the hemp coin laid aside
+    assert f4.cells == fl.cells                                # the frame beside it: its result
+    assert f4.moved is None and f4.ghost_clip is None
+    for fr in (f3, fk, fl, f4):                                # the hemp clips unmoved
+        assert fr.cellwords("hemp") == ["-", "heads", "over", "-"]
+    assert [r for c, r in clips_on(f3, "silk")] == [("over",), ("heads",)]
+    assert [r for c, r in clips_on(f4, "silk")] == [("heads",), ("over",)]   # changed places
+    assert f4.face["hemp"] is None                           # the hemp coin laid aside (D7)
     assert f4.coins() == {"silk": ("tails", 1)}               # silk arrives tails ...
     assert f3.coins()["silk"] == ("heads", 1)                 # ... a moment ago heads
     M4 = P.check_walks(f4, GATES)
     assert np.allclose(M4, np.kron(np.kron(X @ S0, X @ S0), I4))
+    assert np.allclose(P.drawn_column(f4, rows=[1]), X @ S0 @ ket(1))
     assert not np.allclose(X @ S0, S0 @ X)                   # along one string, an order
     assert np.allclose(X @ S0 @ ket(1), ket(1)) and np.allclose(S0 @ X @ ket(1), ket(0))
+    assert any("too crowded to walk" in e for e in
+               P.faults(P.run_call, "framewalk", False, "to=end", (p44.args[0],),
+                        "laid on; past the third; past the fourth; at the hooks"))
+    D7 = ("*[He lifts the hemp coin off the frame and lays it aside, and walks the silk coin alone "
+          "from tails:",
+          "*[He lays the hemp coin aside, and walks the silk coin alone from tails:")
+    P.check_edits(DIALOGUE, "Fourth", [D7])
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        at, blocks = P.where(DIALOGUE, "Fourth", D7[1], path)
+        assert blocks[2] < at < blocks[3]
+        assert DIALOGUE.anchors("Fourth", path)[3] == DIALOGUE.paragraphs("Fourth", path)[at]
+
+    assert P.section_dumps(found) == [
+        "stringframe: end slide",
+        "stringframe: + coin silk tails row 1",
+        "stringframe: + coin hemp heads row 2",
+        "stringframe: + cells silk -,over,-,-",
+        "stringframe: + cells hemp -,-,heads,-",
+        "stringframe: + cells gut -,-,-,-",
+        "stringframe: + cells horsehair -,-,-,-",
+        "stringframe: + slid hemp 1 to 3",
+        "stringframe: + ghost clip hemp heads col 1 row 2",
+        "stringframe: end",
+        "stringframe: + coin silk heads row 1",
+        "stringframe: + coin hemp tails row 2",
+        "stringframe: + cells silk -,over,heads,-",
+        "stringframe: + cells hemp -,heads,over,-",
+        "stringframe: + cells gut -,-,-,-",
+        "stringframe: + cells horsehair -,-,-,-",
+        "stringframe: off slide",
+        "stringframe: + cells silk -,-,over>heads,-",
+        "stringframe: + cells hemp -,heads,over,-",
+        "stringframe: + cells gut -,-,-,-",
+        "stringframe: + cells horsehair -,-,-,-",
+        "stringframe: + slid silk 2 to 3 knocked",
+        "stringframe: + ghost clip silk over col 2 row 1",
+        "stringframe: off lift",
+        "stringframe: + cells silk -,-,heads,over",
+        "stringframe: + cells hemp -,heads,over,-",
+        "stringframe: + cells gut -,-,-,-",
+        "stringframe: + cells horsehair -,-,-,-",
+        "stringframe: + lifted silk 3 to 4",
+        "stringframe: + ghost clip silk over col 3 row 1",
+        "stringframe: end",
+        "stringframe: + coin silk tails row 1",
+        "stringframe: + cells silk -,-,heads,over",
+        "stringframe: + cells hemp -,heads,over,-",
+        "stringframe: + cells gut -,-,-,-",
+        "stringframe: + cells horsehair -,-,-,-"]
 
 
 # --------------------------------------------------------------------------

@@ -249,30 +249,40 @@ def pictures():
     marker's fold is the reflection across the unmarked line, the turn-about's across the
     even line at theta, two folds a turn by 2 theta; the hand is eight thumbs long, so its
     tip stands 8 sin((2k+1) theta) thumbs up after k steps."""
-    calls = DIALOGUE.check_layout("Fourth", sizes=[1, 1, 1, 1])
+    calls = DIALOGUE.check_layout("Fourth", sizes=[1, 1, 1, 1, 1, 1])
     assert [(c.macro, c.keyed, c.opt, c.args, c.caption) for c in calls] == [
         ("handsheet", True, "", ("four drawers",), "the sheet ruled, the hand laid"),
-        ("handsheet", False, "a step", ("four drawers",), "after the folds, upright"),
+        ("handsheet", False, "step=the marker's fold", ("four drawers",), "the tip turned under"),
+        ("handsheet", False, "the marker's fold; step=the turn-about's fold", ("four drawers",), "after the folds, upright"),
         ("handsheet", False, "six steps", ("sixty-four drawers",), "climbed to the top"),
-        ("handsheet", False, "seven steps", ("sixty-four drawers",), "turned too far")]
+        ("handsheet", False, "six steps; step=a step; expects=surer", ("sixty-four drawers",), "as Achilles expects"),
+        ("handsheetsteps", False, "after=six steps; from=off", ("sixty-four drawers", "the marker's fold; the turn-about's fold"),
+         "the hand down below the pin; turned too far")]
     PC.check_captions(DIALOGUE, "Fourth", calls)
     PC.check_section(DIALOGUE, "Fourth", calls)
+    frames = [PC.frame_calls(c) for c in calls]
+    assert [len(f) for f in frames] == [1, 1, 1, 1, 1, 2]                 # card 3e.6: 6 blocks, 7 frames
     sheet_h = round(PC.HFTOP - PC.HFBOT, 2)
     assert sheet_h == 2.72                                               # read from the Lua
-    assert [[PC.height(c) for c in b] for b in DIALOGUE.blocks("Fourth")] == [[sheet_h]] * 4
+    assert [[PC.height(f) for f in fs] for fs in frames] == [[sheet_h]] * 5 + [[sheet_h] * 2]
+    assert {f.macro for fs in frames for f in fs} == {"handsheet"}       # B20's frames are \handsheet frames
 
-    # the anchors (card section 4)
-    a1, a2, a3, a4 = DIALOGUE.anchors("Fourth")
-    f1, f2, f3, f4 = DIALOGUE.following("Fourth")
-    assert "and this tilted one is the even line." in a1
-    assert f1.startswith("**Achilles:** Half the hand, and half squared is a quarter.")
-    assert "now stands eight thumbs up, the hand's whole length.]*" in a2
-    assert f2.startswith("**Achilles:** *[laying her rule from the unmarked line to the tip]* Eight thumbs of eight.")
-    assert a3 == "**Achilles:** *[measuring]* All but a hair of eight. Just past upright."
-    assert f3.startswith("**Tortoise:** Stop there. Six touches.")
-    assert "on the far side of the marked line, to its left, and farther from it than before;" in a4          # D19
-    assert f4.startswith("**Achilles:** *[measuring]* Seven and five eighths.")
-    assert DIALOGUE.following("Fourth", DIALOGUE.raw) == [f1, f2, f3, f4]
+    # the anchors (card sections 4 and 3e.6), in both files
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        a = DIALOGUE.anchors("Fourth", path)
+        f = DIALOGUE.following("Fourth", path)
+        assert "and this tilted one is the even line." in a[0]
+        assert f[0].startswith("**Achilles:** Half the hand, and half squared is a quarter.")
+        assert "Only its height has gone to the other side: the tip stands four thumbs under." in a[1]
+        assert f[1].startswith("**Achilles:** Four thumbs under. The second peg, under the line.")
+        assert "now stands eight thumbs up, the hand's whole length.]*" in a[2]
+        assert f[2].startswith("**Achilles:** *[laying her rule from the unmarked line to the tip]* Eight thumbs of eight.")
+        assert a[3] == "**Achilles:** *[measuring]* All but a hair of eight. Just past upright."
+        assert f[3].startswith("**Tortoise:** Stop there. Six touches.")
+        assert a[4] == "**Tortoise:** *[with perfect courtesy]* By all means."
+        assert f[4].startswith("*[The hand as it stands: upright, leaning a whisker past the marked line")
+        assert "on the far side of the marked line, to its left, and farther from it than before;" in a[5]      # D19
+        assert f[5].startswith("**Achilles:** *[measuring]* Seven and five eighths. It's come down!")
     for path in (DIALOGUE.dialog, DIALOGUE.raw):
         sec = DIALOGUE.section("Fourth", path)
         for phrase in ("She slides the peg-card along to Achilles's left and lays the sheet on the table before "
@@ -286,15 +296,20 @@ def pictures():
                        "just on the far side of the marked line from the even line, to its left as Achilles sees it.",  # D18
                        "on the far side of the marked line, to its left, and farther from it than before;"):       # D19
             assert sec.count(phrase) == 1, phrase
-        # no picture between P4.2's block and P4.3's (the four-drawer surprise, the fresh
-        # sheet, the Escher moment and the first six steps), nor inside a figure
+        # no picture between P4.2's block (B17) and P4.3's (B18): the four-drawer surprise, the
+        # fresh sheet, the Escher moment and the first six steps -- B17 and B18 stay consecutive,
+        # B18 straight after "All but a hair of eight"; nor inside a figure
         paras = DIALOGUE.paragraphs("Fourth", path)
         blocks = [i for i, p in enumerate(paras) if DIALOGUE._is_block(p)]
         escher = [i for i, p in enumerate(paras) if "Cubic Space Division" in p]
-        assert len(escher) == 1 and blocks[1] < escher[0] < blocks[2]
+        hair = paras.index("**Achilles:** *[measuring]* All but a hair of eight. Just past upright.")
+        assert len(blocks) == 6 and len(escher) == 1 and blocks[2] < escher[0] < hair == blocks[3] - 1
+        assert paras[blocks[2] - 1].endswith("the hand's whole length.]*")
+        assert [i for i, p in enumerate(paras) if p.endswith("the hand's whole length.]*")][0] == blocks[2] - 1
         assert figure_pairs_clear(paras) == 6
 
-    p41, p42, p43, p44 = (PC.picture(c) for c in calls)
+    process(calls)
+    p41, p42, p43, p44 = (PC.pictures(c)[-1][0] for c in (calls[0], calls[2], calls[3], calls[5]))  # F28 F30 F31 F34
 
     def plane(N, k):
         """(D O_w)^k |s> simulated on N drawers: (its |w_perp> part, its |w> part)."""
@@ -375,7 +390,7 @@ def pictures():
     assert v4.tip[0] < PC.PINX < v3.lines[2][3] and v3.tip[0] < PC.PINX
     # every hole inside the sheet, and the hand's tip clear of the sheet's edges, at every
     # pictured angle -- and at the marker's fold after six steps ("The marker turns it over.", not pictured)
-    marked6 = PC.handsheet("six steps, the marker's fold", "sixty-four drawers")
+    marked6 = PC.pictures(calls[5])[0][0]                                 # F33: six steps, the marker's fold
     assert marked6.dump.split()[2] == "angle=-93.35"
     for p in (p41, p42, p43, p44, marked6):
         parts, boxes, _ = PC.drawn_parts(p)
@@ -404,6 +419,154 @@ def pictures():
     words = {w: (x, y) for w, x, y, _ in v1.labels}
     assert np.allclose(words["pin"], (-0.950, 1.415), atol=1e-3)
     assert np.allclose(words["hand"], (-0.442, 1.699), atol=1e-3)
+
+
+# The sheet's wrong rule as the Lua states it (card section 3e.1's copy, word for word).
+SURER = """\
+-- THE SHEET'S WRONG RULE, given with expects=<rule>, computed from the state before and the step:
+--   surer    Achilles, after six steps on the sixty-four-drawer sheet: "It's still a hair short of
+--            eight. One more, and it'll be surer." The tip only climbs, and one more step takes it
+--            to the top: after the step the tip stands at eight thumbs, the hand upright (90
+--            degrees), whatever the true step does. Said BEFORE the seventh step, as a prediction
+--            (the picture "climbed to the top", the hand at 93.35 degrees, the tip at 7.99, stands
+--            just before it). Refuted by "Seven and five eighths. It's come down!" (and the
+--            Tortoise: "It goes round. Too many, and it turns away."). Only with step=a step, a
+--            drawer marked, and only where the true step brings the tip DOWN (the seventh step on
+--            the sixty-four-drawer sheet; earlier steps raise it, and the rule's picture would
+--            stand within a hair of the true one: refused). The whole sheet
+--            paler, with the holes the sheet had BEFORE the step (the step's own holes would show
+--            the true landing), the hand upright drawn again over it at full strength in a darker
+--            paper with a darker outline (Ch 14's L10): the telling part.
+--   Not drawn (no state of the sheet): "Sixteen touches, drawer for drawer." (a count of touches,
+--            said before the sixty-four-drawer sheet is ruled).
+"""
+
+
+def quoted(q, text):
+    """A comment's quotation is the dialogue's, an elision ( ... ) apart."""
+    return all(part in text for part in q.split(" ... "))
+
+
+def swept(a0, a1):
+    """The angles (degrees, mod 360) a hand passes folding from a0 to a1 the short way (half a turn:
+    through the pin's right): the open interval, as (start, signed sweep)."""
+    d = (np.degrees(a1 - a0) + 180) % 360 - 180
+    if np.isclose(abs(d), 180):
+        d = 180 if np.cos(a0 + np.pi / 2) > 0 else -180
+    return np.degrees(a0), d
+
+
+def lines_passed(a0, a1, th):
+    """The pencil lines the hand passes in the fold: the unmarked line (both its halves, 0 and 180
+    degrees), the marked (90, 270) and the even line (its one ray, at theta)."""
+    start, d = swept(a0, a1)
+    out = []
+    for name, angles in (("the unmarked line", (0, 180)), ("the marked line", (90, 270)),
+                         ("the even line", (np.degrees(th),))):
+        if any(0 < ((x - start) * np.sign(d)) % 360 < abs(d) for x in angles):
+            out.append(name)
+    return tuple(out)
+
+
+def sheet_fold(p, a0, a1, kind, th):
+    """A marked fold frame against the model: the hand from a0 to a1 (the model's reflection); its
+    ghost where it lay before the fold; one curved swing arc round the pin, the short way (the
+    half turn through the pin's right), crossing exactly the lines the hand passes; every arc on
+    the sheet and clear of the hand, its ghost, the holes and the dot, and the pin -- and never
+    over the ghost."""
+    assert np.isclose(p.before.a, a0) and np.isclose(p.after.a, a1)
+    assert p.marked and not p.refused and p.wrong is None
+    (fd,) = p.after.rec
+    assert fd["kind"] == kind and np.isclose(fd["from"], a0) and np.isclose(fd["to"], a1)
+    assert [(w, a) for w, a, _ in p.ghosts] == [("hand", p.before.a)]
+    (arc,) = p.arcs
+    assert arc.kind == "swing"
+    (c,) = p.clearances
+    start, d = swept(a0, a1)
+    assert c["way"] == ("counter-clockwise" if d > 0 else "clockwise")
+    assert np.sign(c["a1"] - c["a0"]) == np.sign(d) and abs(c["a1"] - c["a0"]) < abs(d)    # inside the sweep
+    for e, ang in ((arc.p0, c["a0"]), (arc.p1, c["a1"])):                                   # round the pin
+        assert np.isclose(np.hypot(e[0] - PC.PINX, e[1] - PC.PINY), c["r"], atol=1e-6)
+        assert np.isclose(np.degrees(np.arctan2(e[1] - PC.PINY, e[0] - PC.PINX)) % 360, ang % 360, atol=1e-6)
+    assert c["crossed"] == lines_passed(a0, a1, th), (c["crossed"], lines_passed(a0, a1, th))
+    assert min(c["sheet"], c["hand"], c["ghost"], c["holes"], c["pin"]) > 0.03 and c["passed"] == (), c
+    assert not any("passing over the ghost" in n for n in p.notes)
+    return c
+
+
+def process(calls):
+    """The Fourth's frames (round 4, card section 3e), each against this file's model in order:
+    F29 the marker's fold on the four-drawer sheet (theta to -theta), F30 the turn-about's fold
+    (-theta to 3 theta), each at the moment told; F32 `surer`, a live prediction (the hand
+    upright at 90 degrees, tip eight, over the sheet as it stood: the true seventh step brings the
+    tip down to 8 sin 15 theta); F33 and F34 the seventh step fold by fold (13 theta to -13 theta,
+    then to 15 theta), each arc through the pin's left, the way the hand goes."""
+    th4, th64 = tilt(4), tilt(64)
+    f29, f30 = PC.picture(calls[1]), PC.picture(calls[2])
+    c29 = sheet_fold(f29, th4, -th4, "marker", th4)
+    c30 = sheet_fold(f30, -th4, 3 * th4, "about", th4)
+    assert np.allclose(fold(0) @ [np.cos(th4), np.sin(th4)], [np.cos(-th4), np.sin(-th4)])
+    assert np.allclose(fold(th4) @ [np.cos(-th4), np.sin(-th4)], [np.cos(3 * th4), np.sin(3 * th4)])
+    assert (c29["side"], c30["side"]) == ("right", "right") and np.isclose(c29["r"], PC.SWINGR)
+    assert c30["crossed"] == ("the unmarked line", "the even line")
+    assert f29.head == "drawers=4 marked=true angle=-30.00 tip=-4.00 holes=30/-30"
+    assert f30.head == "drawers=4 marked=true angle=90.00 tip=8.00 holes=30/-30/90"
+    assert f30.before.holes == f29.after.holes                            # B17 starts where B16 ended
+    f33, f34 = (p for p, _ in PC.pictures(calls[5]))
+    six = PC.picture(calls[3])
+    c33 = sheet_fold(f33, 13 * th64, -13 * th64, "marker", th64)
+    c34 = sheet_fold(f34, -13 * th64, 15 * th64, "about", th64)
+    assert np.isclose(f33.before.a, six.after.a) and f33.before.holes == six.after.holes
+    assert (c33["side"], c34["side"]) == ("left", "left") and c33["way"] != c34["way"]
+    assert c33["r"] < PC.SWINGR and np.isclose(c33["r"], c34["r"])         # the largest radius on the sheet
+    assert f33.head == ("drawers=64 marked=true angle=-93.35 tip=-7.99 "
+                        "holes=7/-7/22/-22/36/-36/50/-50/65/-65/79/-79/93/-93")
+    assert f34.head.startswith("drawers=64 marked=true angle=107.71 tip=7.62 ")
+    assert np.isclose(8 * np.sin(15 * th64), 8 * np.sin(f34.after.a)) and 8 * np.sin(15 * th64) < 8 * np.sin(13 * th64)
+    # same verb, same arc: every fold draws one swing arc round the pin, a ghost where the hand lay
+    assert all(len(p.arcs) == len(p.ghosts) == 1 for p in (f29, f30, f33, f34))
+    # each twin with marks=off draws round 3's sheet of the same state, line for line
+    for fc, p in [(calls[1], f29), (calls[2], f30)] + list(zip(PC.frame_calls(calls[5]), (f33, f34))):
+        tw = PC.twin(fc)
+        assert tw.mark_tikz == [] and tw.ghosts == [] and tw.arcs == [] and "no marks (marks=off)" in tw.notes
+        o = PC.options(fc)
+        r3 = PC.run_frame("sheet", ", ".join(x for x in (o["bare"].strip(), o["step"]) if x), fc.args[0], False)
+        assert not PC.TEX_ERRORS and r3.opts.get("round4") is None
+        assert PC.drawn(tw) == PC.drawn(r3) == PC.drawn(p)
+
+    # F32: `surer`, a live prediction, never keyed: the hand upright where he expects it (90
+    # degrees, tip eight) over the sheet as it stood before the step; the true seventh step lands
+    # at 15 theta, tip 7.62, which is not where he expects it
+    p = PC.picture(calls[4])
+    assert PC.is_prediction(calls[4]) and not PC.judged(calls[4]) and not calls[4].keyed
+    assert np.isclose(p.before.a, 13 * th64) and np.isclose(p.after.a, 15 * th64)
+    assert np.isclose(p.wrong.a, np.pi / 2) and np.isclose(8 * np.sin(p.wrong.a), 8)
+    assert not np.isclose(p.wrong.a, p.after.a) and p.telling == (p.wrong.a,)
+    assert p.wrong.holes == p.before.holes and p.after.holes != p.before.holes       # the holes before the step
+    assert p.head == "drawers=64 marked=true angle=90.00 tip=8.00 holes=" + "/".join(
+        "%d" % np.floor(np.degrees(a) + 0.5) for a in p.before.holes)
+    assert p.ghosts == p.arcs == [] and p.mark_tikz == []
+    # the telling part: the expected tip stands well off the true one (card section 3e.5: 0.323 cm)
+    tip = lambda a: np.array([PC.PINX + PC.HAND * np.cos(a), PC.PINY + PC.HAND * np.sin(a)])
+    assert np.linalg.norm(tip(p.wrong.a) - tip(p.after.a)) > 0.3
+    assert np.linalg.norm(tip(p.wrong.a) - tip(p.before.a)) < 0.07                    # within a hair of the six
+    assert any(l.startswith("\\filldraw[fill=propchfifteenhandexpect, draw=propchfifteenhandexpectedge")
+               for l in p.own)
+    # refused at every earlier step: each raises the tip, as he expects (sin (2k+3) theta > sin (2k+1) theta)
+    for k in range(7):
+        bracket = (STEPS[k] + (" step" if k == 1 else " steps") + "; " if k else "") + "step=a step; expects=surer"
+        got = PC.faults(PC.run_frame, "sheet", bracket, "sixty-four drawers", False)
+        rises = np.sin((2 * k + 3) * th64) > np.sin((2 * k + 1) * th64)
+        assert got == (["sheet-rule-rises"] if rises else []) and rises == (k < 6), (k, got)
+    assert PC.faults(PC.run_frame, "sheet", "six steps; step=the marker's fold; expects=surer", "sixty-four drawers",
+                     False) == ["sheet-rule-step"]
+    # the rule as the Lua states it, its quotations the dialogue's own
+    assert SURER in PC.LUA_TEXT
+    text = DIALOGUE.read(DIALOGUE.dialog) + DIALOGUE.read(DIALOGUE.raw)
+    quotes = PC.comment_quotes(PC.RULE_COMMENTS[3])
+    assert all(quoted(q, text) for q in quotes if q not in ("climbed to the top",)), quotes
+    assert "climbed to the top" in [c.caption for c in calls]             # a caption, not a line
+    PC.TEX_ERRORS.clear()                                                  # the refusals above were asked for
 
 
 # --- the sketchbook ---------------------------------------------------------------------

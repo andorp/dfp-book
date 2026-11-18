@@ -115,13 +115,17 @@ def blackboard():
 # --------------------------------------------------------------------------
 # The pictures.  The dialogue draws a page of Aunt Hillary's score-book
 #   \scorebook[view]{caption}                    (pdf/props/ch07.tex)
-# and, when the case is opened, the hall table \halltable{state}{caption}.
+# and, when the case is opened, a step strip of the hall table
+#   \hallsteps[opts]{state}{steps}{captions}     (each frame a \halltable)
 # The Lua COMPUTES Bob's strokes by the pair game's rule from the four words
 # of each row (the notes alike, save east door with west lid, when unlike);
 # the rows are the identity card's (section 3, M1 and M2), a fiction (section
 # 9): the page is checked for what it shows, and no probability is asserted
-# from it.  tools/props_ch07.py transcribes the Lua; the calls are read out of
-# this challenge's section of dialog.md, never copied.
+# from it.  It computes the hall table after the lid is lifted, and the lid's
+# arc.  tools/props_ch07.py transcribes the Lua (proved against texlua;
+# P.check_lua holds the Lua and the .tex to the text it was proved on); the
+# calls are read out of this challenge's section of dialog.md and
+# dialog.raw.md, never copied.
 #
 # The state model: east is Alice's column (x: lid 0, door 1), west is Bob's
 # (y: door 0, lid 1), each entry the way asked and the note heard (bright 0,
@@ -138,6 +142,7 @@ def check_transcription():
     """The Lua's stroke rule against the game (a structural check, not a second
     proof): it is the CHSH win rule a xor b = x.y under the card's labelling,
     and the very rule of the First's masks, the left box being Alice's."""
+    P.check_lua()
     ways, notes = ("lid", "door"), ("bright", "dark")
     for ea, eh, wa, wh in itertools.product(ways, notes, ways, notes):
         a, b, x, y = NOTE_BIT[eh], NOTE_BIT[wh], EAST_X[ea], WEST_Y[wa]
@@ -151,31 +156,47 @@ def check_transcription():
     # the handwriting keeps apart the words a reader must tell apart on the page
     assert P.OUTLINES["lid"] != P.OUTLINES["door"] and P.OUTLINES["bright"] != P.OUTLINES["dark"]
     assert P.faults(P.scorebook, "sideways") != [] and P.faults(P.scorebook, "") == []
+    # the hall table's refusals on this section's step
+    assert P.faults(P.halltable, "open=case", "case open") != []        # the lid is up already
+    assert P.faults(P.halltable, "open=lid", "case shut") != []         # case or slip
+    assert P.faults(P.halltable, "case open", "case shut") != []        # no bare word
+
+
+def entries(rows):
+    """The evenings of a page as a multiset: the kind, the two notes, the stroke."""
+    return Counter((r.east[0], r.west[0], r.east[1], r.west[1], r.stroke) for r in rows)
 
 
 def pictures(cos2):
     check_transcription()
-    p21, p22, p23, p24 = DIALOGUE.check_layout("Second", sizes=[1, 1, 1, 1])
-    assert [c.macro for c in (p21, p22, p23, p24)] == ["scorebook"] * 3 + ["halltable"]
-    for c in (p21, p22, p23, p24):
-        assert words_only(c.caption, forbidden=P.NOT_IN_CAPTIONS), c.caption
-    assert not P.quantity_words(p24.caption)   # the wire-objects
-    b21, b22, b23, t24 = (P.picture(c) for c in (p21, p22, p23, p24))
+    found = P.check_section(DIALOGUE, "Second", sizes=[1, 1, 1, 1], frames=[1, 1, 1, 2])
+    (p21, [(b21, _)]), = found[0]
+    (p22, [(b22, _)]), = found[1]
+    (p23, [(b23, _)]), = found[2]
+    (p24, [(t12, cap12), (t13, cap13)]), = found[3]
+    assert [c.macro for c in (p21, p22, p23, p24)] == ["scorebook"] * 3 + ["hallsteps"]
+    assert (cap12, cap13) == ("lid down", "in their nests")
     sec = DIALOGUE.section("Second")
 
-    a1, a2, a3, a4 = P.anchors(DIALOGUE, "Second")
-    assert a1.startswith("**Anteater:** And here is the book he and Alice filled.")
-    assert ("Each of them wrote down the way they were asked and the note they heard; "
-            "Bob's stroke goes in the space between.") in a1
-    assert a2.startswith("**Tortoise:** Let Bob draw a stroke for every evening they won")
-    assert "to the last page of the book, where Bob wrote the same evenings out again sorted by kind" in a2
-    assert a2.endswith("Lid-and-door here, lid-and-lid here, door-and-door, door-and-lid. Count each heap.")
-    assert a3.startswith("**Anteater:** Ask the book.")
-    assert "He turns back to the page the book lay open at and covers Alice's column with his hand" in a3
-    assert "Inside, in three shaped nests, lie three small brass boxes." in a4
-    paras = P.paragraphs(DIALOGUE, "Second")
-    after = paras[[i for i, q in enumerate(paras) if "\\halltable" in q][0] + 1]
-    assert after == "**Tortoise:** These never lose."            # the exit hook, right after
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        a1, a2, a3, a4 = DIALOGUE.anchors("Second", path)
+        assert a1.startswith("**Anteater:** And here is the book he and Alice filled.")
+        assert ("Each of them wrote down the way they were asked and the note they heard; "
+                "Bob's stroke goes in the space between.") in a1
+        assert a2.startswith("**Tortoise:** Let Bob draw a stroke for every evening they won")
+        assert "to the last page of the book, where Bob wrote the same evenings out again sorted by kind" in a2
+        assert a2.endswith("Lid-and-door here, lid-and-lid here, door-and-door, door-and-lid. Count each heap.")
+        assert a3.startswith("**Anteater:** Ask the book.")
+        assert "He turns back to the page the book lay open at and covers Alice's column with his hand" in a3
+        assert "Inside, in three shaped nests, lie three small brass boxes." in a4
+        (after,) = [a for b, a in zip(DIALOGUE.blocks("Second", path), DIALOGUE.following("Second", path))
+                    if b[0].macro == "hallsteps"]
+        assert after == "**Tortoise:** These never lose."            # the exit hook, right after
+    # the direction edited this round (D3: the heaps are the open page and the page facing it)
+    P.check_edits(DIALOGUE, "Second", [
+        ("the Tortoise turns from the open page, where the evenings run in the order they fell,",
+         "the Tortoise turns from the open page and the page facing it, where the evenings run "
+         "in the order they fell,")])
 
     # no picture among the COECKE carriers, the hooks that rule the book, or the wedge line
     first_block = sec.index("\\begin{center}")
@@ -209,13 +230,24 @@ def pictures(cos2):
     losses = [[i for i, r in enumerate(b22.rows) if r.heap == k and not r.stroke] for k in range(4)]
     assert [l[0] - 6 * k for k, l in enumerate(losses)] == [2, 4, 1, 5]   # a different row each
     assert "About the same in each." in sec and "There is no heap they gave up." in sec
-    # "the same evenings out again sorted by kind": the open page's evenings, by kind,
-    # are among the heaps' (not a stroke added or lost), its two losses among theirs
+    # "the same evenings out again sorted by kind -- not a stroke added or lost" (D3): the
+    # heaps' twenty-four evenings are the open page's twelve and the facing page's twelve.
+    # The open page's evenings, kind by kind, are among the heaps'; what is left is the
+    # facing page (never drawn): twelve evenings, ten strokes; and 10 + 10 = 20
+    assert "turns from the open page and the page facing it" in sec
+    assert "not a stroke added or lost" in sec
     for k, kind in enumerate(KINDS):
         page = Counter((r.east[1], r.west[1], r.stroke) for r in b21.rows
                        if (r.east[0], r.west[0]) == kind)
         heap = Counter((r.east[1], r.west[1], r.stroke) for r in b22.rows if r.heap == k)
         assert not page - heap, kind
+    page, heaps = entries(b21.rows), entries(b22.rows)
+    assert not page - heaps                                        # the open page, all of it
+    facing = heaps - page
+    assert sum(facing.values()) == 12 == len(b21.rows) == len(P.OPEN)
+    assert sum(n for e, n in facing.items() if e[-1]) == 10        # its strokes
+    assert sum(b22.column("stroke")) == sum(b21.column("stroke")) + 10 == 20
+    assert page + facing == heaps                                  # not one added or lost
 
     # P2.3: the open page, Alice's column under the Anteater's hand; Bob's alone
     assert not p23.keyed and b23.view == "east covered" and b23.covered == ("east",)
@@ -227,14 +259,50 @@ def pictures(cos2):
         assert len(col) == 6 and sum(col) == 3
     assert sum(r.east[1] == "dark" for r in b23.rows) == 7       # Alice's: near enough
     assert "Bob's own notes, whatever Alice was asked that evening: bright and dark, near enough half and half" in sec
+    assert not any(b.marked or b.step for b in (b21, b22, b23))  # a page turned moves no piece
 
-    # P2.4: the hall table, keyed; the case open, the boxes in their nests; the
-    # envelopes sealed, names up, left to right; the slip folded under its glass
-    assert p24.keyed and t24.labels == ("the case", "the slip", "the envelopes")
-    assert t24.trio == "case open" and t24.case_lid == "up" and t24.nests == ("box",) * 3
-    assert t24.cloth == () and t24.deal == () and not t24.spent
-    assert t24.envelopes == "sealed" and t24.envelope_faces == P.WHO
-    assert t24.slip == "sealed" and t24.glass == "on the slip" and t24.slip_shows is None
+    # Block 2.4: the hall table, the case shut and then opened.  F12, keyed, is the
+    # before-frame (the first hall table: the case on the table since the opening); F13
+    # the lid lifted, the boxes in their nests; the envelopes sealed, names up, left to
+    # right; the slip folded under its glass, in both
+    assert [(s.opts, s.state, s.keyed) for s in P.frames_of(p24)] == [
+        ("keyroom=on", "case shut", True), ("open=case; keyroom=on", "case shut", False)]
+    assert "Before the case is opened at all" in DIALOGUE.section("First")
+    assert p24.keyed and t12.keyed and not t12.phantom
+    assert t12.labels == ("the case", "the slip", "the envelopes")
+    assert t12.trio == "case shut" and t12.case_lid == "down" and t12.nests == ()
+    assert not t12.marked and t12.step is None
+    assert t13.trio == "case open" and t13.case_lid == "up" and t13.nests == ("box",) * 3
+    for t in (t12, t13):
+        assert t.cloth == () and t.deal == () and not t.spent
+        assert t.envelopes == "sealed" and t.envelope_faces == P.WHO
+        assert t.slip == "sealed" and t.glass == P.GLASS0 and t.slip_shows is None
+    # frame 2 keeps the key's room: the labels as vertical phantoms, and both frames keep
+    # the room of the labels at their highest (the case's label, up with the lid)
+    assert not t13.keyed and t13.phantom and t13.labels == t12.labels
+    assert all("\\vphantom{" + l + "}" in n for n, l in zip(t13.label_nodes, t13.labels))
+    assert t12.keymax and t13.keymax and t12.label_nodes[3:] == t13.label_nodes[3:]
+    # its marks: the lid's swing arc and nothing else -- from the lid's front edge at the
+    # case's right end, up to where its edge stands now, bowed out to the right and short
+    # of the slip
+    assert t13.step == ("open", "case") and t13.ghosts == [] and t13.pins == []
+    (lid,) = t13.arcs
+    assert lid.kind == "swing" and lid.tag == "lid up"
+    assert np.isclose(lid.start[0], P.CX1 - 0.07) and np.isclose(lid.end[0], P.CX1 - 0.07)
+    assert np.isclose(lid.start[1], P.CY0 + 0.06) and lid.end[1] > P.CY1      # up past the case
+    xs = [q[0] for q in lid.points()]
+    assert max(xs) > P.CX1 and max(xs) < P.SLIPX[0]                           # out, short of the slip
+
+    # the log the pictures write, line for line as the build writes it
+    assert P.section_dumps(found) == [
+        "scorebook: [open] | strokes 10 of 12",
+        "scorebook: [heaps] | strokes 20 of 24",
+        "scorebook: [east covered] | strokes 10 of 12, east under the hand",
+        "hallsteps: strip of 2 frames",
+        "halltable: {case shut} | trio case shut, envelopes sealed, slip sealed",
+        "halltable: [open=case; keyroom=on] {case shut} | trio case open, envelopes sealed, slip sealed",
+        "halltable: + step open=case -> {case open; envelopes sealed; slip sealed}",
+        "halltable: + arc lid up"]
 
 
 # --------------------------------------------------------------------------

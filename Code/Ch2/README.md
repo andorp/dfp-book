@@ -42,47 +42,120 @@ paired with a non-zero check that the same comparison does distinguish. And the 
 dialogue, $(3/5,4/5)$ and its non-real cousin $(3/5,4i/5)$, have no exact picture built from
 these nodes; they are checked on the blackboard only, and each file says so in a comment.
 
-**The pictures in the dialogue.** The dialogue draws its props at the moments that matter —
-twenty pictures in nineteen blocks — with five macros: the pale and the dark string with their
-start and closing tags (`\echostrings{pale}{dark}{caption}`), the pale string's reading close up,
-cross-sheet, card and matches (`\crosssheet{arrow}{position}{read}{caption}`), the dark string's
-reading, start laid over closing tail on tail (`\tailontail{start}{closing}{caption}`), a strip
-(`\sharestrip{share}{caption}`) and the five-by-five outline (`\fivesquare{laid}{caption}`). The
-macros live in `pdf/props/ch02.tex` and `ch02.lua`, and the Lua *computes* what a picture shows:
-the dark string's tags under `echo`, where each tag hangs and by which corner it is knotted,
-every reach with its sign, where the card's foot falls, the whole matches and the snapped piece,
-where the little squares lie, how many parts of a strip are shaded, how the outline fills. Each
-file reads the calls out of its own `## <Ordinal> Challenge` section of `chapter02/dialog.md`
-(never a copy: an edit that breaks a picture breaks the file), and in `blackboard()` checks
-them against the chapter's state model, built from the very columns the blackboard uses: an
-arrow is a real state times its length in matches (the three-and-four arrow is $5T$, heads-ward
-and tails-ward $5\ket0$ and $5\ket1$, the slant and the back-slant $\sqrt2\ket+$ and
-$\sqrt2\ket-$, the arrow reversed $-5T$); a line of the sheet is an answer (square: $\ket0$,
-$\ket1$; turned: $\ket-$ on line A, where heads-ward swung to, and $\ket+$ on line B; Achilles's
-own position the square sheet swung $20^\circ$; along: the arrow's own line). A reach is the
-amplitude times the length, sign included, and its square over the length squared is the Born
-value.
+**The pictures in the dialogue.** The dialogue draws its props at the moments that matter, and
+shows a process as a strip of frames: 27 calls in 21 blocks, 31 frames, four of the blocks step strips. There are six macros.
+`\echostrings{pale}{dark}{caption}` draws the pale and the dark string with their start and
+closing tags. `\crosssheet[opts]{arrow}{position}{read}{caption}` draws the pale string's
+reading close up: cross-sheet, card and matches. `\crosssteps[opts]{arrow}{position}{read}{steps}{caption; ...}`
+is a step strip of that reading, one frame per step. `\tailontail[show]{start}{closing}{caption}`
+draws the dark string's reading, the start laid over the closing tail on tail. Then there are
+the strip, `\sharestrip[opts]{share}{caption}`, and the five-by-five outline,
+`\fivesquare[opts]{laid}{caption}`. The macros live in `pdf/props/ch02.tex` and `ch02.lua`. The
+Lua *computes* what a picture shows:
 
-The part of `ch02.lua` that decides what is drawn is transcribed (everything but the drawing),
-and its faults — an unknown word, a line read under the wrong position, squares on a reach that
-is not whole, halves round an arrow whose reaches are not one match each, `echo` without both
-pale tags — are recorded as the Lua's `tex.error` records them. The transcription is first
-checked against the model on *every* arrow word, turned end for end or not, under every position
-of the sheet and every reading, not only on the dialogue's own pictures: every reach is
-$\langle\text{line}|\text{arrow}\rangle$; the card's foot is the perpendicular from the tip; the
-matches add up to the reach and lie its way; the squares number reach$^2$ and lie on the side of
-their reach away from the arrow, behind the crossing when it is backwards; the halves close into
-area $2$; a fault arises exactly where the model says the paper cannot be laid; an `echo` is the
-pale pair with its ends exchanged, and the dark string's number (start over closing) is the pale
-string's, sign included; the outline never gains or loses a square. Then each picture is checked
-against the scene at its moment and against the reading recorded for it on the identity card
-(§3b). The files also check the card's layout rules: the only starred pictures are the first
-of each prop or of each labelling (the strings, the square sheet, the start over closing, the
-strip, the turned sheet, the outline), and no other; every caption is words only and never
-counts or names the strings in the plural; no argument holds a digit; every block is a paragraph
-of its own (never inside a stage direction), holds at most four pictures and at most one pair of
-strings; the optional strip beside the start tag is never drawn; no picture stands outside a
-challenge section; and every block appears identically in `chapter02/dialog.raw.md`.
+- the dark string's tags under `echo`, and where each tag hangs;
+- every reach with its sign, where the card's foot falls, the matches and the snapped piece;
+- the little squares, the cut, and the halves closed round the slant;
+- the shaded parts of a strip, and how the outline fills;
+- each frame of a step strip, computed from the frame before;
+- the motion marks of a step:
+  - the swung sheet's old lines and their arcs (`swung=`);
+  - the square turned end for end, its old arrow dotted (`endforend=on`);
+  - the halves that moved, ghosted where they lay (`marks=on`, which the `close` step sets);
+  - the squares taken from their blocks (`from=`);
+- and, drawn pale, what a named wrong rule predicts (`expects=coin|sum|bookkeeping` on the
+  sheet, `expects=reaches` on the strip). A prediction stands level beside the true picture
+  with `deep=on`, which is allowed on the prediction strip and on no keyed strip.
+
+`tools/props_ch02.py` is a transcription of `ch02.lua`: everything but the drawing. It covers
+every `tex.error` site (47 of them, listed in `TEX_SITES`) and every `\typeout` dump; a call's
+faults are recorded in `TEX_ERRORS`, in the Lua's order and with the Lua's duplicates.
+It was proved against the Lua itself, and proved again when the pins below were added. A
+driver ran `ch02.lua` under `texlua` with `tex` stubbed. It made 61,911 calls: the 54 dialogue
+calls of `dialog.md` and `dialog.raw.md`, 57 aimed calls that between them raise all 47 sites,
+and 61,800 random calls over five seeds. Those calls expanded 27,622 step-strip frames, and the
+driver also ran 43,775 probes of the Lua's exported model (rules, positions, moves, frames,
+blocks). The Python agreed byte for byte in every error message, dump line, keyed label and
+frame expansion. It also agreed on the counts of what each picture draws, and on the geometry
+that no dump carries: the card's foot, the end-for-end ghost and its half-turn, the swing arcs,
+the halves' travel and the outline's ghosts. Every site was raised, and the Lua raised no Lua
+error. The 35 dump lines of the real chapter build log are byte-identical to the
+transcription's.
+
+**The pins.** Each file calls `props_ch02.check_lua()` at the start of `pictures()`. It holds `ch02.lua` and `ch02.tex` to the text the
+transcription was proved against, by hash:
+
+- `LUA_PINS` covers the Lua's 66 top-level chunks, with comments left out and white space
+  closed up outside strings;
+- `COMMENT_PINS` covers the Lua's two comments that quote the dialogue (the wrong rules coin,
+  sum, bookkeeping and reaches);
+- `TEX_PINS` covers the 45 chunks of the `.tex`.
+
+A drawing-only change, a style-only change or a reworded quote fails all six files, and the
+failure names the chunk. Any other comment may be reworded freely. After a prop edit, prove the
+transcription again, then renew the pins with `lua_pins()`, `comment_pins()` and `tex_pins()`.
+The check does not run at import, so the module still loads for that.
+
+Each file reads the calls out of its own `## <Ordinal> Challenge`
+section through `tools/dfp_props.py`: `Dialogue(__file__, macros=(six))`. It never reads a
+copy, so an edit that breaks a picture breaks the file. `check_dialogue` checks the card's
+layout rules once for the whole dialogue:
+
+- the key goes on the first picture of each kind (`keyed_first`). Predictions, and pictures with
+  the sheet off, along the arrow or in Achilles's own position, are left out of that count;
+- exactly six pictures are starred, the six of `identity.md` §3e.2;
+- every block sits in its own paragraph and appears identically in `dialog.raw.md`;
+- no picture stands outside a challenge section.
+
+`check_section` then checks each section:
+
+- at most four moments, and each block has the expected number of calls and frames;
+- at most four frames in a row, and at most one pair of strings per block;
+- no digit in any argument, and the optional strip beside the start tag is never drawn;
+- every caption, and every caption of a strip separated by `;`, is words only, without
+  "strings", "wires", "wire", "both" or "pair";
+- in both dialogue files, no caption repeats a two-word phrase of the paragraph that follows its
+  block.
+
+Each file keeps its own state model and checks every picture of its section against it. The
+model is built from the very columns the blackboard uses. An arrow is a real state times its
+length in matches: the three-and-four arrow is $5T$, heads-ward and tails-ward are $5\ket0$ and
+$5\ket1$, the slant and the back-slant are $\sqrt2\ket+$ and $\sqrt2\ket-$, and the arrow
+reversed is $-5T$. A line of the sheet is an answer:
+
+- square: $\ket0$, $\ket1$;
+- turned: $\ket-$ on line A, where heads-ward swung to, and $\ket+$ on line B;
+- Achilles's own: the square sheet swung $20^\circ$;
+- along: the arrow's own line.
+
+A reach is the amplitude times the length, sign included, and its square over the length
+squared is the Born value. The model also gives:
+
+- a step's marks: the swing's signed angle the short way round, the end-for-end turn $a\mapsto-a$
+  about the square's centre, and the least-travel assignment of the halves by brute force;
+- each named wrong rule, written out from Achilles's own words, so that each prediction equals
+  the rule *and* differs from the true frame.
+
+The files first check the transcription against the model on every arrow word, under every
+position and reading, and not only on the dialogue's own pictures. Then each frame is checked
+against the scene at its moment and against the reading on the identity card (§3b). The stage
+directions a frame stands for are checked too, in both dialogue files.
+
+Mutation tests ran on a scratch copy of the chapter, each mutation applied to both dialogue
+files, and all 34 were caught. They included:
+
+- a step dropped from `\crosssteps`;
+- `swung=` or `endforend=on` removed;
+- an `expects=` rule swapped;
+- `deep=on` removed from block 2.4, or moved onto its starred strip;
+- `[laid]` changed to `[card]`;
+- a caption removed from a strip;
+- a block caption made to echo its next paragraph;
+- a star moved;
+- a wrong arrow or position;
+- `from=` broken;
+- a share changed;
+- the prose of a step changed in one file only.
 
 The first two files close a wire and find first a number and then, from the number and its
 mirror twin, a chance. The next three put a minus sign where one question cannot see it, where
@@ -117,19 +190,30 @@ assert closed.inputs() == () and closed.outputs() == ()
 assert np.allclose(matrix_of(psi + e), matrix_of(e) @ matrix_of(psi))
 ```
 
-Its two pictures, both keyed. The strings: last evening's arrow at the pale string's left end,
-the heads-ward square carried to the right-hand end as it lies and knotted by its far
-right-hand corner, so that it hangs on the near side; the dark string bare. The mirror gesture
-is asserted as the macro computes it — the closing square is the start square turned half round
-about the string's midpoint, while its arrow keeps its heading and its place in its own square.
-Then the cross-sheet, square, its heads-ward line along the closing tag's arrow: three whole
-matches, the card's foot at three, the arrow five.
+Its two moments, both keyed. The strings: last evening's arrow at the pale string's left end,
+and the heads-ward square carried to the right-hand end as it lies and knotted by its far
+right-hand corner, so that it hangs on the near side. The dark string is bare. The mirror
+gesture is asserted as the macro computes it: the closing square is the start square turned
+half round about the string's midpoint, while its arrow keeps its heading and its place in its
+own square. Then comes the evening's first reading, as a three-frame strip:
+
+1. the cross-sheet laid square, its heads-ward line along the closing tag's arrow, with the key
+   on this frame only;
+2. the card dropped from the tip, its foot at three;
+3. three whole matches.
+
+Each frame is the model after that many steps. The last frame is the plain reading of the
+sheet, dump for dump. A sweep runs the same three-step strip on every arrow, position and line.
+It also checks the coin rule, which the dialogue does not draw: the whole arrow handed to the
+line, and not three.
 
 ```python
-check_mirror_gesture(es, "pale")
-assert np.isclose(number, amplitude_reach(5 * T, ket(0))) and np.isclose(number, 3)
-assert np.allclose(cs["e"]["A"], closing["u"])                    # the line the question asks
-assert laid(cs["rows"]["A"]) == (3, 0, 1) and set(cs["rows"]) == {"A"}   # three whole, forward
+states = model_reading(5 * T, ket(0), ["card", "matches"])
+for (pic, _), state in zip(steps, states):
+    check_frame(pic, 5 * T, lines, "A", state)
+assert [p.keyed for p, _ in steps] == [True, False, False]        # the key on the first frame
+assert laid(read_.rows["A"]) == (3, 0, 1) and set(read_.rows) == {"A"}   # three whole, forward
+assert (old.dump, old.rows, old.card.line) == (read_.dump, read_.rows, read_.card.line)
 ```
 
 ## 2. Why Squares — `Ch2/Squares.py`   *(the master diagram, first drawn)*
@@ -160,18 +244,28 @@ assert np.isclose(left, -1 / np.sqrt(2)) and np.isclose(right, left)
 assert np.isclose(gr, np.conj(gl)) and not np.isclose(gr, gl)
 ```
 
-Its four pictures. The dark string tagged by `echo` (never written out): the pale pair with its
-ends exchanged, each string's tags obeying the mirror gesture, the dark number equal to the pale
-one, three. The dark string's reading (keyed): the heads-ward start over the three-and-four
-closing — the dark string's own two tags — three matches forward. The little squares: nine and
-sixteen, each block on the side of its reach away from the arrow, the two blocks disjoint, no
-card once paper is laid. The strip (keyed): nine of twenty-five parts shaded from the knot, the
-Born value of $T$ for $0$ and not three in five.
+Its four moments.
+
+1. The dark string, tagged by `echo` (never written out): the pale pair with its ends exchanged,
+   each string's tags obeying the mirror gesture.
+2. The dark string's reading as three frames, the key on the first: the start laid tail on tail,
+   the card dropped, three matches. These are the dark string's own two tags, at each stage of
+   the model, in the order she made them.
+3. The little squares, one picture: nine and sixteen laid on the bare reaches, each block on the
+   side of its reach away from the arrow. No card stands on this sheet, and the matches are those
+   of the bare reading: only paper has been added.
+4. Achilles's prediction beside the true strip. Drawn pale and level (`deep=on`), it applies his
+   rule that each reach is its own share: the strip folded in five, three shaded, the tails' four
+   running two past the paper's end. That is exactly his rule, and refuted by the keyed strip,
+   which has nine of twenty-five parts shaded: the Born value of $T$ for $0$, not three in five.
 
 ```python
-assert same_arrow(tags["dark start"], 5 * ket(0)) and same_arrow(tags["dark closing"], 5 * T)
-assert np.isclose(tt["number"], 3) and np.isclose(tt["number"], pale)   # identity 3b: 3
-assert (len(nine), len(sixteen)) == (9, 16) and len(nine) + len(sixteen) == 25
+assert shows == ["laid", "card", "matches"]                         # in the order she did it
+assert cs.read == {"A", "B", "squares"} and cs.card is None        # no card stands here
+assert bare.rows == cs.rows                                        # the matches do not move
+assert (p.folded, p.heads, p.tails, p.parts, p.past_end) == (5, 3, 4, 7, 2)
+assert expected.deep is True and ss.deep is None                  # level beside the key
+assert Fraction(p.heads, p.folded) != heads and p.parts > p.folded  # the prediction is refuted
 assert np.isclose(float(heads), abs(np.vdot(ket(0), T)) ** 2)     # the Born value, 9/25
 ```
 
@@ -200,17 +294,35 @@ assert np.allclose(matrix_of(zero_diagram), 0)
 assert np.isclose(matrix_of(one_diagram)[0, 0], 1)
 ```
 
-Its three pictures. The slant under the square sheet: one match each way, and the four
-half-squares closed into the square on the slant, area two, on its tails-ward side — nothing
-over. The back-slant, its tail at the far left-hand corner: heads-ward one, tails-ward one
-*backwards*, the card's foot behind the crossing. The back-slant again with a little square on
-each reach, the tails-ward one behind the crossing: the shares are one in two, exactly the
-slant's, although one reach has changed its sign — the trap's evidence, asserted both ways.
+Its three moments.
+
+1. A three-frame strip of the slant under the square sheet, one match each way:
+   1. a little square on each reach;
+   2. each square cut from the crossing to its far corner, where it lies;
+   3. the four halves closed into the square on the slant, on its tails-ward side, area two,
+      nothing over.
+
+   The direction just before the strip, in which Achilles takes the matches back off the slant's
+   own arrow and sets out the little squares, is anchored too: nothing is drawn on the arrow.
+   The close carries its marks: the little squares ghosted where they lay, and an arc for each
+   half that moved. The file finds each half's place itself, by brute force over the 24
+   assignments, and checks that the least travel is unique. Three halves move. One stays: the
+   tails-ward square's half, which already lay against the tails-ward reach. Its edge from the
+   crossing is that reach, and no edge of it lies along the slant.
+2. The back-slant, its tail at the far left-hand corner: heads-ward one, tails-ward one
+   *backwards*, the card's foot behind the crossing.
+3. The back-slant again, with a little square on each reach. The shares are one in two, exactly
+   the slant's, although one reach has changed its sign. That is the trap's evidence, asserted
+   both ways.
 
 ```python
-assert np.isclose(area, cs["reach"]["A"] ** 2 + cs["reach"]["B"] ** 2)   # made of those two
-assert b["card"]["line"] == "B" and b["card"]["out"] == -1         # the card at the tails-ward line
-assert np.isclose(cs["reach"]["B"], -s["reach"]["B"])
+cs = check_cut_strip(cut_frames, SLANT)                           # every frame, every mark
+assert cs.moved == 3 and [m.moved for m in cs.moves] == [True, True, False, True]
+assert stay.square == "B" and same_place(stay.frm, stay.to)       # it lies in its place
+assert has(stay.frm, np.zeros(2)) and has(stay.frm, tails_end)
+assert not (has(stay.frm, np.zeros(2)) and has(stay.frm, cs.arrow.v))   # no edge along the slant
+assert b.card.line == "B" and b.card.out == -1                    # the card at the tails-ward line
+assert np.isclose(cs.reach["B"], -s.reach["B"])
 assert np.allclose(shares, [abs(np.vdot(ket(k), PLUS)) ** 2 for k in (0, 1)])
 ```
 
@@ -242,22 +354,33 @@ assert np.isclose(value, abs(np.vdot(vec, col)) ** 2)
 assert not same_picture(echo(plus, minus), echo(plus, plus))
 ```
 
-Its four pictures, in three blocks. The turned sheet (keyed, with its own line names): the
-back-slant asked along the slant's line has no reach — the card's foot on the crossing, no
-matches — and lies wholly along the other. The file asserts the sense of the turn: line A is
-$\ket-$, the heads-ward line come round toward the two of them; swung the other way the
-back-slant's whole arrow would lie backwards along its line, contrary to the dialogue. The two
-strips: under the turned sheet the share from the knot is line A's, so the back-slant's strip
-is all dark and the slant's all white — $|\langle -|-\rangle|^2$ and $|\langle -|+\rangle|^2$.
-Last, the three-and-four arrow under the turned sheet: just short of five along the slant's line
-(four matches and a nearly whole piece), short of one match backwards along the back-slant's.
+Its six pictures, in four blocks.
+
+1. The turned sheet, keyed, with its own line names, just swung (`swung=square`) about the
+   crossing from where it lay under the last picture of the Third. The old lines are drawn where
+   they were. The swing is $-45^\circ$, clockwise, the short way round, so the heads-ward line
+   comes round toward the two of them, onto the back-slant. Swung the other way, the
+   back-slant's whole arrow would lie backwards along its line, contrary to the dialogue.
+2. Achilles's prediction (`expects=bookkeeping`, every backwards reach counted forwards), beside
+   the true reading of the back-slant along the slant's line. The prediction lays the whole
+   arrow, one match and a nearly whole piece. The truth is no reach: the card's foot on the
+   crossing, and no matches.
+3. The two strips, captioned "the back-slant's strip" and "the slant's strip". Under the turned
+   sheet the share from the knot belongs to line A, so the back-slant's strip is all dark and
+   the slant's all white: $|\langle -|-\rangle|^2$ and $|\langle -|+\rangle|^2$.
+4. The three-and-four arrow under the turned sheet: just short of five along the slant's line
+   (four matches and a nearly whole piece), and short of one match, backwards, along the
+   back-slant's.
 
 ```python
-assert np.isclose(cs["theta"], -45) and cs["e"]["A"][1] < 0
-assert np.isclose(abs(BACK.real @ other), cs["arrow"]["L"]) and BACK.real @ other < 0
+d, ghosts = model_swing("square", "turned", BACK)
+assert np.isclose(swung.swing, d) and np.isclose(d, -45)          # an eighth, clockwise
+assert swung.swung == P.norm(before.args[1]) == "square"           # swung from where it lay
+want = amplitude_reach(as_bookkeeping(BACK), PLUS)
+assert np.isclose(expected.laid["B"], want) and np.isclose(want, np.linalg.norm(BACK))
+assert not np.isclose(expected.laid["B"], cs.reach["B"])           # the prediction is refuted
 assert shares == [1, 0]                                           # all dark, all white
-assert laid(t["rows"]["B"]) == (4, 0.95, 1)                        # four and a nearly whole piece
-assert laid(t["rows"]["A"]) == (0, 0.71, -1)                       # a piece behind the crossing
+assert laid(t.rows["A"]) == (0, 0.71, -1)                          # a piece behind the crossing
 ```
 
 ## 5. The Arrow Reversed — `Ch2/Reversed.py`
@@ -285,20 +408,27 @@ assert same_picture(echo(primed, b), echo(psi, b))
 assert np.allclose(matrix_of(with_phase(psi, Fraction(1))).ravel(), -col)
 ```
 
-Its three pictures, all of the arrow reversed — the square turned end for end, its tail at what
-had been the far corner. Square sheet: three and four backwards, and the nine and the sixteen
-built again behind the crossing, the old blocks turned round. Turned sheet: just short of five
-backwards, the sliver forwards now, every square as before. Achilles's own position, the sheet
-swung twenty degrees with the heads-ward line tipped away from them: $-4.19$ and $-2.73$, and
-the both-ways row for the square turned back, $+4.19$ and $+2.73$ — the same lengths, each on
-the other side of the crossing.
+Its four moments.
+
+1. The square turned end for end (`endforend=on`), the sheet lifted aside. The reversed arrow is
+   inked, and the arrow it was is dotted where it lay: that is P4.4's arrow, and `flip_arrow`
+   of the square it was. The half-turn about the square's centre carries the old tail onto the
+   new tail and the old tip onto the new tip, clockwise.
+2. Then three readings of the arrow reversed. The square sheet: three and four backwards, and
+   the nine and the sixteen built again behind the crossing, the old blocks turned round.
+3. The turned sheet: just short of five backwards, the sliver forwards now, every square as
+   before.
+4. Achilles's own position, the sheet swung twenty degrees with the heads-ward line tipped away
+   from them: $-4.19$ and $-2.73$. Beside them is the both-ways row for the square turned back,
+   $+4.19$ and $+2.73$: the same lengths, each on the other side of the crossing.
 
 ```python
-assert same_arrow(a, REV) and a["corner"] == "fr"
-assert {tuple(np.round(-c, 6)) for c in t["squares"][l]} == \
-       {tuple(np.round(c, 6)) for c in sq["squares"][l]}     # the same block, turned round
-assert laid(ow["rows"]["A"]) == (4, 0.19, -1) and laid(ow["rows"]["B"]) == (2, 0.73, -1)
-assert laid(ow["back_rows"]["A"]) == (4, 0.19, 1) and laid(ow["back_rows"]["B"]) == (2, 0.73, 1)
+was = check_turned_square(turn, REV)                               # a -> -a, tail to tail, tip to tip
+assert np.allclose(was, before.arrow.v)                           # P4.4's arrow, dotted
+assert P.norm(c_turn.args[0]) == P.flip_arrow(before.arrow.name)
+assert {tuple(np.round(-c, 6)) for c in t.squares[l]} == \
+       {tuple(np.round(c, 6)) for c in sq.squares[l]}             # the same block, turned round
+assert laid(ow.back_rows["A"]) == (4, 0.19, 1) and laid(ow.back_rows["B"]) == (2, 0.73, 1)
 ```
 
 ## 6. The Whole Square — `Ch2/WholeSquare.py`   *(The Theorem, Twice)*
@@ -329,16 +459,27 @@ total = sum(matrix_of(echo(psi, b))[0, 0] for b in question)
 assert np.isclose(total, whole) and np.isclose(total, 1)
 ```
 
-Its four pictures. The sheet turned until a line lies along the arrow: the card's foot on the
-arrow's own tip, five in five, and no reach across. The arrow at both ends of the pale string
-and, by `echo`, of the dark: both numbers five. The outline (keyed), empty, with the
-three-by-three and the four-by-four beside it — the very blocks laid in the Second Challenge,
-read from that section's picture. Then the outline filled: twenty-five squares on twenty-five
-cells, nothing left of either block, the square on the arrow asked about itself.
+Its four moments.
+
+1. The sheet turned until a line lies along the arrow: the card's foot on the arrow's own tip,
+   five in five, and no reach across.
+2. The arrow at both ends of the pale string and, by `echo`, of the dark: both numbers five.
+3. The outline, keyed and empty, with the three-by-three and the four-by-four beside it. These
+   are the very blocks laid in the Second Challenge, read from that section's picture.
+4. The re-laying as a step pair. First the nine, from the near left-hand corner, row filling
+   into row, with the three-by-three ghosted where it stood (`from=empty`). Then the sixteen,
+   with the four-by-four ghosted (`from=nine`). In the end there are twenty-five squares on
+   twenty-five cells and nothing left of either block: the square on the arrow, asked about
+   itself.
+
+The file's own re-laying model fixes every cell, every square taken and every ghost's place,
+for any count from any smaller one.
 
 ```python
-assert np.allclose(cs["card"]["foot"], cs["arrow"]["v"])           # on the arrow's own tip
-assert (len(then["squares"]["A"]), len(then["squares"]["B"])) == (f0["left9"], f0["left16"])
-assert sorted(f1["laid"]) == [(x, y) for x in range(5) for y in range(5)]
-assert np.isclose(len(f1["laid"]), cs["reach"]["A"] ** 2)          # the square on the arrow
+assert np.allclose(cs.card.foot, cs.arrow.v)                       # on the arrow's own tip
+assert (len(then.squares["A"]), len(then.squares["B"])) == (f0.left9, f0.left16)
+check_outline(f1, 9, 0)
+check_outline(f2, 25, 9)
+assert {b for b, _, _ in f2.ghosts} == {16} and len(f2.ghosts) == 16 and (f2.left9, f2.left16) == (0, 0)
+assert np.isclose(len(f2.laid), cs.reach["A"] ** 2)                # the square on the arrow
 ```

@@ -8,12 +8,13 @@ keeps the promise is a phase times a Z-turn, an X-turn and a Z-turn.
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools"))
 
-import re
 from fractions import Fraction
 
 import numpy as np
 import pyzx as zx
 from dfp import Picture, matrix_of, random_matrix, same_picture, verdict
+from dfp_props import Dialogue
+import props_ch03 as P
 
 
 
@@ -216,46 +217,20 @@ def home_in_three(M):
 
 
 # --------------------------------------------------------------------------
-# The pictures.  The dialogue draws the ball with \crabball{glass}{steel}{...}
-# (pdf/props/ch03.tex), in the room's frame: x towards the dresser, y up, z towards
-# the company.  Ours above is x towards the stove, y towards the company, z up;
-# ROOM carries a direction of ours into the room's.  The pictures are read out
-# of this challenge's section of dialog.md, never copied, so an edit to the
-# dialogue that breaks a picture breaks here.
+# The pictures.  The dialogue draws the ball with \crabball[opts]{glass}{steel}{..},
+# a step strip of it with \crabplay[opts]{glass}{steel}{score}{cap; cap; ..}, and
+# the Tortoise's strip with \scorestrip[view]{score}{caption} (pdf/props/ch03.tex).
+# pdf/props/ch03.lua COMPUTES what each shows -- the ball after a score is played,
+# a step strip's frames with their marks, the state a wrong rule predicts, the
+# strip as it now lies -- and tools/props_ch03.py transcribes it.  The calls are
+# read out of this challenge's section of dialog.md (tools/dfp_props.py), never
+# copied, so an edit to the dialogue that breaks a picture breaks here.  Every
+# state is checked against the model above.  The pictures use the room's frame
+# (x towards the dresser, y up, z towards the company); ours is x towards the
+# stove, y towards the company, z up, and ROOM carries one into the other.
 # --------------------------------------------------------------------------
-DIALOG = pathlib.Path(__file__).resolve().parents[2] / "dialog.md"
+DIALOGUE = Dialogue(__file__, macros=("crabball", "crabplay", "scorestrip"))
 ROOM = np.array([[-1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, 1.0, 0.0]])
-ROOM_PLACES = {"up": (0, 1, 0), "down": (0, -1, 0), "company": (0, 0, 1),
-               "away": (0, 0, -1), "dresser": (1, 0, 0), "stove": (-1, 0, 0)}
-
-
-def room_direction(arg):
-    """A picture argument read as pdf/props/ch03.lua reads it: a name, or a
-    triple x,y,z scaled to length one."""
-    arg = re.sub(r"\s", "", arg)
-    if arg in ROOM_PLACES:
-        return np.array(ROOM_PLACES[arg], dtype=float)
-    v = np.array([float(t) for t in arg.split(",")])
-    assert v.shape == (3,), arg
-    return v / np.linalg.norm(v)
-
-
-def section(ordinal):
-    """The dialogue's '## <ordinal> Challenge' section, up to the next heading."""
-    text = DIALOG.read_text(encoding="utf-8")
-    heads = list(re.finditer(r"^## " + ordinal + r" Challenge\b.*$", text, re.M))
-    assert len(heads) == 1, ordinal
-    rest = text[heads[0].end():]
-    after = re.search(r"^## ", rest, re.M)
-    return rest[:after.start()] if after else rest
-
-
-def drawn(ordinal):
-    """Every picture of the ball in the dialogue's '## <ordinal> Challenge'
-    section, in order: (keyed, glass, steel, caption)."""
-    macro = r"\\crabball(\*?)\{([^}]*)\}\{([^}]*)\}\{([^}]*)\}"
-    return [(star == "*", room_direction(g), room_direction(s), caption)
-            for star, g, s, caption in re.findall(macro, section(ordinal))]
 
 
 def check_frame():
@@ -263,24 +238,48 @@ def check_frame():
     # clock" would silently become "against"
     assert np.allclose(ROOM.T @ ROOM, np.eye(3)) and np.isclose(np.linalg.det(ROOM), 1)
     for name, u in PLACES.items():                      # all six names agree
-        assert np.allclose(ROOM @ u, room_direction(name)), name
-    assert np.allclose(ROOM @ HOME["glass"], room_direction("up"))       # home
-    assert np.allclose(ROOM @ HOME["steel"], room_direction("company"))
+        assert np.allclose(ROOM @ u, P.vec(name)), name
 
 
-def check_strip(ordinal, moments, keyed_first=False):
-    """The pictures of one challenge against the positions the file computes
-    for those moments, one position per picture, in order."""
-    check_frame()
-    pictures = drawn(ordinal)
-    assert len(pictures) == len(moments), (ordinal, len(pictures))
-    for k, ((keyed, glass, steel, caption), R) in enumerate(zip(pictures, moments)):
-        assert keyed == (keyed_first and k == 0), caption
-        assert np.isclose(glass @ steel, 0), caption    # at right angles
-        assert np.allclose(glass, ROOM @ R @ HOME["glass"]), caption
-        assert np.allclose(steel, ROOM @ R @ HOME["steel"]), caption
-        # the macro draws the brass needle midway; so does the ball
-        assert np.allclose((glass + steel) / np.sqrt(2), ROOM @ R @ HOME["brass"]), caption
+def beads_of(R):
+    """Where the model puts the three beads, in the room's frame."""
+    return {n: ROOM @ R @ HOME[n] for n in HOME}
+
+
+def drawn_at(state, R):
+    """A drawn state (glass, steel, and the brass the macro puts midway) is the
+    model's position R."""
+    return all(np.allclose(state.bead(n), v) for n, v in beads_of(R).items())
+
+
+def triples(arrows):
+    """The transcription's arrows as the model's (needle, clicks, way)."""
+    return [(a.needle, a.clicks, a.sign) for a in arrows]
+
+
+def marked(ball, before, needle, after):
+    """The marks of one step from position `before` to `after`, twirling
+    `needle`: a ghost where each bead that moved stood before, and the hold
+    ring round the bead of the needle held fast -- which did not stir."""
+    m = ball.marks
+    assert m is not None and m.arrow.needle == needle
+    b0, b1 = beads_of(before), beads_of(after)
+    assert drawn_at(m.before, before)
+    assert np.allclose(m.hold, b1[needle]) and np.allclose(m.hold, b0[needle])
+    moved = {n for n in HOME if not np.allclose(b0[n], b1[n])}
+    assert set(m.ghosts) == moved and needle not in moved
+    assert all(np.allclose(m.ghosts[n], b0[n]) for n in moved)
+
+
+def check_turning(seed):
+    """The transcription turns the ball as the model does, on generic scores:
+    the Lua's twirl about the held needle as it lies is the model's."""
+    rng = np.random.default_rng(seed)
+    home = P.State(P.vec("up"), P.vec("company"))
+    for _ in range(100):
+        score = [(str(rng.choice(["glass", "steel", "brass"])), int(rng.integers(1, 3)),
+                  int(rng.choice([-1, 1]))) for _ in range(int(rng.integers(1, 7)))]
+        assert drawn_at(P.play(home, [P.Arrow(n, w, c) for n, c, w in score]), play(score))
 
 
 # --------------------------------------------------------------------------
@@ -370,10 +369,25 @@ def pictured_tumble():
 
 
 def strip():
+    P.check_lua()                                  # the Lua and .tex the transcription was proved on
+    check_frame()
+    check_turning(43)
     # the Tortoise's strip does not appear here: the Fourth's scores are
-    # spoken, never drawn, so its section holds no \scorestrip at all
-    assert section("Fourth").count("\\scorestrip") == 0
-    check_strip("Fourth", pictured_tumble())      # tumbled; glass; steel; glass: home
+    # spoken, never drawn.  One moment: the tumble strip, four frames on one
+    # line, hand-given (the Crab's eyes were shut), no marks.
+    calls = DIALOGUE.check_layout("Fourth", sizes=[4])
+    P.check_rows(DIALOGUE, "Fourth")
+    assert all(c.macro == "crabball" and c.opt == "" and not c.keyed for c in calls)
+    assert [c.caption for c in calls] == ["tumbled", "glass: the steel lies level",
+                                          "steel: the glass on top", "glass: home"]
+    for c, R in zip(calls, pictured_tumble()):    # tumbled; glass; steel; glass: home
+        ball = P.picture(c)
+        assert ball.arrows == () and ball.marks is None and ball.expects is None
+        assert drawn_at(ball.start, R) and drawn_at(ball.after, R)
+    (anchor,) = DIALOGUE.anchors("Fourth")
+    assert anchor.startswith("**Achilles:** *[He does each as she says it")
+    assert DIALOGUE.following("Fourth") == ["**Tortoise:** Glass, steel, glass. It is always enough."]
+
 
 # --------------------------------------------------------------------------
 # The sketchbook.  PyZX draws this with the spiders you meet in Chapter 8.

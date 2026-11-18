@@ -174,6 +174,33 @@ def blackboard():
     pictures()
 
 
+# every frame's dump, in the dialogue's order (the log's, card 3e.6 item 6: r17/build/def/dumps_md.txt)
+FRAME_DUMPS = (
+    # Fourth block 1 frame 1: The pan's answer, laid back
+    'pan | cols=6 rows=2 y=0..1 near=false folded=false; 1:ring green 6 @1,0; 2:ring green 12 @1,1; tie 1-2 '
+    'tubes1 []; cord loose-loose [-0.5,0 5.5,0]; cord loose-loose [-0.5,1 5.5,1]',
+    # Fourth block 1 frame 2: Upper turn carried right
+    'pan,upper slid apart | cols=6 rows=2 y=0..1 near=false folded=false; 1:ring green 0 @1,0; 2:ring green 6 '
+    '@3,0; 3:ring green 12 @1,1; tie 1-3 tubes1 []; cord loose-loose [-0.5,0 5.5,0]; cord loose-loose [-0.5,1 '
+    '5.5,1]',
+    # Fourth block 1 frame 3: The turns slid off
+    'pan,slid apart | cols=6 rows=2 y=0..1 near=false folded=false; 1:ring green 0 @1,0; 2:ring green 6 @3,0; '
+    '3:ring green 0 @1,1; 4:ring green 12 @3,1; tie 1-3 tubes1 []; cord loose-loose [-0.5,0 5.5,0]; cord '
+    'loose-loose [-0.5,1 5.5,1]',
+    # Fourth block 2 frame 1: A harder net
+    'net | cols=6 rows=2 y=0..1 near=false folded=false; 1:ring green 0 @1,0; 2:ring green 0 @3,0; 3:ring green 0'
+    ' @1,1; 4:ring green 0 @3,1; tie 1-2 tubes1 []; tie 2-3 tubes1 []; tie 3-4 tubes1 []; cord loose-1 [-0.5,0 '
+    '1,0]; cord loose-2 [5.5,0 3,0]; cord loose-3 [-0.5,1 1,1]; cord loose-4 [5.5,1 3,1]',
+    # Fourth block 3 frame 1: Out at the ends
+    'net,joiner | cols=6 rows=2 y=0..1 near=false folded=false; 1:ring green 0 @1,0; 2:ring green 0 @3,0; 3:ring '
+    'green 0 @4.2,0; 4:ring green 0 @1,1; 5:ring green 0 @3,1; 6:ring red 0 @4.2,1; tie 1-2 tubes1 []; tie 3-6 '
+    '[]; tie 4-5 tubes1 []; cord loose-1 [-0.5,0 1,0]; cord loose-2 [5.5,0 3,0]; cord loose-4 [-0.5,1 1,1]; cord '
+    'loose-5 [5.5,1 3,1]',
+    # Fourth block 4 frame 1: Arms and a corner
+    'v | cols=6 rows=2 y=0..1 near=false folded=false; 1:ring green 0 @1,0; 2:ring green 0 @4,0; 3:ring green 0 '
+    '@2.5,1; tie 1-3 tubes1 []; tie 2-3 tubes1 []; cord loose-1 [-0.5,0 1,0]; cord loose-2 [5.5,0 4,0]; cord '
+    'loose-3 [5.5,1 2.5,1]',
+)
 FOURTH_DUMPS = (
     "pan,slid apart | cols=6 rows=2 y=0..1 near=false folded=false; 1:ring green 0 @1,0; 2:ring green 6 @3,0; "
     "3:ring green 0 @1,1; 4:ring green 12 @3,1; tie 1-3 tubes1 []; cord loose-loose [-0.5,0 5.5,0]; "
@@ -191,23 +218,31 @@ FOURTH_DUMPS = (
 
 
 def pictures():
-    """The Fourth Challenge's prop pictures (identity card, section 4), read from the dialogue
-    through tools/dfp_props.py and the transcription tools/props_ch17.py, and held against
-    this file's blackboard and pictures (graph_of: a structural reading of each cloth dump,
-    not a proof); then the whole dialogue's checks (section 4 and the form check of 1c)."""
+    """The Fourth Challenge's prop pictures (identity card, sections 4 and 3e), read from the
+    dialogue through tools/dfp_props.py and the transcription tools/props_ch17.py, and held against
+    this file's blackboard and pictures (graph_of: a structural reading of each cloth dump, not a
+    proof); then the whole dialogue's checks (section 4, section 3e.6 and the form check of 1c).
+    Round 4 slides the turns off the pan's answer one ring at a time (B4.1): every frame the same
+    picture, U/sqrt2."""
     calls = DIALOGUE.check_layout("Fourth", sizes=[1, 1, 1, 1])
     assert [(c.macro, c.keyed, c.opt, c.args, c.caption) for c in calls] == [
-        ("outcloth", True, "slid apart", ("the pan's answer",), "The turns slid off"),
+        ("outclothsteps", True, "", ("the pan's answer", "upper ring slid apart; lower ring slid apart"),
+         "The pan's answer, laid back; Upper turn carried right; The turns slid off"),
         ("outcloth", False, "", ("the second net",), "A harder net"),
         ("outcloth", False, "the joiner laid at the ends", ("the second net",), "Out at the ends"),
         ("outcloth", False, "", ("the V",), "Arms and a corner")]
     PC.check_captions(DIALOGUE, "Fourth", calls)
     PC.check_section(DIALOGUE, "Fourth", calls)
-    PC.check_anchors(DIALOGUE, "Fourth", ["P4.1", "P4.2", "P4.3", "P4.4"])
-    pics = [PC.picture(c) for c in calls]
-    p41, p42, p43, p44 = pics
+    assert PC.check_anchors(DIALOGUE, "Fourth") == (2, 4)                 # P4.1's, both files
+    frames = [PC.frame_chain(c) for c in calls]
+    assert [len(f) for f in frames] == [3, 1, 1, 1]                      # card 3e.6: 4 blocks, 6 frames
+    assert tuple(R.head for f in frames for R in f) == FRAME_DUMPS
+    b41, (p42,), (p43,), (p44,) = frames
+    p41 = b41[-1]
+    pics = [p41, p42, p43, p44]
+    assert p41.dump == PC.outcloth("slid apart", "the pan's answer", False).dump     # round 3's P4.1
     assert tuple(p.dump for p in pics) == FOURTH_DUMPS
-    assert {p.frame for p in pics} == {1.0}
+    assert {R.frame for f in frames for R in f} == {1.0}
     g41, g42, g43, g44 = (PC.graph_of(p.dump) for p in pics)
 
     # P4.1: the pan's answer slid apart is exactly U/sqrt2, and reads as the new card -- a
@@ -216,6 +251,38 @@ def pictures():
     assert same_picture(g41, two_wire([(0, Fraction(1, 2)), (1, 1)]))
     assert same_picture(g41, PC.graph_of(PC.outcloth("", "the pan's answer").dump))   # slid apart: no number
     assert not same_picture(g41, two_wire([(0, 1), (1, Fraction(1, 2))]))             # turns swapped: no
+    # B4.1 move by move (card 3e.6, item 7): the pan's answer laid back, the upper ring's turn slid
+    # off to the right, then the lower's -- each frame exactly the last, frame 1 the pan's answer
+    # U/sqrt2; the turn left on the ring (not carried) or carried to the wrong line is not it
+    assert [R.step for R in b41] == [None, "upper ring slid apart", "lower ring slid apart"]
+    assert b41[0].drawn == PC.out_state("", "the pan's answer") and b41[0].keyed and not b41[0].marked
+    for R in b41:
+        assert same_picture(PC.graph_of(R.dump), g41), R.step
+    assert np.allclose(matrix_of(PC.graph_of(b41[0].dump)), U / R2)
+    kept = b41[1].dump.replace("1:ring green 0 @1,0", "1:ring green 6 @1,0")           # the turn copied, not slid
+    assert kept != b41[1].dump and not same_picture(PC.graph_of(kept), g41)
+    up = b41[1].dump.replace("2:ring green 6 @3,0", "2:ring green 12 @3,0")
+    assert not same_picture(PC.graph_of(up), g41)
+    # its marks: a hop on each line's outer side, from the ring at rest to the ring that took its
+    # turn; the ring's bead ghosted where it stood; bowed 0.058 (L4), clear of the net
+    g = PC.G(PC.out_scene(b41[2].after), PC.OUTOPTS, PC.OWHO)
+    for R, y in zip(b41[1:], (0, 1)):
+        (a,), (q,) = R.arcs, R.ghosts
+        assert R.marked and a.kind == "slide" and tuple(round(v, 3) for v in a.slide) == (y, 1, 3)
+        assert a.to[0] > a.frm[0] and abs(a.frm[0] - g.X(1)) < abs(a.frm[0] - g.X(3))
+        assert abs(a.to[0] - g.X(3)) < abs(a.to[0] - g.X(1))
+        assert (min(p[1] for p in a.body) > g.Y(0)) if y == 0 else (max(p[1] for p in a.body) < g.Y(1))
+        assert a.minsag == PC.HOPSAG == 0.055 and np.isclose(a.sag, 0.058, atol=5e-4) and a.fit[0] >= PC.MINCLEAR - 1e-9
+        assert q.bead and q.what == ("the upper ring" if y == 0 else "the lower ring")
+        assert np.hypot(q[0] - g.X(1), q[1] - g.Y(y)) < g.RO                # on the ring at rest
+    for P, R in zip(b41, b41[1:]):                                       # the bead as it was, the frame before
+        (q,) = R.ghosts
+        assert bead_ghost_ok(q, P.dump, g), R.step
+    # fixed parts, frame to frame: the tie and the rings at rest where they were
+    rest = lambda R: [(v[3], v[4]) for v in PC.parse_dump(R.dump)[0].values() if v[3] == 1]
+    ties = lambda R: [(k,) for _, a_, b_, k in PC.parse_dump(R.dump)[2]]
+    for R in b41:
+        assert rest(R) == [(1, 0), (1, 1)] and ties(R) == [(1,)], R.step
     # P4.2 and P4.3: the second net is the frontier picture with B = [[1,1],[0,1]], and the
     # joiner at the ends unties its crossing tie exactly -- green on the upper line, red below
     B = [[1, 1], [0, 1]]
@@ -227,10 +294,10 @@ def pictures():
     assert np.allclose(matrix_of(g42), CNOT @ kron(H, H) / R2)
     # P4.4: the V as an open graph -- its rings the vertices, its ties the edges, the arm with a
     # lead in from the left an input; the arms read and the corner kept: no flow, no gFlow
-    nodes, tubes, ties, cords = PC.parse_dump(p44.dump)
+    nodes, tubes, ties_, cords = PC.parse_dump(p44.dump)
     V = sorted(nodes)
-    E = [(a, b) for kind, a, b, k in ties]
-    assert all(k == 1 for *_, k in ties) and len(E) == 2
+    E = [(a, b) for kind, a, b, k in ties_]
+    assert all(k == 1 for *_, k in ties_) and len(E) == 2
     corner = [v for v in V if nodes[v][4] == 1]
     arms = [v for v in V if nodes[v][4] == 0]
     assert len(corner) == 1 and len(arms) == 2
@@ -247,8 +314,12 @@ def pictures():
     assert find_flow(V, E, V_in, outs) is not None
     assert g44.num_inputs() == 1 and g44.num_outputs() == 2
 
-    # the captions' truth: the turns slid off; the crossing tie present; the joiner at the ends;
-    # the V
+    # the captions' truth: the pan's answer laid back (one ring a line, the turns on them); the
+    # upper turn carried right; the turns slid off; the crossing tie present; the joiner at the
+    # ends; the V
+    n = PC.parse_dump(b41[0].dump)[0]
+    assert sorted((v[4], v[2]) for v in n.values()) == [(0, 6), (1, 12)] and b41[0].dump.startswith("pan |")
+    assert [(v[3], v[2]) for v in PC.parse_dump(b41[1].dump)[0].values() if v[4] == 0] == [(1, 0), (3, 6)]
     assert p41.state.apart and p41.dump.startswith("pan,slid apart")
     n42 = PC.parse_dump(p42.dump)[0]
     assert any(n42[a][3] == 3 and n42[a][4] == 0 and n42[b][3] == 1 and n42[b][4] == 1 for _, a, b, _ in PC.parse_dump(p42.dump)[2])
@@ -257,11 +328,11 @@ def pictures():
     # fixed parts: the second net's four rings at columns 1 and 3, in both its pictures
     four = lambda p: sorted((x, y) for k, c, t, x, y in PC.parse_dump(p.dump)[0].values() if x in (1, 3))
     assert four(p42) == four(p43) == [(1, 0), (1, 1), (3, 0), (3, 1)]
-    # the keyed words (P4.1): the kit's tube, ring and lead (the kit places them and is not
-    # re-measured here; the identity card's section 4 gives them clear by ring 0.034, tube 0.072,
-    # lead 0.038 cm, ink to ink); the Lua sets no word of its own here
-    assert p41.labels == ("tube", "ring", "lead") and all(p.labels == () for p in (p42, p43, p44))
-    assert PC.own_words(p41) == () and PC.check_keyed_words(p41) == {}
+    # the keyed words (B4.1's before-frame, the pan's answer laid back): the kit's tube, ring and
+    # lead (the kit places them and is not re-measured here; the identity card's section 3e gives
+    # them clear on this frame, looked at); the Lua sets no word of its own here
+    assert b41[0].labels == ("tube", "ring", "lead") and all(R.labels == () for f in frames for R in f if R is not b41[0])
+    assert PC.own_words(b41[0].picture) == () and PC.check_keyed_words(b41[0].picture) == {}
     # the Lua's refusals
     PC.TEX_ERRORS.clear()
     PC.out_state("slid apart", "the V")
@@ -269,13 +340,43 @@ def pictures():
     assert [k for k, _ in PC.TEX_ERRORS] == ["out-apart-pan", "out-joiner-net"]
     PC.TEX_ERRORS.clear()
 
-    # --- the whole dialogue (card section 4): the sections in order, every picture inside one;
-    # the starred form on the first picture of each macro; no negative anchor in either file
-    assert DIALOGUE.check_whole(ORD) == 16
+    # --- the whole dialogue (card sections 4 and 3e.6): the sections in order, every picture inside
+    # one; 18 blocks, 19 calls and 39 frames, as the sums of the four files' tables; the starred form
+    # on the first picture of each macro (a strip by its frames' macro); every call in its place on
+    # both files; no negative anchor in either file
+    SIZES = {"First": [1, 1, 1, 1], "Second": [1, 1, 1, 2, 1], "Third": [1, 1, 1, 1, 1], "Fourth": [1, 1, 1, 1]}
+    FRAMES = {"First": 6, "Second": 13, "Third": 14, "Fourth": 6}
+    for o in ORD:
+        assert [len(b) for b in DIALOGUE.blocks(o)] == SIZES[o]
+        assert sum(len(PC.pictures(c)) for b in DIALOGUE.blocks(o) for c in b) == FRAMES[o], o
+    assert DIALOGUE.check_whole(ORD) == sum(sum(v) for v in SIZES.values())
+    assert sum(len(v) for v in SIZES.values()) == len([b for o in ORD for b in DIALOGUE.blocks(o)])
+    assert sum(FRAMES.values()) == sum(len(PC.pictures(c)) for o in ORD for b in DIALOGUE.blocks(o) for c in b)
+    assert (sum(len(v) for v in SIZES.values()), sum(sum(v) for v in SIZES.values()), sum(FRAMES.values())) == (18, 19, 39)
+    strips = [c for o in ORD for b in DIALOGUE.blocks(o) for c in b if PC.is_strip(c)]
+    assert len(strips) == 8 and sum(len(PC.pictures(c)) for c in strips) == 28
+    assert [c for o in ORD for b in DIALOGUE.blocks(o) for c in b if PC.is_prediction(c)] == \
+        [DIALOGUE.blocks("Second")[3][0]]                               # the one expects frame, B2.3's
     DIALOGUE.keyed_first(ORD, kind=PC.keyed_kind)
     starred = [(o, c.caption) for o in ORD for b in DIALOGUE.blocks(o) for c in b if c.keyed]
-    assert starred == [("First", "The card, laid out"), ("Second", "What the pan made"), ("Third", "Every lid lifted"),
-                       ("Third", "Ends waiting"), ("Fourth", "The turns slid off")]
+    assert starred == [("First", "The card, laid out"), ("Second", "What the pan made"),
+                       ("Third", "The tin as set; Left lid off, lit; Centre lid up, dark; Every lid lifted"),
+                       ("Third", "Ends waiting"),
+                       ("Fourth", "The pan's answer, laid back; Upper turn carried right; The turns slid off")]
+    # only a strip's before-frame is ever keyed
+    for c in strips:
+        assert [R.keyed for R, _ in PC.pictures(c)] == [c.keyed] + [False] * (len(PC.pictures(c)) - 1)
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        text = DIALOGUE.read(path)
+        for o in ORD:
+            for b in DIALOGUE.blocks(o, path):
+                for c in b:
+                    assert PC.place_ok(o, c, text), (path, c.text)
+    # a strip out of its place fails as its frames' macro would (a card strip in the Third)
+    third = DIALOGUE.blocks("Third")[0][0]
+    card = DIALOGUE.blocks("First")[2][0]
+    fake = card.__class__(card.macro, False, card.opt, card.args, card.caption, third.text)
+    assert PC.macro_of(fake) == "cardcloth" and not PC.place_ok("Third", fake, DIALOGUE.read(DIALOGUE.dialog))
     PC.check_negative_anchors(DIALOGUE)
     # the form check of card section 1c, on both files
     for path in (DIALOGUE.dialog, DIALOGUE.raw):
@@ -293,6 +394,18 @@ def pictures():
     gloss = re.compile(r"(?<![A-Za-z0-9_])(" + "|".join(PC.GLOSS) + r")(?![A-Za-z0-9_])", re.I)
     for f in [here / "dialog.md", here / "chapter.md"] + sorted(p for p in (here / "Code").rglob("*") if p.is_file()):
         assert not gloss.search(f.read_text(encoding="utf-8", errors="replace")), f
+
+
+def bead_ghost_ok(q, before_dump, g):
+    """A bead's ghost stands on the bead as it was: on the ring (or end) nearest it in the frame
+    before, at the bead's radius round that ring's centre, at the ring's turn then (in
+    twenty-fourths; an eighth is three)."""
+    nodes = [v for v in PC.parse_dump(before_dump)[0].values()]
+    d, (kind, col, t, x, y) = min(((np.hypot(g.XY((v[3], v[4]))[0] - q[0], g.XY((v[3], v[4]))[1] - q[1]), v) for v in nodes),
+                                  key=lambda u: u[0])
+    cx, cy = g.XY((x, y))
+    a = np.radians(90 - 45 * t / 3)
+    return d < g.RO and np.hypot(q[0] - cx - g.RM * np.cos(a), q[1] - cy - g.RM * np.sin(a)) < 1e-3
 
 
 def frontier(B, joiner=None):

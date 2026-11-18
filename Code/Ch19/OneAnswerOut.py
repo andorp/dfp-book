@@ -15,6 +15,7 @@ probability p is right with probability f(p) = 3p^2 - 2p^3, and p >= 2/3 gives f
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools"))
 
+import re
 from fractions import Fraction
 from itertools import product
 
@@ -175,6 +176,21 @@ FOURTH_DUMPS = (
     "cord 2-3 [6,3 5,6 0,6]; cord loose-2 [10.4,3 6,3]",
     "reds,together,loops knots=0" + _HEAD + "1:end green 0 @0,6; cord loose-1 [10.4,3 6,3 5,6 0,6]",
     "top | top=sounding pairs=still courses=1+9")
+FOURTH_FRAMES = (
+    ("Pages and looks", True, None, FOURTH_DUMPS[0]),
+    ("Red points slid in", False, "red points slid in",
+     "reds knots=2" + _HEAD + "1:end green 0 @0,0; 2:ring green 0 @1,0; 3:ring green 0 @2,1; 4:ring green 0 @6,3; "
+     "5:ring green 0 @2,5; 6:end green 0 @0,6; 7:ring green 0 @1,6; cord 1-4 [0,0 5,0 6,3]; "
+     "cord 2-7 [1,0 1,1 4,1 4,5 1,5 1,6]; cord 3-5 [2,1 2,2 3,2 3,4 2,4 2,5]; cord 4-6 [6,3 5,6 0,6]; "
+     "cord loose-4 [10.4,3 6,3]"),
+    ("His look along", False, "his look's ring slid along",
+     "reds,part1 knots=2" + _HEAD + "1:ring green 0 @0,0; 2:ring green 0 @2,1; 3:ring green 0 @6,3; "
+     "4:ring green 0 @2,5; 5:ring green 0 @0,6; cord 1-3 [0,0 5,0 6,3]; cord 1-5 [0,0 1,1 4,1 4,5 1,5 0,6]; "
+     "cord 2-4 [2,1 2,2 3,2 3,4 2,4 2,5]; cord 3-5 [6,3 5,6 0,6]; cord loose-3 [10.4,3 6,3]"),
+    ("Her look follows", False, "her look's ring slid along", FOURTH_DUMPS[1]),
+    ("Loops lifted off", False, "loops off", FOURTH_DUMPS[2]),
+    ("The lute, quiet", True, None, "still | top=still pairs=still courses=1+9"),
+    ("Top note alone", False, "top string sounding", FOURTH_DUMPS[3]))
 BOX_STEPS = ("red points slid in", "slid together", "loops off")
 READ_AT, ANSWER_END = (6.0, 3.0), (10.4, 3.0)
 
@@ -186,30 +202,193 @@ def copy_of(things, layer):
     return sorted((kind, c, (24 - t) % 24) + layer(x, y) for kind, c, t, x, y in things)
 
 
+def nearest(pt, places):
+    """The place nearest a mark's end, and how far: (distance, place)."""
+    return min((float(np.hypot(pt[0] - q[0], pt[1] - q[1])), tuple(q)) for q in places)
+
+
+def mark_bounds(R, g):
+    """Every mark on its drawn extent (the stroke's half width, a ghost's outline included) inside
+    the picture's box by at least 0.01 cm (the spec's margin rule); every arc bowed at least the
+    Lua's floor (MINSAG) and clear of the cloth's pieces by its clearance (MINCLEAR); no mark of
+    any other kind (no pin; a ghost, a slide arc or a lift arc only)."""
+    fb, ft, half = g._g["fbot"], g._g["ftop"], PC.C.FRAME_WIDTH / 2
+    gap = lambda x, y, r: min(x - r + half, half - x - r, y - r - fb, ft - y - r)
+    for a in R.arcs:
+        assert a.kind in ("slide", "swing") and a.sag >= PC.MINSAG - 1e-9 and a.fit[0] >= PC.MINCLEAR - 1e-9, a.what
+        assert min(gap(x, y, PC.MARKHALF) for x, y in a.pts) >= 0.01, a.what
+    for q in R.ghosts:
+        assert gap(q[0], q[1], q[2] + PC.GHOSTHALF) >= 0.01, q.what
+    assert len(R.mark_tikz) >= len(R.arcs) + len(R.ghosts)
+    draws = [t for t in R.mark_tikz if t.startswith("\\draw")]
+    assert bool(draws) == bool(R.arcs or R.ghosts) and all(re.match(r"\\draw\[propcnineteen(ghost|slide|swing)[,\]]", t) for t in draws)
+    for style in ("ghost", "slide", "swing"):                              # grey, thin, dotted (ch19.tex)
+        assert re.search(r"propcnineteen" + style + r"/\.style=\{(densely )?dotted, black!\d\d, line width=0\.\d+pt\}",
+                         PC.TEX_TEXT), style
+
+
+# the closed box's marks, step by step (the Lua's comment, pinned): ghosted grid places, and the
+# arcs as (from place, to place); "his" and "hers" are the part-steps of slid together, in the
+# text's order (E4, E5)
+BOX_MARKS = {
+    "reds": ([(0, 1), (0, 5), (1, 1), (1, 5), (0, 2), (0, 4), (2, 2), (2, 4)],          # points and rings
+             [((0, 1), (1, 1)), ((0, 2), (2, 2)), ((0, 5), (1, 5)), ((0, 4), (2, 4))]),   # each point into its ring
+    "his": ([(1, 0), (1, 6)], [((1, 0), (0, 0)), ((1, 6), (0, 6))]),                     # to the Cat's point, both layers
+    "hers": ([(2, 1), (2, 5)], [((2, 1), (0, 0)), ((2, 5), (0, 6))]),
+    "loops": ([(6, 3), (0, 0)], [((6, 3), (0, 6))])}                                     # the read ring in along the copy's cord
+
+
+def box_marks(R, key):
+    S0, S1 = PC.box_scene2(R.before), PC.box_scene2(R.after)
+    g = PC.G(S1, PC.BOPTS, PC.BWHO)
+    mark_bounds(R, g)
+    assert R.marked
+    places, arcs = BOX_MARKS[key]
+    old = {(t["x"], t["y"]) for t in S0["things"]}
+    new = {(t["x"], t["y"]) for t in S1["things"]}
+    assert sorted(tuple(round(v, 6) for v in q[:2]) for q in R.ghosts) == sorted(tuple(round(v, 6) for v in g.XY(p)) for p in places)
+    assert set(places) <= old and not (set(places) & new)                  # a ghost where a piece left
+    got = []
+    for a in R.arcs:
+        (d0, c0) = nearest(a.frm, [g.XY(p) for p in old])
+        (d1, c1) = nearest(a.to, [g.XY(p) for p in new | set(places)])     # into a piece after, or one this step ghosts
+        assert a.kind == "slide" and d0 < 0.25 and d1 < 0.25, a.what
+        at = {tuple(g.XY(p)): p for p in old | new}
+        got.append((at[c0], at[c1]))
+    assert sorted(got) == sorted(arcs), (key, got)
+    if key in ("his", "hers"):                     # one move a layer, each the other's mirror: alike
+        a, b = R.arcs
+        assert np.isclose(a.len, b.len) and np.isclose(a.sag, b.sag)
+
+
+def at_place(g, p):
+    (v,) = [v for v in g.vertices() if (g.row(v), g.qubit(v)) == p]
+    return v
+
+
+def fused(dump, pairs):
+    """graph_of a box dump with each (meeting place, ring) fused there by PyZX's own spider fusion
+    (simp.check_fuse / simp.fuse); the ring that is left lies at the meeting place."""
+    g = PC.graph_of(dump)
+    for dst, src in pairs:
+        a, b = at_place(g, src), at_place(g, dst)
+        assert simp.check_fuse(g, a, b) and simp.fuse(g, a, b)
+        (k,) = {a, b} & set(g.vertices())
+        g.set_row(k, dst[0])
+        g.set_qubit(k, dst[1])
+    return g
+
+
+def shape(g):
+    """A box graph's structure: its spiders (place, colour, phase, legs) and its edges by the
+    places they join (a ring at rest spliced into a second strand, off the grid, by its legs)."""
+    from collections import Counter
+    on = lambda v: float(g.row(v)).is_integer() and float(g.qubit(v)).is_integer()
+    lab = lambda v: (g.row(v), g.qubit(v)) if on(v) else ("at rest", g.vertex_degree(v))
+    return (Counter((lab(v), g.type(v), g.phase(v), g.vertex_degree(v)) for v in g.vertices()),
+            Counter((frozenset((lab(a), lab(b))), g.edge_type((a, b))) for a, b in g.edges()))
+
+
 def pictures():
-    """The Fourth Challenge's prop pictures (identity card, section 4), read from the dialogue
-    through tools/dfp_props.py and the transcription tools/props_ch19.py, and held against this
-    file's closed_box (the master, The Closed Box) and green_point."""
-    calls = DIALOGUE.check_layout("Fourth", sizes=[1, 1, 1, 1])
+    """The Fourth Challenge's prop pictures (identity card, sections 4 and 3e), read from the
+    dialogue through tools/dfp_props.py and the transcription tools/props_ch19.py, and held against
+    this file's closed_box (the master, The Closed Box) and green_point.  Round 4 draws the red
+    points slid in, the looks' rings slid together move by move (his, then hers: E4, E5) and the
+    lute still before its top string sounds."""
+    calls = DIALOGUE.check_layout("Fourth", sizes=[1] * 5)
     assert [(c.macro, c.keyed, c.opt, c.args, c.caption) for c in calls] == [
         ("boxcloth", True, "", (), "Pages and looks"),
-        ("boxcloth", False, "red points slid in, slid together", (), "Slid together"),
-        ("boxcloth", False, "red points slid in, slid together, loops off", (), "Loops lifted off"),
-        ("crablute", True, "top string sounding", (), "Plucked alone")]
-    PC.check_captions(DIALOGUE, "Fourth", calls)
-    PC.check_section(DIALOGUE, "Fourth", calls)
-    PC.check_anchors(DIALOGUE, "Fourth")
-    pics = [PC.picture(c) for c in calls]
+        ("boxcloth", False, "; step=red points slid in", (), "Red points slid in"),
+        ("boxclothsteps", False, "after=red points slid in; from=off", ("his look's ring slid along; her look's ring slid along",),
+         "His look along; Her look follows"),
+        ("boxcloth", False, "red points slid in, slid together; step=loops off", (), "Loops lifted off"),
+        ("crablutesteps", True, "", ("top string sounding",), "The lute, quiet; Top note alone")]
+    assert PC.check_captions(DIALOGUE, "Fourth", calls) == 7
+    blocks = PC.check_section(DIALOGUE, "Fourth", calls, [1, 1, 2, 1, 2])
+    assert PC.check_anchors(DIALOGUE, "Fourth") == (8, 20)             # next-starts, phrases before (E4, E5 among them)
+    for f_ in (DIALOGUE.dialog, DIALOGUE.raw):
+        a42 = DIALOGUE.anchors("Fourth", f_)[2]
+        assert PC.E_ITEMS["E4"] in a42 and PC.E_ITEMS["E5"] in a42
+        assert a42.index(PC.E_ITEMS["E5"]) < a42.index("The same on the copy.")     # the upper layer's, then the copy
+    for e in ("E4", "E5"):
+        assert "a cord that re-routes, given by the text, " + e in PC.comment_prose("the slide together move by move: the PART-STEPS.")
+    frames = [R for b in blocks for R, _, _ in b]
+    assert tuple((cap, k, R.step, R.dump) for b in blocks for R, cap, k in b) == FOURTH_FRAMES      # the readings
+    # round 3's four pictures are their blocks' last frames, unchanged
+    pics = [frames[i] for i in (0, 3, 4, 6)]
     p41, p42, p43, p44 = pics
     assert tuple(p.dump for p in pics) == FOURTH_DUMPS
+    assert tuple(R.picture.dump for R in (p41, p42, p43)) == FOURTH_DUMPS[:3]
+    box_frames, lute_frames = frames[:5], frames[5:]
+    # the chain, frame to frame: each step applied to the frame before; the part-steps compose to
+    # round 3's slid together, and the frame between them is the box part-way
+    for k, R in enumerate(box_frames[1:], 1):
+        assert PC.box_dump2(R.before) == box_frames[k - 1].dump, k
+    assert [R.step for R in frames] == [None, "red points slid in", "his look's ring slid along", "her look's ring slid along",
+                                        "loops off", None, "top string sounding"]
+    assert box_frames[2].part_way and not any(R.part_way for R in frames if R is not box_frames[2])
+    assert repr(box_frames[3].after) == repr(PC.box_state2("red points slid in, slid together"))
+    whole = PC.run_frame("box", "red points slid in; step=slid together", "", False)
+    assert PC.TEX_ERRORS == [] and whole.dump == p42.dump
+    # the marks of every step
+    for R, key in zip(box_frames[1:], ("reds", "his", "hers", "loops")):
+        box_marks(R, key)
+    assert [(len(R.ghosts), len(R.arcs)) for R in box_frames] == [(0, 0), (8, 4), (2, 2), (2, 2), (2, 1)]
+    # every one or none: the whole slide drawn at once gets NO arc -- her look's runs do not fit
+    # beside his -- though his look's moves fit alone (the part-step draws them); its ghosts stay
+    assert whole.arcs == [] and len(whole.ghosts) == 4 and any(n.startswith("no arcs for the looks' rings slid together")
+                                                               for n in whole.notes)
+    assert len(box_frames[2].arcs) == 2
+    # E4, E5: the two page cords that re-route, as the text gives them -- his page's cord now leaves
+    # the Cat's point down and to the right, then hers straight down the cloth's left-hand side
+    c1 = PC.parse_dump(box_frames[2].dump)[3]
+    assert [pts[:2] for a, b, pts in c1 if pts[0] == (0, 0) and len(pts) > 3] == [[(0, 0), (1, 1)]]
+    c2 = PC.parse_dump(box_frames[3].dump)[3]
+    assert sorted(pts[:2] for a, b, pts in c2 if pts[0] == (0, 0) and len(pts) > 3) == [[(0, 0), (0, 2)], [(0, 0), (1, 1)]]
+    # L2: the part-steps are spider fusions, in the text's order: his look's ring fused into the
+    # Cat's point (both layers) is the part-way picture; hers then is round 3's slid together.  Her
+    # look's ring cannot go first: it is not yet next to the Cat's point
+    reds, part1, together = (R.dump for R in box_frames[1:4])
+    his = [((0, 0), (1, 0)), ((0, 6), (1, 6))]
+    hers = [((0, 0), (2, 1)), ((0, 6), (2, 5))]
+    assert shape(fused(reds, his)) == shape(PC.graph_of(part1))
+    assert shape(fused(part1, hers)) == shape(PC.graph_of(together))
+    g = PC.graph_of(reds)
+    assert not simp.check_fuse(g, at_place(g, (2, 1)), at_place(g, (0, 0)))
+    assert shape(fused(reds, his)) != shape(PC.graph_of(together))
+    # the lute: no marks, ever (its strings are the wires; a counted frame stays unmarked), not
+    # even when asked for; the top string alone only from still
+    assert not any(R.marked or R.arcs or R.ghosts or R.mark_tikz for R in lute_frames)
+    asked = PC.run_frame("lute", "still; step=top string sounding; marks=on", "", False)
+    assert PC.TEX_ERRORS == [] and not (asked.marked or asked.mark_tikz) and asked.dump == p44.dump
+    assert PC.faults(PC.run_frame, "lute", "pairs sounding; step=top string sounding", "", False) == ["lute-still-first"]
+    assert lute_frames[0].dump == PC.crablute("").dump and repr(lute_frames[1].before) == repr(lute_frames[0].drawn)
+    # no prediction frame on the box or the lute: expects= refused with the Lua's reasons, which
+    # quote the dialogue
+    assert PC.faults(PC.run_frame, "box", "; expects=a red point", "", False) == ["box-expects"]
+    assert PC.faults(PC.run_frame, "lute", "; expects=the pairs", "", False) == ["lute-expects"]
+    for msg in (PC.BEXPECTS, PC.LEXPECTS):
+        for q in re.findall(r'"([^"]+)"', msg):
+            assert all(q in DIALOGUE.read(f) for f in (DIALOGUE.dialog, DIALOGUE.raw)), q
+    # the part-steps in turn: hers before his is refused, and so is a step before hers is taken
+    assert PC.faults(PC.run_frame, "box", "red points slid in; step=her look's ring slid along", "", False) == ["box-part-turn"]
+    assert PC.faults(PC.run_frame, "box", "red points slid in, his look's ring slid along; step=loops off", "", False) == [
+        "box-part-next"]
+    PC.TEX_ERRORS.clear()
     states = [""] + [", ".join(BOX_STEPS[:k]) for k in range(1, 4)]
-    assert {PC.boxcloth(st).frame for st in states} == {p41.frame}         # one frame in every state
-    assert {PC.crablute(st).frame for st in ("", "pairs sounding", "top string sounding")} == {p44.frame}
+    assert {PC.boxcloth(st).frame for st in states} == {p41.frame} == {R.frame for R in box_frames}    # one frame
+    assert {PC.crablute(st).frame for st in ("", "pairs sounding", "top string sounding")} == {p44.frame} == {
+        R.frame for R in lute_frames}
 
     # P4.1, P4.2, P4.3 and the unpictured red points slid in: graph_of each (a structural reading
     # of the cloth, not a second proof) is The Closed Box, and is the Cat's own green point at
     # rest, value (1, 1), exactly
     box, point = closed_box(), green_point()
+    # L2: every frame of the box, the part-way one included, is the Cat's own green point at rest
+    for R in box_frames:
+        g = PC.graph_of(R.dump)
+        assert PC.slips_turn(R.dump) == 0 and same_picture(g, point) and np.allclose(matrix_of(g).ravel(), [1, 1])
+    assert same_picture(PC.graph_of(box_frames[2].dump), box)
     for st in states:
         g = PC.graph_of(PC.boxcloth(st).dump)
         assert PC.slips_turn(PC.boxcloth(st).dump) == 0
@@ -285,6 +464,10 @@ def pictures():
         nodes, tubes, ties, cords, corner, knots = PC.parse_dump(PC.boxcloth(st).dump)
         assert [pts[0] for a, b, pts in cords if a == "loose"] == [ANSWER_END], st
         assert (("ring", "green", 0) + READ_AT in nodes.values()) == (st != ", ".join(BOX_STEPS)), st
+    for k, R in enumerate(box_frames):                                       # ...and frame to frame
+        nodes, tubes, ties, cords, corner, knots = PC.parse_dump(R.dump)
+        assert [pts[0] for a, b, pts in cords if a == "loose"] == [ANSWER_END], k
+        assert (("ring", "green", 0) + READ_AT in nodes.values()) == (k < 4), k
 
     # P4.4, the Crab's lute, its top string plucked alone (R7-Ch19): the lute draws its strings,
     # the top string alone and the pairs, 1 + 2 x 9 = 19 -- the master's line count, closed_box()'s
@@ -312,12 +495,14 @@ def pictures():
         assert all(PC.LNUT < m[0][0] and m[3][0] < PC.LBRIDGE for m in w.marks)
         assert len(w.marks) == (0 if st == "" else 2)
     assert [(k, sd) for k, sd, *_ in v.swings] == [(0, 0)]               # the top string swings alone
+    w = lute_frames[0].shown                                              # the still lute, before
+    assert len(w.strings) == 19 and not any(x[5] for x in w.strings) and w.swings == w.marks == ()
 
     # the keyed words: read ring (P4.1) and top string and pairs (P4.4), set by the Lua, at their
     # compiled boxes and measured clear; the kit is not keyed on the box cloth; the rest unkeyed
-    assert p41.labels == ("read ring",) and p44.labels == ("top string", "pairs")
-    assert p42.labels == p43.labels == ()
-    for pic in (p41, p44, PC.crablute("", True), PC.crablute("pairs sounding", True)):
+    assert p41.labels == ("read ring",) and lute_frames[0].labels == ("top string", "pairs")     # the lute keyed still
+    assert all(R.labels == () for R in box_frames[1:]) and p44.labels == ()
+    for pic in (p41, lute_frames[0].picture, PC.crablute("top string sounding", True), PC.crablute("pairs sounding", True)):
         PC.check_compiled_boxes(pic)
         assert min(PC.check_keyed_words(pic).values()) >= PC.LETTER_FLOOR
 

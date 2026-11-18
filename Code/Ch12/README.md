@@ -61,27 +61,56 @@ setting all a spy learns is whether she was caught.
 tell-glass, the tell's key and the side rod, the rows of pieces and the bell
 (`\glinttray`); one key close to, its collar's mark above and its reflection beneath
 (`\sparkey`); and the Tortoise's cords and rings on her drawing-cloth (`\keycloth`, drawn on
-the shared cloth of `pdf/props/cloth.lua`). Their Lua rules are transcribed once, with the
-card's L1–L3 and the Prop Artist's later fixes in force, in `tools/props_ch12.py` (no
-matrices there). It reads every place, pitch, scale and frame the Lua names as a constant
-from `pdf/props/ch12.lua` itself (a drift guard), and holds the three state models, the
-dumps, the keyed words and where the Lua places them, the drawn outlines the clearances
-need, the one pitch of the rows, and the Lua's fifty-one fault sites, each keyed and each message byte for byte. Every
-dump, frame, keyed word and word place was compared with `texlua` on the dialogue's nineteen
-calls and thirty-eight more, every fault message on its own call, and four thousand random
-calls on both sides (no difference). Each file reads the pictures of its own section of
-`dialog.md` through `tools/dfp_props.py` and checks their layout (4, 3, 4, 4, 4 pictures;
-blocks `[1,2,1]`, `[1,2]`, `[1,2,1]`, `[2,2]`, `[1,1,1,1]`; the same in `dialog.raw.md`),
-one frame and one macro per block, the captions (words only, from the card's forbidden
-list, never a sentence someone speaks, never the first sentence after the block), the places
-each prop may appear, the paragraph each block follows and the one after it (with the card's
-direction phrases), every keyed word named before its picture, and every picture's state.
+the shared cloth of `pdf/props/cloth.lua`). From round 4 (*Show the process*) each takes a
+`;` bracket, order-free (`step=`, `marks=`, and on the key `expects=`), and each has a step
+strip (`\traysteps`, `\sparksteps`, `\keyclothsteps`): a row of at most four frames, frame
+$k$ the single call with the steps before it as operations and `step=` the $k$-th, `from=off`
+dropping the before-frame, the star keying the first (and, on a tray strip, naming in each
+later frame only the part its step brought: the Lua's `keyed new`). A step draws the state after it and
+its marks: a cloth ring's ghost (a dotted outline where it stood, clipped where a ring now
+lies over its place) and a slide or swing arc; the key's swing arc round the collar, on the
+bare page, never in the lacquer; the tray none (a flash, a strike, a part set in: the frame
+shows what changed). `expects=same setting` draws Achilles's rule on the key: the
+reflection's curl turned back over, the key's body and the lacquer paler, its marks not
+(round 5: the marks are drawn after both bodies, about twice round 4's size, the curl
+0.18 cm across, the reflection's in a pale brass glint). The black pieces stand in a
+ring of the felt's own colour (L6), so neighbours part at print size. The Lua rules are
+transcribed once in `tools/props_ch12.py` (no matrices there). It reads every place, pitch,
+scale and frame the Lua names as a constant from `pdf/props/ch12.lua` itself, pins every
+chunk of the Lua and of `ch12.tex` by hash, and the three round-4 rule comments as written,
+and holds the three state models with their steps, the dumps and logs, the marks down to
+their TikZ text, the keyed words and where the Lua places them (L4 moves the key's words
+clear of an arc), the drawn outlines the clearances need, the one pitch of the rows, and the
+Lua's sixty-eight fault sites (17 `oerr`, 27 `terr`, the key's stop, 23 `cerr`), each keyed
+and each message byte for byte. Every log line, fault, mark line, engraved mark's scope,
+felt ring, bell scope and keyed word was compared with `texlua` on the dialogue's calls
+(both files, every strip run frame by frame as TeX runs it) and on a sweep that trips every
+fault site, 5090 calls in all (no difference), the key's marks block and its pale group line
+for line in order; the dialogue's 80 log lines are the dump
+list's. Each file reads the pictures of its own section of `dialog.md` through
+`tools/dfp_props.py` and checks their layout (18 calls, 30 frames; blocks `[1,1,1,1]`,
+`[1,2]`, `[1,2,1]`, `[1,1,1]`, `[1,1,1,1]`; the same in `dialog.raw.md`), one frame and one
+macro per block, the captions (each frame's: words only, from the card's forbidden list,
+never a sentence someone speaks, never the first sentence after the block), the places each
+prop may appear, the paragraph each block follows and the one after it (with the card's
+direction phrases), every keyed word named before its picture, and every frame's state, its
+step and its marks. With `marks=off` every marked frame is the round-3 picture of the state
+after its step, line for line.
 Each file also **ties the transcription to its own mathematics**, NumPy against its
 blackboard. This is a structural check, not a second proof: a lit window is a reading, two
 same-colour rings slid into one cord are $R_rE_r=I$, rings drawn apart on cords of their own
 are $\tfrac12J$, a piece laid is a record the model must allow. Clearances are asserted on
-drawn extents (strokes, shadows and reflections included) with a positive gap, never on a
-centre line.
+drawn extents (strokes, shadows and reflections included; a mark's line width and arrow head
+too, read off its TikZ) with a positive gap, never on a centre line; where the Lua logs its
+own centre-line figure, both are stated, each named.
+
+**Pins (Chapter 12's own).** `props_ch12.check_lua()` runs when the module is imported (unless
+`DFP_REPIN` is set, to re-pin), so all five files hold `ch12.lua` and `ch12.tex` to their pins,
+not only `Alarm.py`.
+
+**Pins (the cloth kit).** The shared cloth kit, `pdf/props/cloth.{lua,tex}`, is pinned in
+`tools/props_cloth.py`, which every file imports through `props_ch12`; a change to the kit fails
+every file of this chapter (see the note in `chapter10/Code/README.md`).
 
 ---
 
@@ -134,13 +163,21 @@ It also checks that a cross reader drawn as a red ring, as on the cloth, is the 
 picture. The closed picture of a red point meeting a green effect reduces to
 $(-1)^{ab}/\sqrt2$.
 
-*Pictures.* The tray lit at both ends, keyed: the two windows flash yes at once, and at
-matching settings the blackboard's pair disagrees with probability exactly $0$. The
-convention, keyed (green to green: Alice's short cord running straight on into Bob's, the
-mirror cord beneath it and running the same way); slid together and lifted off, one cord
-from edge to edge, and $R_0E_0=I$ (red to red likewise, $R_1E_1=I$). Green to red drawn
-apart: each ring rides out on its own short cord (0.6 to 0.1, 5.4 to 5.9), nothing joins
-them, the slack cords touch neither ring on drawn extents, and $R_1E_0=\tfrac12J$ of rank 1.
+*Pictures.* Four strips. The tray as it stands, keyed, then the lever pressed: a window
+lit at each end (no mark: the flash is the step; the frame is keyed `new` and names
+nothing, since the lever brings no part), and at matching settings the blackboard's
+pair disagrees with probability exactly $0$. The convention, keyed (green to green: Alice's
+short cord running straight on into Bob's, the mirror cord beneath it and running the same
+way); the rings run into a joint (both ghosts at $\mp0.720$, a slide arc from each beneath
+the row, $\mp0.693\to\mp0.117$ at $-0.325$); the joint lifted off (its ghost at the middle),
+one cord from edge to edge, and $R_0E_0=I$ (red to red likewise, $R_1E_1=I$). Green to red
+laid, then drawn apart: each ring rides out on its own short cord (0.6 to 0.1, 5.4 to 5.9),
+its ghost clipped where the ring now lies over its place, a short swing arc beneath
+($\mp0.702\to\mp0.915$ at $-0.360$); nothing joins them, the slack cords touch neither ring,
+and $R_1E_0=\tfrac12J$ of rank 1. Every arc points the way its ring went; every mark lies on
+the linen by 0.082 cm and every arc clears every cord by 0.091 and 0.139 cm, edge to edge
+(the Lua's own sampling: 0.089, 0.138). Last, the strike: the rows as they stood, then
+struck, five pieces each, alike.
 
 ```python
 assert {1, ("left", 0)} in comps and {2, ("right", 0)} in comps
@@ -221,8 +258,19 @@ assert same_picture(dephasing_round(CROSS, CROSS), noise())      # a kept round 
 The III table configuration is built as a doubled picture with `add_power(-2)`. At
 crosswise–crosswise every record is disconnected from every other.
 
-*Pictures.* The tray with the tell-glass in the sleeve's place, keyed, then the run as
-laid and struck. The file reads the settings the two of them say aloud and the pieces as
+*Pictures.* A keyed strip of three from the sleeve still closed (card 3e.8, E3): F12a, the
+tell's key set beside hers (the strip's own operation; the keyed frame, since the glass family
+turns on `set the tell's key` too), its word above the far edge at the right and the sleeve's
+down on the black beneath their reflection, no longer stacked as one two-line label; F13, the
+glass set in, naming only "tell-glass" where the sleeve's word stood; F14, the side rod laid,
+naming only "side rod" above the far edge, its estimated box over the whole rod (`keyed new`,
+logged). Neither step is marked; each frame starts where the one before ends; with
+`marks=off` F13 and F14 are the single calls with the step as one more operation, their one
+word apart; 7, 9 and 11 lines. Then the run as laid and struck, the two counted frames: twelve lines
+each (the four rods apart, the right and far rods stopping short of the glass on either side,
+each with its reflection; three rows; the bell), no mark, and between every two black
+neighbours the felt ring shows, 0.0141 cm (about 1.7 px at 300 dpi, where without it the gap
+is under a pixel). The file reads the settings the two of them say aloud and the pieces as
 laid, and they are the blackboard's ledger round for round, each possible under
 $(I\otimes\delta)\ket{\Phi^+}$ read at (his, hers, upright): $\tfrac12,\tfrac14,\tfrac18,
 \tfrac14,\tfrac12,\tfrac18$. The strike takes rounds 2 and 4 (the mixed ones), the gaps
@@ -272,13 +320,32 @@ a red half-turn, and it is not the BB84 round. `full_reduce` leaves a bare edge 
 records at matching settings. Eq. (10) is also drawn: a generic box chain slides round the
 bend reversed. The unreversed chain and the wrong order both fail.
 
-*Pictures.* The lamp's bend, keyed: the glint's narrow turn nested inside the mirror's
-wider one, crossing nothing, and the word "bend" clear of both turns. Pulled straight, the
-kit's table is `green to green`'s exactly (the half of the dump after " | "; the words
-before it name the scene), the rings ride out from 1.6 and 4.4 to 0.6 and 5.4, and no ring
-or cord is added or lost: on the blackboard the pair read at $(r,t)$ is $\tfrac12$ times
-BB84 fed a fair coin. The key close to: the cross is the same beneath, keyed; the curl winds
-against the sun beneath, computed from the drawn marks. The curl's setting is non-real, its
+*Pictures.* The lamp's bend strip, keyed: the glint's narrow turn nested inside the
+mirror's wider one, crossing nothing, and the word "bend" clear of both turns. Pulled
+straight (each ring's ghost where it stood, no arc), the kit's table is `green to green`'s
+exactly (the half of the dump after " | "; the words before it name the scene), the rings
+ride out from 1.6 and 4.4 to 0.6 and 5.4, and no ring or cord is added or lost: on the
+blackboard the pair read at $(r,t)$ is $\tfrac12$ times BB84 fed a fair coin. Then the
+prediction, live: after every curl round has disagreed and Achilles blames the line, after
+"Look at your collar in the tray.", the key at the curl as he expects it, `same setting`:
+the reflection's curl turned back over to wind as the curl above, the body and the lacquer
+paler, unkeyed and unmarked. Its marks are read off the drawn TikZ (each scope's shift,
+rotation and scale composed): drawn after the pale group closes, unpaled; the reflection's in
+the glint, the key's in the engraving's dark; the curl 0.18 cm across at print size, a turn
+and a half sunwise above; in F20 the reflection's curl the very glyph above, in the true frame
+the same glyph flipped, winding against the sun. The glint stands at least 60/255 in grey
+level off the dimmed collar beneath it, the paled one in F20 included (64.7 at the least, over the brass's light side). Its log head still reports the true winding; the `+` line reports what
+is drawn, and the file checks the drawn scopes against the true frame's (only the
+reflection's curl differs). Each spoken reaction is checked against the rule in order:
+stated, borne out at the stroke and the cross (where the Lua refuses the rule: the mirror
+agrees), refuted three times at the curl, still held, then the pale frame, the look, the
+"...Oh.". Then the key strip, keyed as he found it, and three turns, curl to cross to stroke
+to curl: each arc read off its TikZ runs round the collar from where the new stop's mark
+stood to 24° short of the index, counter-clockwise, which is against the sun (T1: "the same
+way round"); inside the frame by 0.030 cm drawn (the Lua's 0.040 is the centre line; the
+collar's rim widened in round 5), above the lacquer by 0.049 drawn (0.060 on the centre line),
+outside the brass rim (the Lua: 0.090). The cross is
+the same beneath; the curl winds against the sun beneath, computed from the drawn marks. The curl's setting is non-real, its
 conjugate is the other circular vector, and the plain and cross vectors are real.
 
 ```python
@@ -343,26 +410,48 @@ tell's piece is black exactly when the bell rings. The pair's bend, keyed, red c
 green further out, is $\ket{B_{m_1m_2}}\propto(Z^{m_1}X^{m_2}\otimes I)\,$cup; the other
 order differs by a sign. L1's route is keyed on the ring's x: red goes round the turn, green
 keeps its place, and $(Z\otimes X)\,$cup $=(ZX\otimes I)\,$cup since $X^T=X$; the plain
-`slide off red` is refused with the Lua's own message. The bare bend is the pass projector,
-and there is room for the claw's line beyond its turn.
+`slide off red` is refused with the Lua's own message. The strip after it (`from=off`,
+P5.3 being its before-frame a paragraph up) draws red's ghost and a slide arc round inside the
+bend and (card 3e.8, E2) out along the lower leg, above it, inside the bend all the way, and
+off its end, $(-0.330,-0.325)\to(1.057,-0.575)$, the very $x$ where F29's ends; then green's
+ghost and a slide arc beneath the upper leg past its free end, $0.177\to1.057$; both on the
+linen by 0.082 cm and off the cord by 0.076 and 0.084 cm, edge to edge (the Lua: 0.073, 0.082;
+F28's linen 0.138 and ring 0.272). The bare bend is the pass
+projector, and there is room for the claw's line beyond its turn.
 
-The file then checks the chapter's whole run: nineteen pictures, none outside the five
-sections, the keyed ones exactly P1.1, P1.2, P3.1, P3.4, P4.1, P4.3, P5.3, and every call
-legal and in its place. Over all seven tray pictures the things on the black keep their
-places and the bell moves only when rung. There is one pitch for the evening, read from the
-Lua, so every piece keeps its x from call to call; only the strike of P3.3 closes gaps. On
+The file then checks the chapter's whole run: eighteen calls (eight of them strips, one a
+prediction) and thirty frames (F12a kept beside the old numbers), none outside the five
+sections; the keyed rule judged over true frames only, the keyed frames exactly F01, F03,
+F12a, F17, F18, F21, F27, and only a keyed frame naming all its parts; the keyed-new frames
+exactly F02, F13, F14, each following its strip's keyed frame of its own kind and naming only
+the part its step brought (F02's lever brings none); every frame legal and in its place; and
+the 80 log lines, the two `keyed new` lines among them. Every
+stepped frame with `marks=off` is the same frame unmarked; the marked frames are exactly F04,
+F05, F07, F19, F22–F24, F28, F29, each inside its linen or frame by more than 0.01 cm, each
+cloth arc more than 0.05 cm off every cord, each key arc above the lacquer; the tray carries
+no mark at all. The counted frames F15, F16, F25, F26 have twelve lines each, unmarked (every
+tray frame's count: 5, 5, 7, 7, 7, 7, 9, 11, 12, 12, 12, 12), and in every tray frame the felt
+shows between black neighbours by more than a 300-dpi pixel. Over all twelve tray frames the
+things on the black keep their places and the bell moves only when rung. There is one pitch
+for the evening, read from the Lua, so every piece keeps its x from frame to frame; only the
+two strikes (F09, F16) close gaps. On
 drawn extents the bell (still or rung) clears every piece by at least 0.034 cm, shadows
 included; the Prop Artist's 0.0376 cm is the foot against her first piece's body on centre
-lines. The rows at fifteen, from the full run of V, clear each other by 0.030 cm, shadows
-included; the Prop Artist's 0.04 cm is between the bodies, before strokes. It runs the duet's one-liners on both dialogue files (two speakers, 44
-calls, Eve never speaks, `COECKE`, six "Let Bob draw"), trips each of the fifty-one fault
-sites with its own call and a message of its own, and checks the Lua still says what the
-transcription assumes where a value is written inline (the tell's key's scale, the rung
-bell's shift and turn, the key's frame, the side rod's end, the pieces' and the bell's
-shapes, the pitch rule).
+lines. The rows at fifteen, from the full run of V, clear each other by 0.011 cm with the
+black pieces' felt rings (L6) and shadows included (0.030 cm without the rings); the Prop
+Artist's 0.04 cm is between the bodies, before strokes. It runs the duet's one-liners on both dialogue files (two speakers, 44
+calls, Eve never speaks, `COECKE`, six "Let Bob draw"), trips each of the sixty-eight fault
+sites with its own call and a message of its own (and four round-3 faults again through a
+step), shows every order of a bracket's items draws the same frame, and checks the Lua still
+says what the transcription assumes: every chunk against its pin (`check_lua`, `check_sites`),
+and where a value is written inline (the tell's key's scale, the rung bell's shift and turn,
+the key's frame, the side rod's end, the pieces' and the bell's shapes, the pitch rule); the
+felt ring's width, read from the Lua, is asserted with the counted frames.
 
 ```python
-assert D.check_whole(PC.ORDER) == 19
+assert D.check_whole(PC.ORDER) == 18 and len(frames) == 30
+assert keyed == ["F01", "F03", "F12a", "F17", "F18", "F21", "F27"] and new == ["F02", "F13", "F14"]
+assert [PC.lines_drawn(t.shown) for t in counted] == [12, 12, 12, 12]
 assert {t.shown.d for t in trays} == {PC.PITCH}
 assert set(PC.faults(fn, *args)) == {site}
 ```

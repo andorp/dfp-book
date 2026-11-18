@@ -119,8 +119,13 @@ def _proportional(A, B):
 #   \ringcords[view]{tangle}{caption}           (pdf/props/ch08.tex)
 # and the Crab's press, \koekpan[view]{caption}.  The Lua COMPUTES the views:
 # slid, flipped, pushed, pressed, and the ring come clear of the flip-slot.
-# tools/props_ch08.py transcribes the Lua; the calls are read out of this
-# challenge's section of dialog.md, never copied.
+# Round 4 ("Show the process") adds the marks (marks=on: a moved part's ghost,
+# its arc, a pin on what is held), the prediction frames (expects=: Achilles's
+# refuted rule, drawn paler) and \ringsteps[opts]{tangle}{steps}{captions}, a
+# strip whose every frame starts from the state the one before left.
+# tools/props_ch08.py transcribes the Lua (proved against texlua; P.check_lua
+# holds the Lua and the .tex to the text it was proved on); the calls are read
+# out of this challenge's section of dialog.md and dialog.raw.md, never copied.
 #
 # The state model (identity card, section 3): a green ring is a Z spider, a red
 # ring an X spider; a ring's turn t (twenty-fourths, clockwise from the top as
@@ -177,6 +182,8 @@ def ratio(A, B):
 def check_transcription():
     """The Lua's pressed point-and-fork and its pushed view against copy and
     pi-commutation (a structural check, not a second proof)."""
+    P.check_lua()
+    P.check_sites()
     # pressed point + fork <-> copy, both colourings: the fork is gone and each right hook
     # carries a point of the point's colour -- UP TO the scalar: the tangle is 1/sqrt2
     # times the two points.  The tangle grammar gives point and fork no turn, so the rule's
@@ -227,54 +234,134 @@ def check_transcription():
     assert P.faults(P.ringcords, "pushed", "green ring, turn a third") == ["pushed"]
 
 
+def bezier(p0, p1, p2, p3, n=4001):
+    """Points along a cubic Bezier, as TikZ draws "p0 .. controls p1 and p2 .. p3"."""
+    t = np.linspace(0, 1, n)[:, None]
+    p0, p1, p2, p3 = (np.array(p, dtype=float) for p in (p0, p1, p2, p3))
+    return (1 - t) ** 3 * p0 + 3 * (1 - t) ** 2 * t * p1 + 3 * (1 - t) * t ** 2 * p2 + t ** 3 * p3
+
+
+SWING_HALF = 0.6 / 72.27 * 2.54 / 2      # half the slide arc's 0.6pt stroke, in the picture's cm
+
+
+def passes(T):
+    """Achilles's rule, in the challenge's own model: the fork has nothing to say to a point of
+    the other colour, so the point "passes straight through and comes out on one leg,
+    unchanged" -- the map is the point alone, one cord out."""
+    (point, fork) = T.rings
+    assert point.c != fork.c
+    return (xspider if point.c == "red" else zspider)(0, 1, phase(point.t))
+
+
 def pictures():
     assert f'"{QUOTE}"' in __doc__                              # quoted byte for byte
     check_transcription()
-    p31, p32, p33, p34 = DIALOGUE.check_layout("Third", sizes=[1, 1, 2])
-    calls = (p31, p32, p33, p34)
-    assert [c.macro for c in calls] == ["ringcords"] * 4
+    found = P.check_section(DIALOGUE, "Third", sizes=[1, 2, 2], frames=[1, 2, 2])
+    calls = tuple(c for b in found for c, _ in b)
+    p31, p32, p33, p34, p35 = calls
+    b31, b32, b33, b34, b35 = (fr[0][0] for b in found for _, fr in b)
+    assert [c.macro for c in calls] == ["ringcords"] * 5
     for c in calls:
         assert words_only(c.caption, forbidden=P.NOT_IN_CAPTIONS) and P.caption_ok(c), c.caption
-    assert [c.opt for c in calls] == ["", "pressed", "", "pushed"]
-    assert [c.keyed for c in calls] == [False, True, False, False]      # the first pressed picture
-    b31, b32, b33, b34 = (P.picture(c) for c in calls)
+    assert [P.view_of(c) for c in calls] == ["", "pressed", "pressed", "", "pushed"]
+    assert [P.options(c) for c in calls] == [
+        {"bare": ""}, {"bare": "pressed", "expects": "passes"}, {"bare": "pressed"}, {"bare": ""},
+        {"bare": "pushed", "marks": "on"}]
+    assert [P.is_prediction(c) for c in calls] == [False, True, False, False, False]
+    assert [c.keyed for c in calls] == [False, False, True, False, False]   # the first TRUE press
+    assert [c.caption for c in calls] == ["point and fork", "as Achilles expects", "off the second hooks",
+                                          "before the push", "gone through"]
     sec = DIALOGUE.section("Third")
-    a1, a2, a3 = P.anchors(DIALOGUE, "Third")
-    f1, f2, f3 = P.following(DIALOGUE, "Third")
+    a1, a2, a3 = DIALOGUE.anchors("Third")
+    f1, f2, f3 = DIALOGUE.following("Third")
+    # the direction and captions edited this round (N5; C1, C2), in both files
+    P.check_edits(DIALOGUE, "Third", [
+        ("to the mirror side, the same turn the other way about.",
+         "to the mirror side, round beneath the cord, the same turn the other way about."),
+        ("{a point and a fork}", "{point and fork}"),
+        ("{pushed through}", "{gone through}")])
 
     # P3.1: the red point and the green fork, the state Achilles predicts on
-    assert p31.args == p32.args == ("red point, green fork",)
+    assert p31.args == p32.args == p33.args == ("red point, green fork",)
     assert "This is a red point — a red ring with just the one cord" in a1
     assert "a green ring made to fork: one cord in, two cords out, its bead at the top, no turn." in a1
-    assert b31.setting == "loose" and b31.drawn.kind == "copy"
+    assert b31.setting == "loose" and b31.drawn.kind == "copy" and b31.marks == ()
     pt, fk = b31.drawn.rings
     assert (pt.c, fk.c) == ("red", "green") and pt.x < fk.x and pt.t == fk.t == P.parse_turn("no turn")
     assert f1.startswith("**Achilles:** Then I can tell you what happens without your pan.")
     assert "It passes straight through and comes out on one leg, unchanged." in f1   # the prediction
 
-    # P3.2: off the second hooks, two red points, the green ring gone (keyed)
+    # B3.2, the prediction frame: Achilles's rule "passes", drawn paler, never keyed, beside the
+    # true press; the macro's wrong rule is the challenge's model of what he said, and both
+    # are refuted by the press: one point against two
+    for q in P.rule_quotes()[:2]:
+        assert q in sec, q                                     # the Lua's WRONG quotes, spoken here
+    assert P.rule_quotes()[0] in f1 and P.rule_quotes()[1] in a2
+    assert b32.expects == "passes" and b32.pale and not b32.keyed and b32.labels == ()
+    assert b32.marks == () and b32.mark_tikz == ("\\begin{scope}[transparency group, opacity=0.500]",)
+    assert b32.made == b31.drawn                                            # from the tangle as made
+    assert b32.setting == "hooks" and [(r.c, r.t) for r in b32.drawn.rings] == [("red", 0)]
+    assert all(e == P.End("R", P.ROW) for s in P.segments(b32.drawn) for e in s if isinstance(e, P.End))
+    assert np.allclose(tangle_map(b32.drawn).ravel(), passes(b31.drawn).ravel())   # the rule drawn
+    assert tangle_map(b32.drawn).shape == (2, 1)                                   # one cord out
+    assert P.describe(p32)[1:] == ["ringcords: + expects passes (the whole picture paler)"]
+    assert P.faults(P.ringcords, "pressed; expects=passes", "green and red, two cords") == ["wrong-passes"]
+    assert P.faults(P.ringcords, "expects=passes", "red point, green fork") == ["expects-pressed"]
+    assert P.faults(P.ringcords, "pressed; expects=passes", "red point, green fork", True) == ["expects-keyed"]
+
+    # B3.2, the true press: off the second hooks, two red points, the green ring gone (keyed)
     assert "There is no green ring left at all" in a2 and "each is a red point" in a2
-    assert b32.setting == "hooks" and b32.drawn.kind == "points"
-    assert b32.labels == ("second hooks", "red", "red")
-    assert [(r.c, r.t) for r in b32.drawn.rings] == [("red", 0), ("red", 0)]
-    assert all(e.side == "R" for s in P.segments(b32.drawn) for e in s if isinstance(e, P.End))
-    assert np.allclose(tangle_map(b31.drawn).ravel(), tangle_map(b32.drawn).ravel() / np.sqrt(2))
+    assert b33.setting == "hooks" and b33.drawn.kind == "points" and not b33.pale and b33.expects is None
+    assert b33.labels == ("second hooks", "red", "red") and b33.marks == ()
+    assert [(r.c, r.t) for r in b33.drawn.rings] == [("red", 0), ("red", 0)]
+    assert all(e.side == "R" for s in P.segments(b33.drawn) for e in s if isinstance(e, P.End))
+    assert np.allclose(tangle_map(b31.drawn).ravel(), tangle_map(b33.drawn).ravel() / np.sqrt(2))
+    # the prediction differs from what came off: one point against two, one cord out against two
+    assert len(b32.drawn.rings) == 1 and len(b33.drawn.rings) == 2
+    assert tangle_map(b32.drawn).shape != tangle_map(b33.drawn).shape
+    assert b32.drawn.rings[0] in b33.drawn.rings                           # the upper one kept
     assert f2.startswith("**Achilles:** *[staring]* Two.") and QUOTE in f2   # the docstring's line
 
-    # P3.3, P3.4: the push -- the traveller the same, the ring it passed through mirrored
-    assert p33.args == p34.args == ("red half-turn, green ring, turn a third",)
+    # B3.3: the push -- the traveller the same, the ring it passed through mirrored
+    assert p34.args == p35.args == ("red half-turn, green ring, turn a third",)
     assert "a red ring with its bead set square at the halfway mark" in sec
     assert "The green ring sits with its bead a third of the way round" in a3
     assert "still a red half-turn, its bead square at the mark" in a3
     assert "the same turn the other way about" in a3
-    tr, g = b33.drawn.rings
+    assert b34.marks == ()
+    tr, g = b34.drawn.rings
     assert (tr.c, tr.t) == ("red", P.parse_turn("the halfway mark")) and tr.x < g.x
     assert (g.c, g.t) == ("green", P.parse_turn("a third of the way round"))      # four o'clock
-    g2, tr2 = b34.drawn.rings
+    g2, tr2 = b35.drawn.rings
     assert (g2.c, g2.t, g2.x) == ("green", 16, g.x)                                # eight o'clock
     assert (tr2.c, tr2.t) == ("red", 12) and tr2.x > g2.x
-    k = ratio(tangle_map(b33.drawn), tangle_map(b34.drawn))
-    assert np.allclose(tangle_map(b33.drawn), k * tangle_map(b34.drawn)) and not np.isclose(k, 1)
+    k = ratio(tangle_map(b34.drawn), tangle_map(b35.drawn))
+    assert np.allclose(tangle_map(b34.drawn), k * tangle_map(b35.drawn)) and not np.isclose(k, 1)
+    assert b35.made == b34.drawn                                                   # the same moment
+    # its marks (marks=on): the traveller where it waited, its way "through the green ring to the
+    # far side" (over it), the green bead where it was and its swing "round beneath the cord"
+    assert "pushes the red half-turn along the cord and through the green ring to the far side" in a3
+    assert [m.kind for m in b35.marks] == ["ghost", "slide", "bead", "bead-arc"]
+    ghost, slide, bead, arc = b35.marks
+    assert ghost.ring == tr and ghost.at == (tr.x, tr.y)                           # where it waited
+    assert all(np.hypot(ghost.at[0] - q.x, ghost.at[1] - q.y) > 2 * P.RO for q in b35.drawn.rings)
+    (x0, y0), c1, c2, (x1, y1) = slide.pts
+    assert (x0, x1) == (tr.x, tr2.x)
+    path = bezier((x0, y0), c1, c2, (x1, y1))
+    over = path[np.argmin(abs(path[:, 0] - g2.x))]
+    assert over[1] - SWING_HALF - (g2.y + P.RO) > 0                                # clear over the ring
+    assert bead.ring == g and np.allclose(bead.at, P.bead_xy(g))                   # the bead as it was
+    (cx, cy), (rad, s0, s1) = arc.pts
+    assert (cx, cy) == (g2.x, g2.y) and arc.dir == 1
+    bottom = -90                                                                   # beneath the cord
+    assert s0 > bottom > s1 and P.turn_angle(g.t) > s0 and s1 > P.turn_angle(g2.t)  # 8 -> 16 by the bottom
+    assert P.describe(p35)[1:] == ["ringcords: + ghost red ring 12 at (-0.500,0.000)",
+                                   "ringcords: + slide arc -0.500 -> 0.660 above the cord, over the ring",
+                                   "ringcords: + ghost bead 8 on the green ring",
+                                   "ringcords: + bead arc 8 -> 16 clockwise through the bottom"]
+    # the mirror is the cord's: a turn on the other side of the cord would swing over the top
+    assert P.mirror_dir(8) == 1 and P.mirror_dir(16) == -1 and P.mirror_dir(0) == P.mirror_dir(12) == 0
+    assert P.ringcords("pushed", p35.args[0]).marks == ()                          # round 3's call
     assert f3 == ("**Achilles:** The green ring's turn has flipped to the far side, the mirror of what it "
                   "was. A half-turn of one colour, pushed through the other, turns the other's turn around.")
 

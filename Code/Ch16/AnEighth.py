@@ -383,31 +383,103 @@ def eighth_net(I):
     return g
 
 
+def value(I):
+    """An eighth-cloth frame's value: its cords, with the Fifth's counter, e^{i pi/4}, for each
+    by the teapot (P5.4's number, below)."""
+    return W8 ** I.aside * matrix_of(eighth_net(I))
+
+
+def body_bow(R):
+    """The drawn swing arc's body (its samples up to its length, the head left off): its chord and its
+    greatest bow from that chord, in cm.  A short arc whose bow is under MINSAG reads straight."""
+    (a,) = [a for a in R.arcs if a.kind == "swing"]
+    body, run = [a.pts[0]], 0.0
+    for p, q in zip(a.pts, a.pts[1:]):
+        run += np.hypot(q[0] - p[0], q[1] - p[1])
+        if run > a.len + 1e-9:
+            break
+        body.append(q)
+    (x0, y0), (x1, y1) = body[0], body[-1]
+    chord = np.hypot(x1 - x0, y1 - y0)
+    return chord, max(abs((x - x0) * (y1 - y0) - (y - y0) * (x1 - x0)) / chord for x, y in body)
+
+
+def pin_gap(R):
+    """The drawn swing arc's gap to the pin's dotted ring, edge to edge: the nearest of the arc's
+    samples (its head included) to the pin's centre, less the ring's radius and both strokes' halves.
+    Measured on the drawn extent, so a positive gap is a gap on the page."""
+    (a,) = [a for a in R.arcs if a.kind == "swing"]
+    (what, x, y), = R.pins
+    return min(np.hypot(q[0] - x, q[1] - y) for q in a.pts) - PC.PINR - 2 * PC.MARKHALF
+
+
 def pictures():
-    """The Fifth Challenge's prop pictures (identity card, section 4), read from the dialogue
+    """The Fifth Challenge's prop pictures (identity card, sections 4 and 3e), read from the dialogue
     through tools/dfp_props.py and the transcription tools/props_ch16.py, and the checks that
     run over the whole dialogue.  The ties below hold the transcription against this file's
-    blackboard: a structural check of the pictures, not a second proof."""
+    blackboard: a structural check of the pictures, not a second proof.  Round 4 draws the eighth
+    from home with its pin on the top tip, and each reading move by move: every slide and the
+    lifted joiner leave the value exactly as it was; the quarter set beside the lit reading's
+    end is the mending S, applied."""
     import props_ch14
     s2 = np.sqrt(2)
-    calls = DIALOGUE.check_layout("Fifth", sizes=[1, 1, 1, 1])
+    calls = DIALOGUE.check_layout("Fifth", sizes=[1, 1, 1, 1, 1])
     assert [(c.macro, c.keyed, c.opt, c.args, c.caption) for c in calls] == [
-        ("cradlemodel", False, "an eighth", ("home",), "Rocking, crooked"),
+        ("cradlemodelsteps", False, "", ("home", "an eighth"), "The model at home again; Rocking, crooked"),
         ("eighthcloth", True, "", ("the eighth-end",), "The joiner, ready"),
-        ("eighthcloth", False, "the dark reading", ("the eighth-end",), "Carried up"),
-        ("eighthcloth", False, "the lit reading", ("the eighth-end",), "Carried up again")]
+        ("eighthclothsteps", False, "after=close dark",
+         ("the eighth-end", "slide the end-ring in; lift the red ring; slide the eighth-end up"),
+         "The far end closed, bead up; The red rings run together; Lifted into the box; The end carried up"),
+        ("eighthclothsteps", False, "after=close lit",
+         ("the eighth-end", "slide the end-ring in; push the half into the eighth-end"),
+         "The far end closed, bead down; The red rings run together; The other end turned round"),
+        ("eighthclothsteps", False, "after=close lit, slide the end-ring in, push the half into the eighth-end; from=off",
+         ("the eighth-end", "slide the eighth-end up; a quarter round beside it; slide it in"),
+         "The turned end slid up; A green ring set beside; Carried up again")]
     PC.check_captions(DIALOGUE, "Fifth", calls)
     PC.check_section(DIALOGUE, "Fifth", calls)
-    PC.check_anchors(DIALOGUE, "Fifth", ["P5.1", "P5.2", "P5.3", "P5.4"])
-    assert [[round(PC.height(c), 2) for c in b] for b in DIALOGUE.blocks("Fifth")] == [[2.07], [1.78], [1.78], [1.78]]
-    p51, p52, p53, p54 = (PC.picture(c) for c in calls)
+    assert PC.check_anchors(DIALOGUE, "Fifth") == (8, 16)                # P5.1, P5.3, B21's, P5.4, both files
+    frames = [PC.frame_chain(c) for c in calls]
+    assert [len(f) for f in frames] == [2, 1, 4, 3, 3]                  # card 3e.6: 5 blocks, 13 frames
+    assert [[round(PC.height(c), 2) for c in b] for b in DIALOGUE.blocks("Fifth")] == [[2.07], [1.78], [1.78], [1.78], [1.78]]
+    assert [round(R.frame, 2) for f in frames for R in f] == [2.07] * 2 + [1.78] * 11
+    (home, p51), (p52,), b20, b21, b22 = frames
+    p53, p54 = b20[-1], b22[-1]
+
+    # B18: the model at home, then an eighth from home -- U = T, turned about the upright: the pin on
+    # the top tip, the one tip that holds (T fixes the up axis, Z), one swing arc
+    assert home.dump == PC.model_dump(PC.model_state("", "home")) and not home.marked and home.pins == []
+    assert p51.before == home.state and p51.step == "an eighth"
+    assert p51.dump == PC.cradlemodel("an eighth", "home").dump        # round 3's P5.1
+    assert p51.marked and [a.kind for a in p51.arcs] == ["swing"] and p51.ghosts == []
+    (what, x, y), = p51.pins
+    assert what == "the top tip (it holds)"
+    assert np.allclose(rotation(T) @ [0, 0, 1], [0, 0, 1])              # the up axis holds
+    assert not np.allclose(rotation(T) @ [1, 0, 0], [1, 0, 0])          # the front does not
+    ex, ey = PC.m_at(PC.model_orient(p51.after)[1], (0, 0, PC.MR))      # the top tip, in the room's frame
+    assert np.isclose(x, ex) and np.isclose(y, ey)
+    assert not np.isclose(y, PC.m_at(None, (0, 0, PC.MR))[1])           # where the rocked top now stands
+    # the swing arc runs the way T carries the front tip (towards the right lug), not back
+    (arc,) = p51.arcs
+    tilt = PC.model_orient(p51.after)[1]
+    lua = lambda v: tuple(PC.MR * c for c in (v[1], -v[0], v[2]))
+    for Rot, sign in ((rotation(T), 1), (rotation(T).T, -1)):
+        q0, q1 = PC.m_at(tilt, lua([1.0, 0, 0])), PC.m_at(tilt, lua(Rot @ [1.0, 0, 0]))
+        sense = (arc.to[0] - arc.frm[0]) * (q1[0] - q0[0]) + (arc.to[1] - arc.frm[1]) * (q1[1] - q0[1])
+        assert sign * sense > 0, sign
+    # the eighth's short arc keeps clear of the pin on the top tip (lifted till it keeps PINKEEP),
+    # a positive gap on the drawn extent
+    assert pin_gap(p51) >= PC.PINKEEP > 0, pin_gap(p51)
+    # and it reads curved: its body bows at least MINSAG from its chord (B18: chord 0.275 cm)
+    chord, bow = body_bow(p51)
+    assert np.isclose(chord, 0.275, atol=5e-4) and bow >= PC.MINSAG - 1e-9, (chord, bow)
 
     # P5.1: an eighth from home -- U = T; the lug at P holds T^dagger P T: up and socket keep
     # their tips, every other lug lies between two tips, (P1 + P2)/sqrt2, as the dump names them
     assert p51.dump == ("unseated up=dark green socket=pale green front=between dark red and pale gold "
                         "right=between dark gold and dark red back=between pale red and dark gold "
                         "left=between pale gold and pale red")
-    assert p51.state.eighth == 1 and not p51.shown.seated              # "Rocking, crooked"
+    assert p51.state.eighth == 1 and not p51.shown.seated and home.shown.seated   # "Rocking, crooked"
     seen = dict(kv.split("=") for kv in re.split(r" (?=\w+=)", p51.dump.split(" ", 1)[1]))
     assert set(seen) == set(PLACEPAULI)
     for place, P_ in PLACEPAULI.items():
@@ -422,7 +494,6 @@ def pictures():
     assert not np.allclose(T @ X @ T.conj().T, (X - Y) / s2)
     # two eighths are a quarter: seated again, as one quarter
     assert PC.model_dump(PC.model_state("an eighth, an eighth", "home")) == PC.model_dump(PC.model_state("quarter", "home"))
-    assert p51.labels == ()
 
     # P5.2: the joiner, ready -- the eighth-end's bead at an eighth is the green pi/4 point
     # |0> + e^{i pi/4}|1>; the far end loose
@@ -445,6 +516,7 @@ def pictures():
 
     # P5.3: the dark reading -- the eighth carried up onto the upper cord: exactly T psi
     assert p53.dump.split(" | ")[0] == "green=3 red=none lower=gone eighth=none far=none beside=none aside=0"
+    assert p53.dump == PC.eighthcloth("the dark reading", "the eighth-end").dump    # round 3's
     rng = np.random.default_rng(1615)
     psi = random_state(rng)
     assert not np.allclose(psi, psi.conj())                             # non-real
@@ -453,12 +525,58 @@ def pictures():
     # P5.4: the lit reading, the quarter beside it slid in -- e^{i pi/4} T psi: the counter's
     # number is e^{i pi/4}
     assert p54.dump.split(" | ")[0] == "green=3 red=none lower=gone eighth=none far=none beside=none aside=1"
+    assert p54.dump == PC.eighthcloth("the lit reading", "the eighth-end").dump     # round 3's
     assert np.allclose(W8 * matrix_of(eighth_net(p54.state)) @ psi, S @ matrix_of(eighth_net(lit_I)) @ psi)
     assert np.allclose(W8 * matrix_of(eighth_net(p54.state)) @ psi, W8 * T @ psi)
     assert not np.allclose(matrix_of(eighth_net(lit_I)) @ psi, W8 * T @ psi)          # not without the quarter
     assert not np.allclose(matrix_of(eighth_net(p54.state)) @ psi, S @ matrix_of(eighth_net(lit_I)) @ psi)  # nor without the counter
-    # every step of either reading keeps the value, with e^{i pi/4} for each counter (the
-    # quarter beside it is the mending S, applied, not a rewrite)
+
+    # B20, the dark reading move by move (card 3e.6, item 7): the far end closed at rest (bead up),
+    # the end-ring slid in, the red joiner lifted (two cords joined), the eighth-end slid up; each
+    # move leaves the value exactly as it was, and with no counter the nets are equal outright
+    assert [R.step for R in b20] == [None, "slide the end-ring in", "lift the red ring", "slide the eighth-end up"]
+    assert b20[0].state == dark_I and b20[0].state.far == 0             # "bead up": the end-ring at rest
+    for P, R in zip(b20, b20[1:]):
+        assert R.before == P.state
+        assert np.allclose(value(R.state), value(P.state)), R.step
+        assert same_picture(eighth_net(R.state), eighth_net(P.state)), R.step
+    assert b20[2].state.red is None and b20[2].state.lower == "joined"  # "Lifted into the box"
+    # B21 and B22, the lit reading: closed with the end-ring at a half (bead down), slid in, the half
+    # pushed into the eighth-end (it turns round, an eighth back, and a counter goes by the teapot),
+    # the end slid up -- each the value unchanged, with e^{i pi/4} for the counter; then the quarter
+    # set beside it, S applied (a step of the Tortoise's, not a rewrite), and slid in: no change
+    lit = b21 + b22
+    assert [R.step for R in lit] == [None, "slide the end-ring in", "push the half into the eighth-end",
+                                     "slide the eighth-end up", "a quarter round beside it", "slide it in"]
+    assert lit[0].state == lit_I and lit[0].state.far == 12             # "bead down": at a half
+    assert b22[0].before == b21[-1].state                               # B22 takes up where B21 stops
+    for P, R in zip(lit, lit[1:]):
+        assert R.before == P.state
+        if R.step == "a quarter round beside it":
+            assert np.allclose(value(R.state), S @ value(P.state))
+            assert not np.allclose(value(R.state), value(P.state))
+        else:
+            assert np.allclose(value(R.state), value(P.state)), R.step
+            if R.state.aside == P.state.aside:
+                assert same_picture(eighth_net(R.state), eighth_net(P.state)), R.step
+    assert [R.state.aside for R in lit] == [0, 0, 1, 1, 1, 1]
+    assert lit[2].state.eighth == 21 and lit[1].state.eighth == 3       # "The other end turned round"
+    assert not np.allclose(matrix_of(eighth_net(lit[2].state)), matrix_of(eighth_net(lit[1].state)))  # the counter is needed
+    assert lit[4].state.beside == 6 and lit[5].state.beside is None     # "A green ring set beside"
+    # the readings end on the upper cord as round 3 has them, the lit one with its counter
+    for p in (p53, p54):                                                # "(The end) carried up (again)"
+        assert (p.state.green, p.state.lower, p.state.red, p.state.eighth) == (3, "gone", None, None)
+    assert (p53.state.aside, p54.state.aside) == (0, 1)
+    # the marks: a ghost of each part that moves, where it was before the step
+    assert [PC.check_ghosts(P, R) for P, R in zip(b20, b20[1:])] == [
+        ["the red end-ring (grid 7,1)"], ["the red ring (grid 3,1)"], ["the green end-ring (grid 0,1)"]]
+    assert [PC.check_ghosts(P, R) for P, R in zip(lit, lit[1:])] == [
+        ["the red end-ring (grid 7,1)"], ["the green end-ring (grid 0,1)", "the red ring (grid 3,1) (outer)"],
+        ["the green end-ring (grid 3,1)"], [], ["the green ring (grid 4,0)"]]
+    assert all(R.pins == [] for R in b20 + lit)
+    # every slide arc runs from where a part was to where a part arrives
+    assert [PC.check_slides(R) for R in b20[1:] + lit[1:]] == [1, 0, 1, 1, 1, 1, 1, 0]
+    # the rounds' readings, step by step through the transcription, as round 3 has them
     steps = {"dark": ["close dark", "slide the end-ring in", "lift the red ring", "slide the eighth-end up"],
              "lit": ["close lit", "slide the end-ring in", "push the half into the eighth-end", "slide the eighth-end up"]}
     for name, seq in steps.items():
@@ -466,19 +584,18 @@ def pictures():
         for k in range(1, len(seq) + 1):
             I = PC.eighth_state(", ".join(seq[:k]), "the eighth-end")
             assert not PC.TEX_ERRORS
-            val = W8 ** I.aside * matrix_of(eighth_net(I))
+            val = value(I)
             first = val if first is None else first
             assert np.allclose(val, first), (name, seq[:k])
-    for p in (p53, p54):                                                # "Carried up (again)"
-        assert (p.state.green, p.state.lower, p.state.red, p.state.eighth) == (3, "gone", None, None)
-    assert (p53.state.aside, p54.state.aside) == (0, 1)
+            assert I == (b20 if name == "dark" else lit)[k - 1].state
 
     # the keyed words (P5.2): end-ring, tie and cord set by the cloth kit (not transcribed;
     # measured from the Lua's output after the kit's TOPRAISE, their letters clear the cloth's
     # parts and the linen's edge by at least 0.019 cm, "cord" to its own cord the least); "ring"
     # set by the Lua itself below the red joiner: its letters clear every ring and cord drawn,
     # and the linen's edges, by at least 0.02 cm
-    assert p52.labels == ("end-ring", "tie", "cord", "ring") and p53.labels == p54.labels == ()
+    assert p52.labels == ("end-ring", "tie", "cord", "ring")
+    assert [R.labels for f in frames for R in f if R is not p52] == [()] * 12
     (w, x, y), = p52.shown.own
     letters = PC.letter_boxes(w, x, y, "center")
     rings, cords = props_ch14.cloth_drawn(p52)
@@ -495,14 +612,36 @@ def pictures():
     assert box[3] < p54.shown.linen[1] - PC.LINEN_SHADOW and box[1] > p54.shown.fbot - PC.ASIDE
     # fixed parts: the upper cord runs along the first row in every picture, the lower cord
     # (while there) along the second
-    for p in (p52, p53, p54):
+    for p in [p52] + b20 + lit:
         assert {"kind": "cord", "pts": [[0, 0], [7, 0]], "a": "loose", "b": "loose"} in eighth_scene_cords(p)
     assert any(c["kind"] == "cord" and c["pts"] == [[0, 1], [7, 1]] for c in eighth_scene_cords(p52))
     assert not PC.TEX_ERRORS
 
     # --- the whole dialogue -------------------------------------------------------------
-    assert DIALOGUE.check_whole(ORDINALS) == 20
-    DIALOGUE.keyed_first(ORDINALS)                                      # the starred form: first of each macro
+    # card 3e.6, item 5: 22 blocks, 23 calls, 42 frames, as the sums of the five files' tables
+    SIZES = {"First": [1, 1, 1, 1], "Second": [1, 1, 1, 1], "Third": [1, 2, 1, 1, 1], "Fourth": [1, 1, 1, 1],
+             "Fifth": [1, 1, 1, 1, 1]}
+    FRAMES = {"First": 6, "Second": 7, "Third": 9, "Fourth": 7, "Fifth": 13}
+    for o in ORDINALS:
+        assert [len(b) for b in DIALOGUE.blocks(o)] == SIZES[o]
+        assert sum(len(PC.pictures(c)) for b in DIALOGUE.blocks(o) for c in b) == FRAMES[o], o
+    assert DIALOGUE.check_whole(ORDINALS) == sum(sum(v) for v in SIZES.values())
+    assert sum(len(v) for v in SIZES.values()) == len([b for o in ORDINALS for b in DIALOGUE.blocks(o)])
+    assert sum(FRAMES.values()) == sum(len(PC.pictures(c)) for o in ORDINALS for b in DIALOGUE.blocks(o) for c in b)
+    assert (sum(len(v) for v in SIZES.values()), sum(sum(v) for v in SIZES.values()), sum(FRAMES.values())) == (22, 23, 42)
+    # the starred form: the first of each picture kind (a strip by its frames' macro): P1.1, P2.1,
+    # P2.2, P4.1, P5.2, and no other
+    DIALOGUE.keyed_first(ORDINALS, kind=PC.keyed_kind)
+    starred = [c.caption for o in ORDINALS for b in DIALOGUE.blocks(o) for c in b if c.keyed]
+    assert starred == ["Seated as it came", "Every ring clipped", "The net laid out", "The tray's rows", "The joiner, ready"]
+    # every call of every section in its place (card section 4, a strip by its frames' macro), on
+    # both files
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        text = DIALOGUE.read(path)
+        for o in ORDINALS:
+            for b in DIALOGUE.blocks(o, path):
+                for c in b:
+                    assert PC.place_ok(o, c, text), (path.name, c.text)
     for path in (DIALOGUE.dialog, DIALOGUE.raw):
         raw = pathlib.Path(path).read_text(encoding="utf-8")
         text = DIALOGUE.read(path)                                      # comments stripped

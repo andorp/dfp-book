@@ -207,30 +207,82 @@ def turned_web(a, start):
     return Hn(n + 1) @ U(lambda x: dot(a, x), n) @ Hn(n + 1) @ ket(*start)
 
 
+DARK = "marks first and fifth; wish-knobs dark; flag dark"
+LIT = "marks first and fifth; wish-knobs crosswise dark; flag crosswise lit"
+BARE = "no marks; wish-knobs crosswise dark; flag crosswise lit"
+GHOST_FLAG = "ghost the flag's end-ring in dotted outline at {} (grid {},6): slid along the flag cord"
+GHOST_RED = ("ghost the red ring for the {} square in dotted outline at {} (grid {},6), under the ring now lying "
+             "over part of its place: pushed into: gone, its copy up the tie to the {} square's cord")
+GHOST_OUT = ("ghost the green ring on the {} square's cord in dotted outline at {} (grid {}): slid out along its "
+             "cord into the end-ring")
+NO_TIE_ARC = "no arc up a tie: it would cross every cord between (a cut); the ring at the top shows what it got"
+FLAG_ARC = ("slide arc the flag's end-ring along its cord, above the row, {} -> {}: on the linen (clear of its edges "
+            "and its near hem or fold) by {}; clear of every cord and tie by 0.115 (centre line 0.148), of every "
+            "ring by 0.071 (centre line 0.148){} (edge to edge)")
+OUT_ARC = ("slide arc the {} square's ring out to its end-ring, beneath the row, {} -> {}: on the linen (clear of "
+           "its edges and its near hem or fold) by {}; clear of every cord and tie by {}, of every ring by 0.071 "
+           "(centre line 0.148), of the ghosts it leaves by 0.046 (edge to edge)")
+GHOSTS = ", of the ghosts it leaves by 0.046"
+# the marks each frame draws, as the Lua logs them (card 3e.6, r13/BA/dumps_md.txt)
+MARKS = {
+    "F12": [GHOST_FLAG.format("(-0.770,-2.266)", 0), GHOST_RED.format("first", "(-0.330,-2.266)", 2, "first"),
+            FLAG_ARC.format("(-0.750,-2.145)", "(-0.306,-2.145)", "0.199 (centre line 0.210)", GHOSTS), NO_TIE_ARC],
+    "F13": [GHOST_OUT.format("first", "(-0.330,-0.132)", "2,0"),
+            OUT_ARC.format("first", "(-0.350,-0.253)", "(-0.684,-0.253)", "0.242 (centre line 0.253)",
+                           "0.087 (centre line 0.121)")],
+    "F14": [GHOST_FLAG.format("(-0.220,-2.266)", 2.5), GHOST_RED.format("fifth", "(0.110,-2.266)", 4, "fifth"),
+            FLAG_ARC.format("(-0.200,-2.145)", "(0.134,-2.145)", "0.207 (centre line 0.218)", GHOSTS), NO_TIE_ARC],
+    "F15": [GHOST_OUT.format("fifth", "(0.110,-1.452)", "4,4"),
+            OUT_ARC.format("fifth", "(0.090,-1.573)", "(-0.684,-1.573)", "0.299 (centre line 0.310)",
+                           "0.068 (centre line 0.102)")],
+    "F19": [GHOST_FLAG.format("(-0.770,-2.266)", 0),
+            FLAG_ARC.format("(-0.750,-2.145)", "(0.684,-2.145)", "0.180 (centre line 0.191)", GHOSTS)],
+}
+MARKS["F17"], MARKS["F18"] = MARKS["F12"], MARKS["F14"]
+
+
 def pictures():
-    """The Second Challenge's prop pictures (identity card, section 4), read from the
-    dialogue through tools/dfp_props.py and the transcription tools/props_ch13.py.  The
-    ties below hold the transcription against this file's blackboard: a structural
-    check of the pictures, not a second proof."""
+    """The Second Challenge's prop pictures (identity card, sections 4 and 3e), read from the
+    dialogue through tools/dfp_props.py and the transcription tools/props_ch13.py: four blocks,
+    three strips and a single call, eleven frames (F09-F19).  The ties below hold the
+    transcription against this file's blackboard: a structural check, not a second proof."""
     calls = DIALOGUE.check_layout("Second", sizes=[1, 1, 1, 1])
     assert [(c.macro, c.keyed, c.opt, c.args, c.caption) for c in calls] == [
-        ("wishcloth", True, "tubes out", ("marks first and fifth; wish-knobs dark; flag dark",),
-         "every end-ring turned green"),
-        ("wishcloth", False, "tubes out, push the flag, slide together",
-         ("marks first and fifth; wish-knobs dark; flag dark",), "every bead still at rest"),
-        ("wishcloth", False, "push the flag", ("marks first and fifth; wish-knobs crosswise dark; flag crosswise lit",),
-         "turned at the marks, the flag as it began"),
-        ("wishcloth", False, "push the flag", ("no marks; wish-knobs crosswise dark; flag crosswise lit",),
-         "run clear to the far end")]
+        ("wishclothsteps", True, "", (DARK, "clip the tubes on; tubes out"),
+         "every knob dark; a tube by every end-ring; every end-ring turned green"),
+        ("wishclothsteps", False, "after=tubes out; from=off",
+         (DARK, "push into the next ring; slide together; push into the next ring; slide together"),
+         "into a red ring; slid out to its end-ring; on into the other; every bead still at rest"),
+        ("wishclothsteps", False, "", (LIT, "push into the next ring; push into the next ring"),
+         "laid afresh, lit at the start; climbed to a mark, a turn; turned at the marks, still lit at the end"),
+        ("wishcloth", False, "step=push the flag", (BARE,), "run clear to the far end")]
     PC.check_captions(DIALOGUE, "Second", calls)
     PC.check_section(DIALOGUE, "Second", calls)
     assert [[PC.height(c) for c in b] for b in DIALOGUE.blocks("Second")] == [[2.74]] * 4
+    frames = [(c, fc, p, cap) for c in calls for fc, (p, cap) in zip(PC.frame_calls(c), PC.pictures(c))]
+    names = ["F%02d" % i for i in range(9, 20)]
+    assert len(frames) == len(names) == 11
+    F = dict(zip(names, [p for _, _, p, _ in frames]))
+    FC = dict(zip(names, [fc for _, fc, _, _ in frames]))
+    for c, fc, p, cap in frames:                                     # a strip frame IS its single call
+        assert PC.drawn(PC.picture(fc)) == PC.drawn(p) and PC.picture(fc).log == p.log, fc.text
+    # the strips' frames, each the single call with the steps before it as operations
+    assert [(fc.keyed, fc.opt) for fc in FC.values()] == [
+        (True, ""), ("new", "step=clip the tubes on"), ("new", "clip the tubes on; step=tubes out"),
+        (False, "tubes out; step=push into the next ring"),
+        (False, "tubes out, push into the next ring; step=slide together"),
+        (False, "tubes out, push into the next ring, slide together; step=push into the next ring"),
+        (False, "tubes out, push into the next ring, slide together, push into the next ring; step=slide together"),
+        (False, ""), (False, "step=push into the next ring"),
+        (False, "push into the next ring; step=push into the next ring"), (False, "step=push the flag")]
 
-    # the anchors (card section 4), in dialog.md; the raw file's following paragraphs agree
+    # the anchors (card sections 4 and 3e.4), in dialog.md; the raw file's following agree
     a1, a2, a3, a4 = DIALOGUE.anchors("Second")
     f1, f2, f3, f4 = DIALOGUE.following("Second")
     assert "Last she does the same to the flag's own end-ring: green, at rest." in a1
     assert "clips a tube from the packet onto the cord" in a1                             # D9
+    assert "till a tube sits by every end-ring" in a1                                     # T1: every tube clipped first
+    assert a1.index("till a tube sits by every end-ring") < a1.index("Then she slides the top tube outward")
     assert f1.startswith("**Tortoise:** A window reads the far end of its cord by the same code.")
     assert "not a tie anywhere, and not a red ring" in a2 and "the ring the tie came up to" in a2   # D11
     assert f2.startswith("**Achilles:** Then the web is empty.")
@@ -240,6 +292,8 @@ def pictures():
     assert "the flag cord it ran along swallowed behind it" in a4                          # D15
     assert f4.startswith("**Tortoise:** If every wish-window stays dark")
     assert DIALOGUE.following("Second", DIALOGUE.raw) == [f1, f2, f3, f4]
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        assert "till a tube sits by every end-ring" in DIALOGUE.section("Second", path)
     section = DIALOGUE.section("Second")
     for phrase in ("What is left of the handful she drops back into the box.",                         # D7
                    "slit along its length, so that it clips onto a cord anywhere",                       # D8
@@ -251,14 +305,41 @@ def pictures():
                    "She gathers the cloth clear again, the rings into their box and the string into her work-bag"):  # D14
         assert phrase in section, phrase
     assert "She unties both ties" not in section and "shaking a new packet out onto the cloth" not in section
+    # the keyed words named before their pictures (card 3e.6): end-ring, bead, tube
+    text = DIALOGUE.read(DIALOGUE.dialog)
+    k3 = text.index(calls[0].text)
+    for word in ("end-ring", "bead", "tube"):
+        assert word in text[:k3], word
 
-    p21, p22, p23, p24 = (PC.picture(c) for c in calls)
-    p14 = PC.wishcloth("", "marks first and fifth")                   # the web as laid (P1.4)
+    laid = PC.run_frame("cloth", "", "marks first and fifth", False)  # the web as laid (P1.4)
     a = (1, 0, 0, 0, 1, 0)                                            # Achilles's slip
-    assert tuple(int(k in p14.state["marks"]) for k in range(1, 7)) == a
+    assert tuple(int(k in laid.after["marks"]) for k in range(1, 7)) == a
+    rings = lambda pic: sorted((r["c"], r["x"], r["y"]) for r in pic.canon["things"] if r["kind"] == "ring")
+    ties = lambda pic: sorted((pic.canon["things"][d["a"] - 1]["x"], pic.canon["things"][d["b"] - 1]["x"])
+                              for d in pic.canon["cords"] if d["kind"] == "tie")
 
-    # P2.1: the convention -- every end-ring turned green at rest, the rings and ties as laid
-    assert p21.dump == (
+    # K3 (F09-F11): the end-rings red at rest (F09, keyed end-ring and bead); every tube clipped
+    # on by its end-ring before any is slid (F10, keyed new: tube -- T1); every end-ring green
+    # (F11).  No marks: a tube slides less than a head and its gap
+    assert F["F09"].words == ("end-ring", "bead") and F["F09"].notes == []
+    ends = [r for r in F["F09"].canon["things"] if r["kind"] == "end"]
+    assert len(ends) == 7 and all((r["c"], r["t"], r["x"]) == ("red", 0, 0) for r in ends)
+    assert rings(F["F09"]) == rings(laid) and ties(F["F09"]) == ties(laid) == [(2, 2), (4, 4)]
+    h9, h10 = (F[n].head.replace("far=false clipped=true |", "far=false |").split("; ") for n in ("F09", "F10"))
+    assert "clipped=true" in F["F10"].head and "clipped" not in F["F09"].head
+    assert [q for q in h10 if q not in h9] == ["tube @0.62,%d a0" % y for y in range(7)]   # a tube by every end-ring
+    assert [q for q in h9 if q not in h10] == []                                          # nothing else changed
+    assert F["F10"].after["clipped"] and F["F10"].words == ("tube",)        # keyed new: the part it brought
+    assert F["F11"].words == ()                                              # tubes out brings no new part
+    for n, op in (("F10", "clip the tubes on"), ("F11", "tubes out")):
+        p = F[n]
+        assert p.notes == ["step " + op + " -> " + p.head,
+                           "no marks: " + op + " shows what it changed (the tubes, the rings' colours, the folded band)"]
+        assert p.mark_tikz == [] and p.arcs == [] and p.ghosts == []
+    assert not any("keyed new" in l for p in F.values() for l in p.log)    # the Lua draws the word, logs none
+    # F11: the convention -- every end-ring turned green at rest, the rings and ties as laid
+    p21 = F["F11"]
+    assert p21.head == (
         "scene=web marks=[first fifth] first=green0+green0@2tied second=green0 third=green0 fourth=green0 "
         "fifth=green0+green0@4tied sixth=green0 flag=green0@0[red0@2 red0@4] threaded=false pushed=false "
         "far=false | cols=8 rows=7 y=0..6 near=false folded=false; gaps=5.5; 1:end green 0 @0,0; "
@@ -266,68 +347,149 @@ def pictures():
         "7:ring green 0 @4,4; 8:end green 0 @0,5; 9:end green 0 @0,6; 10:ring red 0 @2,6; 11:ring red 0 @4,6; "
         "tie 2-10 []; tie 7-11 []; cord loose-1 [6.2,0 0,0]; cord loose-3 [6.2,1 0,1]; cord loose-4 [6.2,2 0,2]; "
         "cord loose-5 [6.2,3 0,3]; cord loose-6 [6.2,4 0,4]; cord loose-8 [6.2,5 0,5]; cord loose-9 [7,6 0,6]")
-    assert p21.labels == ("end-ring", "bead")
-    ends = [r for r in p21.cloth["things"] if r["kind"] == "end"]
+    ends = [r for r in p21.canon["things"] if r["kind"] == "end"]
     assert len(ends) == 7 and all((r["c"], r["t"], r["x"]) == ("green", 0, 0) for r in ends)
-    rings = lambda pic: sorted((r["c"], r["x"], r["y"]) for r in pic.cloth["things"] if r["kind"] == "ring")
-    ties = lambda pic: sorted((pic.cloth["things"][d["a"] - 1]["x"], pic.cloth["things"][d["b"] - 1]["x"])
-                              for d in pic.cloth["cords"] if d["kind"] == "tie")
-    assert rings(p21) == rings(p14) and ties(p21) == ties(p14) == [(2, 2), (4, 4)]   # ties straight down
+    assert rings(p21) == rings(laid) and ties(p21) == ties(laid) == [(2, 2), (4, 4)]   # ties straight down
 
-    # P2.2: the trap (the flag crosswise dark): nothing comes back -- every end-ring green
-    # at rest, and H on every wire, U_f, H on every wire takes |0000000> to |0000000>
-    assert p22.dump == (
+    # the moves' marks (card 3e.6, the readings): every ghost's place, every arc's ends and
+    # side, every logged gap, and "no arc up a tie" where a copy climbs
+    marked = [n for n in names if F[n].mark_tikz]
+    assert marked == ["F12", "F13", "F14", "F15", "F17", "F18", "F19"]
+    for n in marked:
+        p = F[n]
+        step = PC.options(FC[n])["step"]
+        assert p.notes[0] == "step " + step + " -> " + p.head and p.notes[1:] == MARKS[n], n
+        S, so = PC.cloth_scene(p.drawn)
+        G = PC.ClothGeom(S, so)
+        M0, M = p.before, p.after
+        (arc,) = p.arcs
+        if step == "slide together":            # the ring on a marked cord slid out into its end-ring
+            (k,) = [k for k in range(1, 7) if M0["wish"][k].get("ring") and not M["wish"][k].get("ring")]
+            assert [grid for _, grid, _ in PC.ghost_places(p)] == [(M0["wish"][k]["ring"]["x"], k - 1)]
+            frm, to, row, side = M0["wish"][k]["ring"]["x"], 0, k - 1, -1          # beneath the row
+        else:                                    # the flag's end-ring pushed along its cord
+            gone = [r["x"] for r in M0["flag"]["rings"] if r not in M["flag"]["rings"]]
+            assert [grid for _, grid, _ in PC.ghost_places(p)] == [(M0["flag"]["endx"], PC.FLAGROW)] + [
+                (x, PC.FLAGROW) for x in gone]
+            frm, to, row, side = M0["flag"]["endx"], M["flag"]["endx"], PC.FLAGROW, 1   # above the row
+            # the ring it went into is gone from the flag, its copy at the top of its tie
+            for x in gone:
+                (k,) = [k for k in range(1, 7) if M0["wish"][k].get("ring") and M0["wish"][k]["ring"]["x"] == x]
+                assert M0["wish"][k]["ring"]["tied"] and not M["wish"][k]["ring"]["tied"]
+                assert M["wish"][k]["ring"]["t"] == M0["wish"][k]["ring"]["t"] + M0["flag"]["endt"]   # turns add
+        # the arc's sense: it starts at the ghost and heads to where the ring went, on its side
+        assert abs(arc.p0[0] - G.X(frm)) < G.RO and (arc.p1[0] - arc.p0[0]) * (G.X(to) - G.X(frm)) > 0, n
+        assert abs(arc.p1[0] - G.X(to)) < 1.5 * G.RO, n
+        assert np.isclose(arc.p0[1], G.Y(row) + side * G.D) and np.isclose(arc.p1[1], arc.p0[1]), n
+        assert (arc.c1[1] - arc.p0[1]) * side > 0, n                           # bowed away from the row
+        assert PC.mark_clearance(p) > 0.01, n                                    # inside the linen
+        edge, centre = PC.cord_clearance(p)
+        assert edge > 0.02 and centre > 0.1, (n, edge, centre)                   # off every cord and tie
+        off = PC.twin(FC[n])                                                     # marks=off: the same frame
+        assert PC.drawn(off) == PC.drawn(p) and off.mark_tikz == [] and off.ghosts == [] and off.arcs == [], n
+        assert off.notes == ["step " + step + " -> " + p.head + " (no marks)"], n
+    assert min(PC.cord_clearance(F[n])[0] for n in marked) > 0.068 - 0.001     # F15's, the least here
+
+    # K4 (F12-F15): the push into a red ring, its copy up the tie, the ring slid out into its
+    # end-ring; twice.  The frames are the strip's steps in the order of l.613
+    assert F["F12"].after["partial"] and "partial=true" in F["F12"].head
+    assert [F[n].after["flag"]["endx"] for n in ("F12", "F13", "F14", "F15")] == [2.5, 2.5, 4.5, 4.5]
+    assert [k for k in range(1, 7) if F["F13"].after["wish"][k].get("ring")] == [5]
+    # F15 (= P2.2): the trap (the flag crosswise dark): nothing comes back -- every end-ring
+    # green at rest, and H on every wire, U_f, H on every wire takes |0000000> to |0000000>
+    p22 = F["F15"]
+    assert p22.head == (
         "scene=web marks=[first fifth] first=green0 second=green0 third=green0 fourth=green0 fifth=green0 "
         "sixth=green0 flag=green0@4.5[] threaded=false pushed=true far=false | cols=8 rows=7 y=0..6 near=false "
         "folded=false; gaps=5.5; 1:end green 0 @0,0; 2:end green 0 @0,1; 3:end green 0 @0,2; 4:end green 0 @0,3; "
         "5:end green 0 @0,4; 6:end green 0 @0,5; 7:end green 0 @4.5,6; cord loose-1 [6.2,0 0,0]; "
         "cord loose-2 [6.2,1 0,1]; cord loose-3 [6.2,2 0,2]; cord loose-4 [6.2,3 0,3]; cord loose-5 [6.2,4 0,4]; "
         "cord loose-6 [6.2,5 0,5]; cord loose-7 [7,6 4.5,6]")
-    colours, bits = cloth_reading(p22.state)
+    colours, bits = cloth_reading(p22.after)
     assert colours == {"green"} and bits == (0,) * 7
     assert np.allclose(turned_web(a, (0,) * 7), ket(*bits))
-    assert not any(d["kind"] == "tie" for d in p22.cloth["cords"]) and not any(r["c"] == "red" for r in p22.cloth["things"])
+    assert not any(d["kind"] == "tie" for d in p22.canon["cords"]) and not any(r["c"] == "red" for r in p22.canon["things"])
 
-    # P2.3: the flag crosswise lit -- its half turn copied up the ties onto exactly the marked
-    # cords (turns add, 0 + 12), the flag keeping its own; H U_f H |0000001> = |1000101>
-    assert p23.dump.startswith(
+    # K5 (F16-F18): laid afresh, the flag lit (its end-ring set halfway); each push carries the
+    # half turn up a tie to a mark (turns add, 0 + 12), the flag keeping its own
+    assert "flag=green12@0[red0@2 red0@4]" in F["F16"].head and F["F16"].words == ()
+    assert "first=green0+green12@2 " in F["F17"].head and "fifth=green0+green0@4tied" in F["F17"].head
+    # F18 (= P2.3): H U_f H |0000001> = |1000101>, read crosswise
+    p23 = F["F18"]
+    assert p23.head.startswith(
         "scene=web marks=[first fifth] first=green0+green12@2 second=green0 third=green0 fourth=green0 "
         "fifth=green0+green12@4 sixth=green0 flag=green12@4.5[] threaded=false pushed=true far=false | ")
-    colours, bits = cloth_reading(p23.state)
+    colours, bits = cloth_reading(p23.after)
     assert colours == {"green"} and bits == (1, 0, 0, 0, 1, 0, 1) == a + (1,)
     assert np.allclose(turned_web(a, (0,) * 6 + (1,)), ket(*bits))          # every entry exact
     assert not np.allclose(turned_web(a, (0,) * 6 + (1,)), ket(*(a + (0,))))   # the flag keeps its turn
-    assert [(r["x"], r["t"]) for r in p23.cloth["things"] if r["kind"] == "ring"] == [(2, 12), (4, 12)]
+    assert [(r["x"], r["t"]) for r in p23.canon["things"] if r["kind"] == "ring"] == [(2, 12), (4, 12)]
+    # the frame between: after one push the first mark has its turn, the fifth not yet
+    colours, bits = cloth_reading(F["F17"].after)
+    assert bits == (1, 0, 0, 0, 0, 0, 1)
 
-    # P2.4: no marks -- the flag runs clear to the far end; every wish-cord reads dark;
+    # the cloth's wrong rule `gave nothing` (card 3e.1: not used in the dialogue, tested): the
+    # push as it is, but no turn added to the ring a copy climbs into.  On K5's two pushes the
+    # pale cloth is drawn with that ring again at full strength, its bead at rest, while the
+    # flag gave it its half turn (12); the Lua refuses it where it would agree (a flag at rest)
+    rule = PC.rule_comment("THE CLOTH'S STEP, ITS MARKS AND ITS WRONG RULE")
+    assert "Then the flag gave nothing to anyone." in rule and "only where it differs" in rule
+    for br, k in (("step=push into the next ring", 1), ("push into the next ring; step=push into the next ring", 5)):
+        PC.TEX_ERRORS.clear()
+        p = PC.run_frame("cloth", br + "; expects=gave nothing", LIT, False)
+        assert not PC.TEX_ERRORS and p.wrong["telling"] == [k]
+        assert p.wrong["wish"][k]["ring"]["t"] == 0 and p.after["wish"][k]["ring"]["t"] == 12
+        assert p.notes[0] == "expects gave nothing (the cloth paler, the rings it names at full strength)"
+        assert p.notes[2:] == ["the " + PC.ORDNAME[k - 1] + " square's ring at full strength over the pale cloth, "
+                               "its bead at rest (the flag gave it nothing; it has 12)"]
+        assert p.own[:2] == ["\\begin{scope}[transparency group, opacity=0.500]", "\\end{scope}"]
+        assert p.words == () and p.mark_tikz == [] and p.arcs == []
+        true = PC.run_frame("cloth", br, LIT, False)
+        x = str(2 if k == 1 else 4)                                     # only that ring's bead differs
+        assert p.head.split(" | ")[0] == true.head.split(" | ")[0].replace("+green12@" + x, "+green0@" + x)
+    PC.TEX_ERRORS.clear()
+    PC.run_frame("cloth", "tubes out; step=push into the next ring; expects=gave nothing", DARK, False)
+    assert [s for s, _ in PC.TEX_ERRORS] == ["cloth-rule-rest"]
+    PC.TEX_ERRORS.clear()
+
+    # F19 (P2.4): no marks -- the flag runs clear to the far end; every wish-cord reads dark;
     # with no tie the blackboard's turned web is bare: |0000001> stays |0000001>
-    assert p24.dump == (
+    p24 = F["F19"]
+    assert p24.head == (
         "scene=web marks=[] first=green0 second=green0 third=green0 fourth=green0 fifth=green0 sixth=green0 "
         "flag=green12@7.0[] threaded=false pushed=true far=true | cols=8 rows=7 y=0..6 near=false folded=false; "
         "gaps=5.5; 1:end green 0 @0,0; 2:end green 0 @0,1; 3:end green 0 @0,2; 4:end green 0 @0,3; "
         "5:end green 0 @0,4; 6:end green 0 @0,5; 7:end green 12 @7,6; cord loose-1 [6.2,0 0,0]; "
         "cord loose-2 [6.2,1 0,1]; cord loose-3 [6.2,2 0,2]; cord loose-4 [6.2,3 0,3]; cord loose-5 [6.2,4 0,4]; "
         "cord loose-6 [6.2,5 0,5]; cord loose-7 [7,6 7,6]")
-    colours, bits = cloth_reading(p24.state)
+    colours, bits = cloth_reading(p24.after)
     assert colours == {"green"} and bits == (0,) * 6 + (1,)
     assert np.allclose(turned_web((0,) * 6, bits), ket(*bits))
     # after the push to the far end no flag cord shows beyond the end-ring: its record is
     # zero-length at the ring's x, and nothing (no cord, no whipped tip) is drawn for it
-    flag = [d for d in p24.cloth["cords"] if d["kind"] == "cord" and d["pts"][0][1] == PC.FLAGROW]
+    flag = [d for d in p24.canon["cords"] if d["kind"] == "cord" and d["pts"][0][1] == PC.FLAGROW]
     assert len(flag) == 1 and flag[0]["pts"] == [[7, 6], [7, 6]] and CL.zero_length(flag[0])
-    assert CL.drawn(p24.cloth) == {"paths": 6, "tips": 6, "lashings": 6}       # the six wish-cords only
-    assert CL.drawn(p22.cloth) == {"paths": 7, "tips": 7, "lashings": 7}       # a flag cord left at 4.5
+    assert CL.drawn(p24.canon) == {"paths": 6, "tips": 6, "lashings": 6}       # the six wish-cords only
+    assert CL.drawn(p22.canon) == {"paths": 7, "tips": 7, "lashings": 7}       # a flag cord left at 4.5
+
+    # each marked frame with marks=off is its round-3 call (P2.1-P2.4), up to keying and words
+    for n, (br, st, k) in (("F11", ("tubes out", DARK, True)),
+                           ("F15", ("tubes out, push the flag, slide together", DARK, False)),
+                           ("F18", ("push the flag", LIT, False)), ("F19", ("push the flag", BARE, False))):
+        off = PC.twin(FC[n]) if "step" in PC.options(FC[n]) else F[n]
+        assert PC.drawn(off) == PC.drawn(PC.run_frame("cloth", br, st, k)), n
+    assert PC.drawn(PC.twin(FC["F19"])) == PC.drawn(PC.run_frame("cloth", "push the flag", BARE, False))
 
     # the fixed parts: the end-rings not pushed keep x = 0; the flag's end-ring moves right
-    # (0 -> 4.5 past the last ring, or -> 7.0 with no ring) and the flag cord's drawn start
-    # moves with it; a slid ring lands at the end-ring's place, x = 0, and no ring is added
-    endx = lambda pic: [r["x"] for r in pic.cloth["things"] if r["kind"] == "end" and r["y"] == PC.FLAGROW]
-    assert endx(p21) == [0] and endx(p22) == endx(p23) == [4.5] and endx(p24) == [PC.FAR]
-    for pic in (p21, p22, p23, p24):
-        assert [r["x"] for r in pic.cloth["things"] if r["kind"] == "end" and r["y"] < PC.FLAGROW] == [0] * 6
-        start = [min(x for x, _ in d["pts"]) for d in pic.cloth["cords"] if d["kind"] == "cord" and d["pts"][0][1] == PC.FLAGROW]
+    # and the flag cord's drawn start moves with it; no ring is added
+    endx = lambda pic: [r["x"] for r in pic.canon["things"] if r["kind"] == "end" and r["y"] == PC.FLAGROW]
+    assert [endx(F[n]) for n in names] == [[0], [0], [0], [2.5], [2.5], [4.5], [4.5], [0], [2.5], [4.5], [PC.FAR]]
+    for pic in F.values():
+        assert [r["x"] for r in pic.canon["things"] if r["kind"] == "end" and r["y"] < PC.FLAGROW] == [0] * 6
+        start = [min(x for x, _ in d["pts"]) for d in pic.canon["cords"] if d["kind"] == "cord" and d["pts"][0][1] == PC.FLAGROW]
         assert start == endx(pic)
-    assert len(p22.cloth["things"]) == 7 < len(p21.cloth["things"]) == 11
+    counts = [len(F[n].canon["things"]) for n in names]
+    assert counts == sorted(counts[:7], reverse=True) + counts[7:] and counts[0] == 11 and counts[6] == 7
     assert not PC.TEX_ERRORS
 
 

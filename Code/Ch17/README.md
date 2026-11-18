@@ -22,27 +22,54 @@ net without a recipe, reading it ring by ring with the halves sent forward, and 
 back out of a cooked net, which works when such a forward order exists.
 
 Each file also runs `pictures()`, at the end of its blackboard. The dialogue's prop pictures
-(`\cardcloth`, `\secondhooks`, `\onewaytin`, `\tincloth`, `\outcloth`: sixteen calls, four per
-challenge) are read out of `dialog.md` and `dialog.raw.md` through `tools/dfp_props.py`. Their
-state is computed by `tools/props_ch17.py`, a transcription of `pdf/props/ch17.lua` on the
-shared cloth and Office kits. The transcription reads the Lua's places from the Lua itself, and
-a drift guard finds every rule it transcribes, word for word, in the Lua and counts the Lua's
-`tex.error` call sites (30: 28 literal calls, with the one inside `twopaths` counted once for
-each of its three callers). It was diffed against the Lua under texlua: the 32 reference calls
-(the sixteen of the dialogue, keyed and unkeyed), 30 error calls and 3000 fuzzed calls give 0
-differences, and all 30 sites are reached. (In 30 keyed calls the kit itself reports no room
-for a word, an allowed fault; none is a call of the dialogue.) `pictures()` ties each picture
-to the blackboard. A cloth dump is read as a PyZX graph (`PC.graph_of`: a ring a spider of its
-colour turned as its bead, a tube an odd number of times a Hadamard edge, a loose end a
-boundary), a tin's dial is an end's turn, and the hooks' pair is the cooked picture. It also
-checks the dialogue's rules: blocks and sizes, captions in words only and no echoes, every
-picture in its place, the anchor phrases, the starred pictures (P1.1, P2.4, P3.1, P3.3, P4.1),
-and the keyed words' clearances on drawn extents. A word's node box clears the frame by at
-least $0.025$ cm and its letters clear every part drawn and every other word by at least
-$0.02$ cm. Five words the Lua sets stand **above** their frame's top by design (the lids'
-names over the tin, by $0.046$ cm; *second hooks* on the rack's top edge, by $0.175$; *bead*
-in the band over the linen, by $0.075$), so the files hold them to that overhang and to the
-other three sides. This is a structural check of the pictures, not a third proof.
+(`\cardcloth`, `\secondhooks`, `\onewaytin`, `\tincloth`, `\outcloth`, and since round 4,
+"Show the process" (card §3e), the strips `\cardclothsteps`, `\onewaytinsteps`,
+`\tinclothsteps` and `\outclothsteps`: 18 blocks, 19 calls, 39 frames, eight strips of 28
+frames among them, and one prediction frame, `expects=the joiners cancel`) are read out of
+`dialog.md` and `dialog.raw.md` through `tools/dfp_props.py`. Their state is computed by
+`tools/props_ch17.py`, a transcription of `pdf/props/ch17.lua` on the shared cloth and Office
+kits. The transcription reads the Lua's places from the Lua itself, and is pinned to the Lua it
+was proved against: every one of the Lua's 234 top-level chunks and the `.tex`'s 78 by its hash,
+and the wrong rule's comment word for word (`check_pins`, run at import). It was diffed against
+the Lua under texlua, every strip frame run as TeX runs it: the 19 dialogue calls (47 records,
+keyed and unkeyed), 119 fault calls and about 45 700 swept calls (every card step and step pair,
+every tin path, the hooks, the row's travels, the out-cloth's moves, the strips) give 0
+differences. The one gap is the cloth kit's own "no room for a keyed word" fault, which
+`tools/props_cloth.py` leaves untranscribed: 646 swept records with it are set aside on both
+sides, none a call of the dialogue. The Lua's `tex.error` has 83 keyed sites (`terr` 4, `herr`
+2, `cerr` 23, `rerr` 12, `oerr` 9, `xerr` 33; four bare re-raisings of a caught message are not
+sites), each reached by its own case in `CookingDown.py`'s `FAULT_CASES`, with its own message,
+and in any order with the others. Two sites fire only past another fault, as in the Lua:
+`expects-marked` (`marks=on` on an expects frame comes with `marks-no-step`, or with a step
+`card-expects-step`) and `strip-unknown` (an unknown strip has no frames, so any caption brings
+`strip-captions`). `pictures()` ties each picture to the blackboard. A
+cloth dump is read as a PyZX graph (`PC.graph_of`: a ring a spider of its colour turned as its
+bead, a tube an odd number of times a Hadamard edge, a loose end a boundary), a tin's dial is an
+end's turn, and the hooks' pair is the cooked picture.
+
+**Pins (the cloth kit).** The shared cloth kit, `pdf/props/cloth.{lua,tex}`, is pinned in
+`tools/props_cloth.py`, which every file imports through `props_ch17`; a change to the kit fails
+every file of this chapter (see the note in `chapter10/Code/README.md`).
+
+Round 4's strips are checked frame by frame. Each frame is the state its steps leave, in order
+(`PC.frame_chain`), and the last frame of a block is round 3's picture of it. **Every frame of a
+strip is tied to the blackboard by itself**, not only the last: every part-way frame of the card
+is exactly $\tfrac14U$, every cooking frame times its counters is $\tfrac14U$, every tin frame's
+next reading has the chance the row gives it, every frame of the half sent on has P3.3's value,
+and every frame of the turns slid off is $U/\sqrt2$. Every ghost is a part of the state before
+the step, drawn where that part was; every arc runs from where a part was to where it arrives
+and clears the parts it passes on the drawn extent, with a positive gap; every hop and slide arc
+bows at least its floor from the chord (a turn arc instead follows its circle round the knob). A frame with marks is never keyed, and a step that is refused draws none.
+`pictures()` also checks the dialogue's rules: blocks and sizes, one frame height and one macro
+in a block, captions in words only (no *it*, no echo of the paragraph after), every picture in
+its place, the anchor phrases of both files (24 sentences start after a picture and 40 phrases
+come before one, both files counted), the starred pictures (P1.1, P2.4, B3.1, P3.3, B4.1), and
+the keyed words' clearances on drawn extents. A word's node box clears the frame by at least
+$0.025$ cm and its letters clear every part drawn and every other word by at least $0.02$ cm.
+Five words the Lua sets stand **above** their frame's top by design (the lids' names over the
+tin, by $0.046$ cm; *second hooks* on the rack's top edge, by $0.175$; *bead* in the band over
+the linen, by $0.075$), so the files hold them to that overhang and to the other three sides.
+This is a structural check of the pictures, not a third proof.
 
 Five things hold in every file.
 
@@ -80,7 +107,8 @@ input step by step, and runs the parity count on all four inputs:
 ```python
 assert np.allclose(U, kron(S, Z) @ CZ)                  # the headline, exact, scalar 1
 assert not np.allclose(U, trap)                         # ...but the recipe is not I (x) Z
-assert turned == 2 and np.allclose(state, 1j * basis(1, 0))
+assert turned == 2
+assert np.allclose(state, 1j * basis(1, 0))
 assert np.allclose(U @ basis(x1, x2), 1j ** (x2 + (x1 ^ x2)) * basis(x1, x2))
 ```
 
@@ -121,6 +149,23 @@ assert not is_graph_like(graphs[2])                           # P1.3: the big ri
 One small ring's tube left off is a yellow box on the upper lead; the lower right lead without
 its tube is a yellow box on the lower; both are asserted to be different pictures. The card's
 columns hold from P1.1 to P1.2 and the lower line from P1.2 to P1.4.
+
+**Round 4.** P1.3 becomes a strip (B1.3, `\cardclothsteps`): the upper rings slid together one
+at a time, the first and second into one, the third into those, the fourth into those. **Every
+part-way frame is exactly $\tfrac14U$**, and none of them is yet the master; with a ring's tie
+dropped it is not $\tfrac14U$:
+
+```python
+assert np.allclose(matrix_of(g), U / 4) and R.after.aside == 0, R.step      # each frame of B1.3
+assert not isomorphic(g, net)                                                # not yet the master
+assert [round(a.sag, 3) for R in b13 for a in R.arcs] == [0.058] * 4        # L4: every hop 0.058
+```
+
+Each hop runs on its line's outer side from a ring's old place to its new one, bows at least the
+hop floor `HOPSAG` (0.055 cm; the Lua's own) and clears the net; the ghosts stand at the old
+places. P1.4 (the small rings put on) is unmarked: the rings come from her box, and a marked
+tangle is refused (`card-marks-tangle`). The parts a step does not touch stay where they were,
+frame to frame.
 
 ## Cooking Down — `CookingDown.py`
 
@@ -179,6 +224,35 @@ assert not same_picture(hooks_graph(PC.hooks_state("at a half, a quarter round")
 The first hub and its end stay where they hung from P2.1 to P2.2, and the counters lie in the
 band below the linen, clear of it and its shadow.
 
+**Round 4.** The cooking is drawn move by move: B2.1 (the greens met above the second eighth,
+its bead sent to an end, the cradle undone), B2.2 (the upper feet met, the lower feet slid
+together), B2.2a (the hubs merged) and B2.3's strip (the feet slid apart, the hub lifted with the
+sleeve laid, nothing hanging). **Every one of these eleven frames, times its counters, is exactly
+$\tfrac14U$**, and a move that sets no counter aside leaves the picture exactly as it was:
+
+```python
+assert [R.drawn.aside for R in cooking] == [0, 0, 0, 1, 2, 2, 2, 3, 3, 3, 3]
+assert np.allclose(number[R.drawn.aside] * matrix_of(g), U / 4), R.step
+assert same_picture(PC.graph_of(R.dump), PC.graph_of(P.dump)), R.step       # no counter, no change
+```
+
+The bead's turn lost on the way is asserted to fail. The eighth's end sent up from its ring has
+its arc (L5: 0.152 cm, bowed 0.030, clear of the cords and ties by 0.020 and of the rings by
+0.022), and the direction before B2.1 says where the end lies (E3: up from the ring, between the
+short strings), checked in both files against the drawn end. B2.3 opens with Achilles's guess,
+drawn pale beside it (`expects=the joiners cancel`). Its ring is the Lua's wrong rule applied by
+the model, every joiner gone and the eighths' turns summed on the lower line. Read as a picture,
+the guess is $I\otimes Z$, which is $(I\otimes T)^4$ and not $U$ at any normalization. It agrees
+with $U$ when the upper line is dark and fails when it is lit, as the dialogue finds. The pale
+ring reads under the veil (L8: an extra edge, 0.169 cm across). The rule's comment stands word for
+word in the card and its name in both dialogue files.
+
+`check_faults()` runs the 83 `FAULT_CASES`. Each site is reached by its own case, with its own
+message (alone, but for `expects-marked` and `strip-unknown`, which fire only past another fault),
+and in any order with the others (at least twenty permutations of every multi-fault case). A
+refused step draws no marks, and a step taken draws them. The hooks pressed draw nothing ("It
+jams if watched"), while lifted off they draw the two rings' ghosts and no arc.
+
 ## The One-Way Row — `OneWayRow.py`
 
 The Crab brings out his tins: "These are the one thing I own that works only because you do."
@@ -224,8 +298,9 @@ hollow is dark, with probability 1 there. The tin row's two pictures are closed 
 times its branch's amplitude, and exactly equal, since the half sent on meets an end at rest:
 
 ```python
-assert same_angle(setting(p32)[2], rule[(1, 1)][2]) and np.isclose(rule[(1, 1)][1], 0)
-assert calls[1].opt == ", ".join(rule_steps(1, 1) + ["last dark"])
+assert same_angle(setting(p32)[2], rule[(1, 1)][2]) and same_angle(setting(p32)[2], 5 * np.pi / 4)
+assert np.isclose(rule[(1, 1)][1], 0)
+assert PC.tin_state(p32.drawn_bracket) == PC.tin_state(r3)            # read by the rules, round 3's bracket
 assert np.isclose(value(g33), 4 * amp(t33)) and np.isclose(value(g34), 4 * amp(t34))
 assert t33[1] == 0 and same_picture(g33, g34)              # the travelling half's number is 1
 assert p34.state.ends == list(PC.PRESET)                   # like a tin read dark
@@ -233,6 +308,40 @@ assert p34.state.ends == list(PC.PRESET)                   # like a tin read dar
 
 A dial turned after its lid is lifted, or a lid lifted out of order, is refused as the Lua
 refuses it; the row's rings stay at 0, 2 and 4.
+
+**Round 4.** B3.1 lifts Tin 1's lids one at a time: the tin as set, then the first lid lit,
+the second dark, the last lit. Each reading has the chance the row gives it as the dials stand,
+a coin each for the first two and, with no rule turned, the last lit surely. B3.1a turns Tin 2's
+last dial the other way, back through rest, from seven eighths to one, which is the rule's
+setting for $(0,1)$. B3.2 reads Tin 3 by the rules frame by frame, and its last lid is dark
+surely:
+
+```python
+assert [np.round(reading_chance(R.drawn, k), 12) for k, R in enumerate(b31[1:])] == [0.5, 0.5, 1.0]
+assert same_angle(np.pi / 4 * b31a.after.lids[2]["s"], rule[(0, 1)][2])
+assert np.isclose(reading_chance(b32[1].drawn, 1), 0.5) and np.isclose(reading_chance(b32[3].drawn, 2), 1)
+```
+
+A lid lifted has a lift arc bowed to its right (0.064 cm, clear of the lid where it lay and where
+it is laid). A dial turned leaves the pointer's ghost where it stood and a turn arc on its circle
+round the knob, the way it went. The other way sweeps across rest, and its arc's body clears the
+dots, the knob and both pointers (L7: B3.1a's arc 0.170 cm; clear of the dots by 0.032, the knob
+by 0.097, the pointer by 0.028; its head's corner comes 0.010 from a dot). B3.4 sends the half on
+step by step: off the first end onto the tie (green, by its ring), past the tube (red), out on
+every other cord, on to the ends. **Every frame, its halves read in, has exactly P3.3's value,
+number included.** Read without its halves, or with a half the other colour, a frame does not
+have that value:
+
+```python
+g = row_graph(R)
+assert same_picture(g, g33), R.step                              # each frame of B3.4
+assert not same_picture(other, g33), R.step                      # a half the other colour
+assert sorted((round(a.len, 3), round(a.sag, 3)) for a in b34[2].arcs) == [(0.152, 0.047), (0.268, 0.068)]
+```
+
+Each half's ghost lies where it lay the frame before, and every arc runs from a ghost to a half or
+an end. Both arcs of "out on every other cord" are drawn (L6), clear of the net by 0.026 and
+0.023.
 
 ## Out Again — `OutAgain.py`
 
@@ -279,13 +388,24 @@ the joiner's colours swapped it is not. P4.4 is the V, read from its dump as an 
 
 ```python
 assert same_picture(g41, two_wire([(0, Fraction(1, 2)), (1, 1)]))
-assert same_picture(g42, frontier(B)) and same_picture(g42, g43)
-assert not same_picture(g42, PC.graph_of(swapped))         # the joiner the other way up
+assert same_picture(g42, frontier(B))
+assert same_picture(g42, g43)
+assert swapped != p43.dump and not same_picture(g42, PC.graph_of(swapped))         # the joiner the other way up
 assert find_flow(V, E, vin, corner) is None and find_gflow(V, E, vin, corner) is None
 ```
 
+**Round 4.** P4.1 becomes a strip (B4.1, `\outclothsteps`): the pan's answer laid back, then
+the upper ring's turn carried right, then the lower's. **Every frame is the same picture,
+$U/\sqrt2$**, the first frame included. A turn copied instead of slid, or carried to the wrong
+value, is not it. Each move is a hop on its line's outer side from the ring at rest to the ring
+that took the turn, bowed 0.058 cm (at least `HOPSAG`), with the bead ghosted on the ring at
+rest. The tie and the rings at rest do not move.
+
 This file also runs the checks on the whole dialogue: the sections and every picture in one,
-the starred form on the first picture of each macro, no negative anchor in either file, the
+18 blocks, 19 calls and 39 frames (asserted as sums of the per-file tables), eight strips of 28
+frames, the one prediction frame, only a strip's before-frame ever keyed, the starred form on the
+first picture of each macro (a strip counted by its frames' macro), every call in its place in
+both files, no negative anchor in either file, the
 form check of the identity card (the Tortoise's "Slide them together." once in each of the
 first three challenges, Achilles's "Slide them apart." in the Fourth), and the card's greps.
 

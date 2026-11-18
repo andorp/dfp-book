@@ -127,10 +127,12 @@ def blackboard():
 # bend at the left, Bob's glass's bend at the right, Alice's leg along the top
 # carrying her writing and then the answer asked about -- with two greens side by
 # side, lifted off to a bare loop; then a red answer carried the long way round,
-# meeting nothing,
-#   \ringstring[operations]{scene}{caption}              (pdf/props/ch10.tex)
-# tools/props_ch10.py transcribes the Lua (the string's layout read by the
-# shared cloth kit, tools/props_cloth.py); the calls are read out of this
+# meeting nothing (round 4: a step -- its ghost close in by the far bend, the
+# slide arc inside the loop),
+#   \ringstring[operations; step=...]{scene}{caption}    (pdf/props/ch10.tex)
+# tools/props_ch10.py transcribes the Lua (proved against texlua; check_lua
+# holds it to the Lua and the .tex it was proved on; the string's layout read by
+# the shared cloth kit, tools/props_cloth.py); the calls are read out of this
 # challenge's section of dialog.md, never copied.
 #
 # The state model (identity card, section 3, state model 6): the loop's ring
@@ -159,23 +161,38 @@ def loop_scene(w, a):
     return "the loop, writing %s, answer %s" % (PC.patname(w), PC.patname(a))
 
 
+def head(c):
+    """A call's bracket as its log line writes it (the Lua's trim of what TeX hands it):
+    the items in the order the dialogue writes them, which the picture never depends on."""
+    return PC.trim(PC.bracket(c) or "")
+
+
+def r3(x):
+    """A mark's numbers to the Lua's three places (its log's)."""
+    if isinstance(x, tuple):
+        return tuple(r3(y) for y in x)
+    return round(x, 3) if isinstance(x, float) else x
+
+
 def pictures():
     assert f'"{QUOTE}"' in __doc__                               # quoted byte for byte
-    calls = DIALOGUE.check_layout("Fourth", sizes=[1, 1, 1])
+    PC.check_lua()                                                # the Lua the transcription was proved on
+    PC.check_sites()                                              # its 73 fault sites, one for one
+    found = PC.check_section(DIALOGUE, "Fourth", sizes=[1, 1, 1], frames=[1, 1, 1])
+    calls = [c for b in found for c, _ in b]
     p41, p42, p43 = calls
-    for c in calls:
-        assert words_only(c.caption, forbidden=PC.CAPTION_FORBIDDEN), c.caption
-        assert PC.place_ok("Fourth", c), c.text
-    for b in DIALOGUE.blocks("Fourth"):
-        assert len({PC.height(c) for c in b}) == 1                # no block mixes frames
     assert [c.macro for c in calls] == ["ringstring"] * 3
-    assert not any(c.keyed for c in calls)                        # the string was keyed at P1.3
-    assert [(c.opt, c.args[0]) for c in calls] == [
-        ("", "the loop, writing copper up, answer copper up"),
-        ("kin to kin", "the loop, writing copper up, answer copper up"),
-        ("slide round", "the loop, writing copper up, answer brass up")]
+    assert not any(c.keyed or PC.is_prediction(c) for c in calls)   # the string was keyed at P1.3
+    assert [(PC.options(c), c.args[0]) for c in calls] == [
+        ({"bare": ""}, "the loop, writing copper up, answer copper up"),
+        ({"bare": "kin to kin"}, "the loop, writing copper up, answer copper up"),
+        ({"step": "slide round", "bare": ""}, "the loop, writing copper up, answer brass up")]
     assert [c.caption for c in calls] == [
         "green beside green", "lifted off, the loop bare", "round the loop, and nothing meets"]
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        here = [(n, q) for n, q, o in PC.quote_places(DIALOGUE, path) if o == "Fourth"]
+        assert here == [("THE STRING'S STEPS", "she slides the red round the loop — round the far bend, "
+                         "along Bob's leg, round the near bend and up Alice's leg — until it sits beside the green")]
     s41, s42, s43 = (PC.picture(c) for c in calls)
     a1, a2, a3 = DIALOGUE.anchors("Fourth")
     f1, f2, f3 = DIALOGUE.following("Fourth")
@@ -208,11 +225,40 @@ def pictures():
     assert f2.startswith("**Tortoise:** A clean loop")
 
     # P4.3: the answer brass up, its red carried round the far bend, along Bob's leg, round
-    # the near bend, up to beside the writing's green -- and nothing meets
+    # the near bend, up to beside the writing's green -- and nothing meets.  A step: the
+    # state before (the red close in by the far bend, place 4) is not pictured; its ghost
+    # places it
+    assert s41.marks == s42.marks == ()                           # the repeat, unmarked
+    assert PC.dump(s43.before) == "loop; places [- green - red]" and not s43.before.slid
     assert s43.dump == "loop; places [red green - -]" and s43.state.slid
     assert PC.dump(PC.apply_string(s43.state, "kin to kin")) == s43.dump   # nothing comes off
     assert "until it sits beside the green" in a3 and "Nothing comes off." in a3
+    assert "a red ring, close in by the far bend" in a3
     assert f3.startswith("**Tortoise:** A loop with a ring left over")
+    assert PC.describe(p43) == [
+        "ringstring: [" + head(p43) + "] {the loop, writing copper up, answer brass up} | " + s43.dump,
+        "ringstring: + step slide round -> " + s43.dump,
+        "ringstring: + ghost answer red ring in dotted outline at (0.481,-0.240) (grid 4,0): it went to grid 1,0",
+        "ringstring: + slide arc round the loop, inside it: round the far bend, along Bob's leg, round the "
+        "near bend, up to beside the writing, about (0.000,-0.650) (55.600 -> -235.600 degrees)"]
+    ghost, slide = s43.marks
+    assert (ghost.kind, ghost.name, ghost.how, r3(ghost.at), ghost.grid) == \
+        ("ghost", "answer red", "outline", (0.481, -0.24), (4, 0))     # next to the far bend (place 5)
+    (cx, cy), (rx, ry, a0, a1, b1) = slide.pts
+    assert (slide.kind, slide.name) == ("slide", "answer red") and s43.mark("pin") == []
+    assert r3((cx, cy, a0, a1)) == (0.0, -0.65, 55.6, -235.6)
+    # clockwise from above the ghost: through 0 (the far bend), -90 (Bob's leg), -180 (the
+    # near bend) to Alice's leg, stopping short of the ring at place 1, beside the green
+    assert a0 > 0 > -90 > -180 > b1 > a1 > -360
+    o43 = PC.C.options(PC.options_text(s43.state), "ringstring")
+    px = [PC.C.cloth_xy(s43.cloth, o43, k, 0, "ringstring")[0] for k in (1, 4)]
+    assert np.isclose(cx + rx * np.cos(np.radians(a0)), px[1])    # from the ghost's place
+    assert np.isclose(cx + rx * np.cos(np.radians(a1)), px[0])    # to the ring's place
+    assert np.isclose(ghost.at[0], px[1])
+    t = PC.twin(p43)                                              # marks off: round 3's P4.3
+    assert t.marks == () and PC.frame_of(t) == PC.frame_of(
+        PC.ringstring("slide round", "the loop, writing copper up, answer brass up"))
+    assert s43.frame == s42.frame == s41.frame
 
     # the loop, all sixteen: its rings from the near bend, read as the order of
     # application, make X^j2 Z^j1 Z^k1 X^k2, whose half-trace is the amplitude; kin to
@@ -246,6 +292,14 @@ def pictures():
         ["slide-room"]
     assert PC.faults(PC.ringstring, "slide round, slide round",
                      "the loop, writing copper up, answer brass up") == ["slid-twice"]
+    # round 4: a ring at rest on the loop (two greens slid together, not yet lifted off)
+    # is lifted off before anything goes round
+    assert PC.faults(PC.ringstring, "green meets green; step=slide round",
+                     "the loop, writing copper up, answer both up") == ["slide-rest"]
+    rest = PC.ringstring("green meets green", "the loop, writing copper up, answer copper up")
+    assert rest.dump == "loop; places [- green@rest - -]"
+    assert PC.ringstring("green meets green, lift off", "the loop, writing copper up, answer copper up").dump == \
+        s42.dump                                                  # in two steps, the same clean loop
 
 
 # --- pictures -----------------------------------------------------------------

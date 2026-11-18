@@ -102,14 +102,18 @@ def blackboard():
 
 
 # --------------------------------------------------------------------------
-# The pictures.  The dialogue draws the trio out on the hall table
-# (\halltable{state}{caption}), one box close up (\triobox[envelope]{way}
-# {caption}), and the back of Achilles's card under a mask with the egg-cup
-# (\notecard[under <mask>, cup on <square>]{state}{caption}).  The Lua refuses
-# an egg-cup over counters that break the mask's word -- the Anteater sets them
-# obeying it -- so the face it hides is fixed by the two it shows.
-# tools/props_ch07.py transcribes the Lua; the calls are read out of this
-# challenge's section of dialog.md, never copied.
+# The pictures.  The dialogue draws the trio lifted out onto the hall table
+# (a step strip, \hallsteps[opts]{state}{steps}{captions}, each frame a
+# \halltable), one box close up (\triobox[envelope]{way}{caption}), and the
+# back of Achilles's card under a mask with the egg-cup (\notecard[under <mask>,
+# cup on <square>; step]{state}{caption}, and a strip of it, \cardsteps).  The
+# Lua refuses an egg-cup over counters that break the mask's word -- the
+# Anteater sets them obeying it -- so the face it hides is fixed by the two it
+# shows; and, round 4, it computes the state after each step (a box lifted from
+# its nest, the cup lifted or stood, counters turned) with the step's marks.
+# tools/props_ch07.py transcribes the Lua (proved against texlua; P.check_lua
+# holds the Lua and the .tex to the text it was proved on); the calls are read
+# out of this challenge's section of dialog.md and dialog.raw.md, never copied.
 #
 # The state model (identity card, section 3): on the back a column for each box
 # as they stand on the cloth (left, middle, right = Achilles's, the Tortoise's,
@@ -152,6 +156,7 @@ def check_transcription():
     faces shown, the macro accepts exactly one face under the cup -- and it is
     the one answer the node gives a non-zero amplitude, the wrong-parity
     amplitudes being exactly 0 (the blackboard above)."""
+    P.check_lua()
     deals = {("door", "door", "door"): "even", ("door", "drawer", "drawer"): "odd",
              ("drawer", "door", "drawer"): "odd", ("drawer", "drawer", "door"): "odd"}
     assert {deal_of(m): m.rule for m in P.MASKS["back"]} == deals
@@ -184,37 +189,93 @@ def check_transcription():
     assert P.faults(P.triobox, "lid", "door open") != []
     assert P.faults(P.triobox, "door", "drawer out") != []                      # it disagrees
     assert P.faults(P.triobox, "drawer", "shut") == [] and P.faults(P.triobox, "door", "shut") == []
+    # round 4's refusals on this section's steps: the cup, the counters, the boxes
+    assert P.faults(P.notecard, "under even; lift=cup", three) != []             # no cup to lift
+    assert P.faults(P.notecard, "under even, cup on right door; lift=mask", three) != []   # cup first
+    assert P.faults(P.notecard, "under even; cup=left drawer", three) != []      # off the windows
+    assert P.faults(P.notecard, "under even, cup on left door; cup=left door", three) != []   # there already
+    assert P.faults(P.notecard, "card; cup=left door", three) != []              # no mask laid
+    assert P.faults(P.notecard, "under even, cup on left door; turn=left door", three) != []   # hidden
+    assert P.faults(P.notecard, "under even; turn=left door and left door", three) != []       # twice
+    assert P.faults(P.halltable, "lift=next box", "boxes out") != []             # none left in the case
+    assert P.faults(P.halltable, "lift=boxes", "case shut") != []                # the lid first
+    assert P.faults(P.halltable, "lift=lid", "case open") != []
 
 
 def pictures():
     check_transcription()
-    p31, p32, p33, p34 = DIALOGUE.check_layout("Third", sizes=[2, 1, 1])
-    assert [c.macro for c in DIALOGUE.blocks("Third")[0]] == ["halltable", "triobox"]   # one block
-    assert [c.macro for c in (p33, p34)] == ["notecard", "notecard"]
-    for c in (p31, p32, p33, p34):
-        assert words_only(c.caption, forbidden=P.NOT_IN_CAPTIONS), c.caption
-    for c in (p31, p32):                                  # they draw the wire-objects
-        assert not P.quantity_words(c.caption), c.caption
-    t31, x32, c33, c34 = (P.picture(c) for c in (p31, p32, p33, p34))
+    found = P.check_section(DIALOGUE, "Third", sizes=[2, 1, 1, 1], frames=[4, 1, 1, 2])
+    (p31, [(t14, cap14), (t15, cap15), (t16, cap16)]), (p32, [(x32, cap32)]) = found[0]
+    (p33, [(c33, cap33)]), = found[1]
+    (p33l, [(c19, cap19)]), = found[2]
+    (p34, [(c20, cap20), (c34, cap34)]), = found[3]
+    assert [c.macro for c in (p31, p32, p33, p33l, p34)] == \
+        ["hallsteps", "triobox", "notecard", "notecard", "cardsteps"]
+    assert (cap14, cap15, cap16, cap32, cap33, cap19, cap20, cap34) == \
+        ("lifted out", "then the next", "out on the cloth", "a door and a drawer", "one hidden",
+         "the cup lifted", "set back black", "a different window")
     sec = DIALOGUE.section("Third")
 
-    a1, a2, a3 = P.anchors(DIALOGUE, "Third")
-    assert a1.startswith("**Tortoise:** The wedge is a pair. This is a trio.")
-    assert "stands them on the cloth, shut" in a1
-    assert "two ways in only: a little door in the side, and a drawer underneath" in a1
-    assert a2.startswith("*[Achilles turns to the window. The Tortoise lays a single trio-mask over the empty card")
-    assert a2.endswith("What is fixed and hidden now is the one note under the cup.]*")
-    assert a3.startswith("*[Achilles turns away. The same EVEN mask stays where it is, and the middle counter with it, white.")
-    assert a3.endswith("then stands the egg-cup over the left window — not the right one, this time.]*")
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        a1, a2, a3, a4 = DIALOGUE.anchors("Third", path)
+        assert a1.startswith("**Tortoise:** The wedge is a pair. This is a trio.")
+        assert "stands them on the cloth, shut" in a1
+        assert "two ways in only: a little door in the side, and a drawer underneath" in a1
+        assert a2.startswith("*[Achilles turns to the window. The Tortoise lays a single trio-mask over the empty card")
+        assert a2.endswith("What is fixed and hidden now is the one note under the cup.]*")
+        assert a3 == "*[The Anteater lifts the egg-cup. The counter beneath shows white.]*"
+        assert a4.startswith("*[Achilles turns away. The same EVEN mask stays where it is, and the middle counter with it, white.")
+        assert a4.endswith("then stands the egg-cup over the left window — not the right one, this time.]*")
+        # block 3.3 stands before the Anteater's next speech
+        (after,) = [a for b, a in zip(DIALOGUE.blocks("Third", path), DIALOGUE.following("Third", path))
+                    if "lift" in P.options(b[0])]
+        assert after == "**Anteater:** Bright. Again — turn round."
+    # the direction and the caption edited this round (D4, C1), in both files
+    P.check_edits(DIALOGUE, "Third", [
+        ("one, and one, and one, and stands them on the cloth, shut.]*",
+         "She lifts the three boxes from their nests, one, and one, and one, from the left, and "
+         "stands them on the cloth, shut, in a row between the case and the envelopes.]*"),
+        ("}{one under the cup}", "}{one hidden}")])
 
-    # P3.1: the boxes out on the cloth, shut; the case open and empty; the rest untouched
-    assert not p31.keyed and t31.trio == "boxes out" and t31.cloth == ("shut",) * 3
-    assert t31.case_lid == "up" and t31.nests == (None,) * 3
-    assert t31.envelopes == "sealed" and t31.envelope_faces == P.WHO
-    assert t31.slip == "sealed" and t31.glass == "on the slip" and t31.deal == ()
+    # Block 3.1: the boxes lifted from their nests one at a time, from the left (D4), and
+    # stood shut on the cloth.  Its before-frame is block 2.4's F13: the case open, the
+    # three boxes in their nests (nothing on the table has moved since)
+    (p24,) = DIALOGUE.blocks("Second")[3]
+    t13 = P.pictures(p24)[-1][0]
+    assert P.options(p31)["from"] == "off" and t13.trio == "case open"
+    assert P.hall_spec(P.hall_parse(p31.args[0])) == t13.spec
+    assert [(s.opts, s.state) for s in P.frames_of(p31)] == [
+        ("lift=next box", "case open"),
+        ("lift=next box", "one box out; envelopes sealed; slip sealed"),
+        ("lift=next box", "two boxes out; envelopes sealed; slip sealed")]
+    lifts = (t14, t15, t16)
+    assert [t.trio for t in lifts] == ["one box out", "two boxes out", "boxes out"]
+    assert [t.nests for t in lifts] == [(None, "box", "box"), (None, None, "box"), (None, None, None)]
+    assert [t.cloth for t in lifts] == [("shut",), ("shut",) * 2, ("shut",) * 3]
+    assert not p31.keyed and not any(t.keyed or t.phantom or t.labels for t in lifts)
+    box_top = P.ROWBOX[0] + 0.78 * P.ROWBOX[1] + 0.22 * P.ROWBOX[1]
+    env_top = P.ENVY + P.ENVSC * P.ENVH / 2
+    for k, t in enumerate(lifts):
+        assert t.step == ("lift", "next box") and t.pins == []
+        assert [(g.what, g.name) for g in t.ghosts] == [("box", P.WHO[k])]   # from the left
+        assert t.ghosts[0].at == (P.NESTX[k], P.CY0)                          # in its nest
+        (arc,) = t.arcs
+        assert arc.kind == "swing" and arc.tag == "box " + P.WHO[k]
+        assert np.allclose(arc.start, (P.NESTX[k], P.CY0 + 0.15))
+        assert np.isclose(arc.end[0], P.ROWX[k] - 0.064)                      # to its place on the cloth
+        assert box_top < arc.end[1] < P.CASEFOOT                              # just over the box stood
+        assert t.case_lid == "up" and t.envelopes == "sealed" and t.envelope_faces == P.WHO
+        assert t.slip == "sealed" and t.glass == P.GLASS0 and t.deal == ()
+    assert list(P.NESTX) == sorted(P.NESTX) and list(P.ROWX) == sorted(P.ROWX)   # left to right
+    # "in a row between the case and the envelopes": the boxes on the cloth stand below the
+    # case's foot and above the envelopes' top, side by side
+    assert env_top < P.ROWBOX[0] and box_top < P.CASEFOOT
+    # P3.1's last frame: the boxes out on the cloth, shut; the case open and empty
+    assert t16.trio == "boxes out" and t16.cloth == ("shut",) * 3 and t16.nests == (None,) * 3
     # P3.2: one of them close up, keyed door and drawer -- the same box, shut
     assert p32.keyed and x32.labels == ("door", "drawer")
-    assert x32.way == "shut" and x32.envelope == "none" and x32.way in t31.cloth
+    assert x32.way == "shut" and x32.envelope == "none" and x32.way in t16.cloth
+    assert not x32.marked and x32.step is None
 
     # P3.3: the back, keyed; the EVEN mask on the empty card, three whites in the
     # door row, the egg-cup over the third window (the right door)
@@ -228,9 +289,40 @@ def pictures():
     assert c33.shown == {"left door": "white", "middle door": "white"}      # two brights showing
     assert P.keeping_faces(c33.mask, c33.shown, c33.cup) == ("white",) == (c33.counters[c33.cup],)
     assert "So: bright." in sec and "The counter beneath shows white." in sec
+    assert not c33.marked and c33.step is None
 
-    # P3.4: the same mask; the left and right counters set black; the cup over the left window
-    assert not p34.keyed and c34.mask == c33.mask and c34.side == "back"
+    # Block 3.3: the egg-cup lifted (F19); its before-frame is P3.3, the paragraph before
+    # last: the same mask, the same counters, the same cup
+    assert P.options(p33l)["bare"] == P.options(p33)["bare"] and p33l.args == p33.args
+    assert not p33l.keyed and c19.step == ("lift", "cup")
+    assert c19.mask == c33.mask and c19.counters == c33.counters and c19.cup is None
+    assert c19.shown == c33.counters                                         # the third shows: white
+    assert c19.shown["right door"] == "white"
+    # its mark: the cup's ghost in outline where it stood, and no arc (the text names no
+    # place it goes: it is in the Anteater's hand)
+    assert [(g.what, g.name, g.outline) for g in c19.ghosts] == [("cup", "right door", True)]
+    assert c19.arcs == [] and c19.pins == []
+
+    # Block 3.4: the left and right counters set back black in their own windows, then the
+    # cup stood over the left window.  Its before-frame is F19: the cup off, three white
+    assert P.options(p34)["from"] == "off" and P.options(p34)["view"] == "under even"
+    side, cs = P.parse_card(p34.args[0])
+    assert side == "back" and cs == c19.counters
+    assert [(s.opts, s.state) for s in P.frames_of(p34)] == [
+        ("under even; turn=left door and right door", p34.args[0]),
+        ("under even; cup=left door", "back; left door black, middle door white, right door black")]
+    # F20: two counters turned in place, the middle one with them untouched; no cup
+    assert not p34.keyed and c20.step == ("turn", "left door and right door")
+    assert turned(c19.counters, c20.counters) == ["left door", "right door"]
+    assert c20.counters["middle door"] == "white" and c20.cup is None and c20.ghosts == []
+    assert [a.tag for a in c20.arcs] == ["flip left door", "flip right door"] and c20.pins == []
+    for a, sq in zip(c20.arcs, ("left door", "right door")):
+        x, y = P.sqpos("back", sq)
+        assert abs(a.start[0] - x) < 0.13 and abs(a.start[1] - y) < 0.15     # over its own window
+    # F21: the same mask; the cup over the left window -- from the hand, no mark
+    assert c34.step == ("cup", "left door") and not c34.marked
+    assert c34.mask == c33.mask and c34.side == "back"
+    assert c34.counters == c20.counters
     assert turned(c33.counters, c34.counters) == ["left door", "right door"]
     assert c34.counters["middle door"] == "white"
     assert c34.cup == "left door" and c34.cup != c33.cup
@@ -241,6 +333,36 @@ def pictures():
     # the node agrees: under all doors, with those two shown, only a dark has amplitude
     assert not np.isclose(amplitude(c34.mask, c34.counters), 0)
     assert np.isclose(amplitude(c34.mask, {**c34.counters, "left door": "white"}), 0)
+
+    # the log the pictures write, line for line as the build writes it
+    three = "back; left door white, middle door white, right door white"
+    set_back = "back; left door black, middle door white, right door black"
+    tail = "; envelopes sealed; slip sealed"
+    assert P.section_dumps(found) == [
+        "hallsteps: strip of 3 frames",
+        "halltable: [lift=next box] {case open} | trio one box out, envelopes sealed, slip sealed",
+        "halltable: + step lift=next box -> {one box out" + tail + "}",
+        "halltable: + ghost box achilles in its nest; arc to the cloth",
+        "halltable: [lift=next box] {one box out" + tail + "} | trio two boxes out, envelopes sealed, slip sealed",
+        "halltable: + step lift=next box -> {two boxes out" + tail + "}",
+        "halltable: + ghost box tortoise in its nest; arc to the cloth",
+        "halltable: [lift=next box] {two boxes out" + tail + "} | trio boxes out, envelopes sealed, slip sealed",
+        "halltable: + step lift=next box -> {boxes out" + tail + "}",
+        "halltable: + ghost box anteater in its nest; arc to the cloth",
+        "triobox: [none] {shut} | shut, envelope none",
+        "notecard: [under even, cup on right door] {" + three + "} | " + three + " | under even, cup right door",
+        "notecard: [under even, cup on right door; lift=cup] {" + three + "} | " + three + " | under even, cup none",
+        "notecard: + step lift=cup -> [under even] {" + three + "}",
+        "notecard: + ghost cup on right door; shown right door white",
+        "cardsteps: strip of 2 frames",
+        "notecard: [under even; turn=left door and right door] {" + three + "} | " + set_back
+        + " | under even, cup none",
+        "notecard: + step turn=left door and right door -> [under even] {" + set_back + "}",
+        "notecard: + turned left door white to black",
+        "notecard: + turned right door white to black",
+        "notecard: [under even; cup=left door] {" + set_back + "} | " + set_back + " | under even, cup left door",
+        "notecard: + step cup=left door -> [under even, cup on left door] {" + set_back + "}",
+        "notecard: + cup stood on left door (from the hand: no marks)"]
 
 
 # --------------------------------------------------------------------------

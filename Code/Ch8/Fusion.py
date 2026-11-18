@@ -87,16 +87,22 @@ def blackboard():
 
 # --------------------------------------------------------------------------
 # The prop pictures.  The dialogue draws the Crab's cords and curtain-rings
-#   \ringcords[view]{tangle}{caption}           (pdf/props/ch08.tex)
-# and the Lua COMPUTES the slid view: the left ring slid onto the right, one
-# ring left at the right ring's place, its turn the two turns ADDED.
-# tools/props_ch08.py transcribes the Lua; the calls are read out of this
-# challenge's section of dialog.md, never copied.
+#   \ringcords[opts]{tangle}{caption}           (pdf/props/ch08.tex)
+# and (round 4, "Show the process") a step strip of them,
+#   \ringsteps[opts]{tangle}{steps}{captions}.
+# The Lua COMPUTES the slid view (the left ring slid onto the right, one ring
+# left at the right ring's place, its turn the two turns ADDED) and its marks
+# (the near ring's ghost, the slide arc, the far bead's ghost and swing, the pin
+# on the cord's far end), and each strip frame from the one before (a cord added
+# to the first free hook).  tools/props_ch08.py transcribes the Lua (proved
+# against texlua; P.check_lua holds the Lua and the .tex to the text it was
+# proved on); the calls are read out of this challenge's section of dialog.md
+# and dialog.raw.md, never copied.
 #
-# The state model (identity card, section 3): a green ring is a Z spider, a red
-# ring an X spider; a ring's turn t (twenty-fourths, clockwise from the top as
-# the company sees it) is the phase 2 pi t / 24; cords in on the left are
-# inputs, out on the right outputs, the upper line first.
+# The state model (identity card, sections 3 and 3e): a green ring is a Z
+# spider, a red ring an X spider; a ring's turn t (twenty-fourths, clockwise
+# from the top as the company sees it) is the phase 2 pi t / 24; cords in on
+# the left are inputs, out on the right outputs, the upper line first.
 # --------------------------------------------------------------------------
 DIALOGUE = Dialogue(__file__, macros=P.MACROS)
 QUOTE = "It has a family now. Has it a name?"
@@ -141,6 +147,8 @@ def tangle_map(T):
 def check_transcription():
     """The Lua's words and its slid view against the chapter's rules (a
     structural check, not a second proof)."""
+    P.check_lua()
+    P.check_sites()
     # the turn words, in twenty-fourths, as the dialogue says them
     assert P.parse_turn("a third") == 8 and P.parse_turn("a quarter") == 6
     assert P.parse_turn("a third of the way round") == 8
@@ -190,42 +198,130 @@ def check_transcription():
                        zspider(2, 3, phase(8)))
 
 
+def check_add_step():
+    """The add step against the chapter's ring (a structural check): one more cord, to the
+    first free hook of top, bottom, middle on its side, the cords already there kept on their
+    hooks; a green ring with one more leg is the spider with one more leg, the same turn."""
+    assert P.ADDORDER == ("top", "bottom", "middle") and P.PLACE_Y == {"top": 0.42, "middle": 0, "bottom": -0.42}
+    names = ("top", "middle", "bottom")
+    subsets = [frozenset(s) for n in range(4) for s in itertools.combinations(names, n)]
+    for pin, pout in itertools.product(subsets, repeat=2):
+        if not pin and not pout:
+            continue
+        spec = ("green ring, turn a third, " + ("in at " + P.places_words(pin) if pin else "none in") + ", " +
+                ("out at " + P.places_words(pout) if pout else "none out"))
+        T = P.parse_tangle(spec)
+        assert (T.pin, T.pout) == (pin, pout)
+        for side, have in (("in", pin), ("out", pout)):
+            free = [w for w in P.ADDORDER if w not in have]
+            pic = P.ringcords("beam; add=" + side, spec)
+            if not free:
+                assert P.faults(P.ringcords, "beam; add=" + side, spec) == ["add-full"]
+                continue
+            assert P.faults(P.ringcords, "beam; add=" + side, spec) == []
+            assert pic.moved.hook == free[0] and pic.marks == () and pic.mark_tikz == ()   # from the hand
+            new = P.End("L" if side == "in" else "R", P.PLACE_Y[free[0]])
+            ends = lambda t: sorted((e for s in P.segments(t) for e in s if isinstance(e, P.End)), key=str)
+            assert ends(pic.drawn) == sorted(ends(T) + [new], key=str)
+            assert pic.drawn.rings[0].t == T.rings[0].t == 8 and pic.drawn.rings[0].c == "green"
+            nin, nout = len(pin) + (side == "in"), len(pout) + (side == "out")
+            assert np.allclose(tangle_map(pic.drawn), zspider(nin, nout, phase(8)))
+    # the order is the Lua's: a cord in with the top taken goes to the bottom, never the middle
+    assert P.ringcords("beam; add=in", "green ring, in at top, out at top and bottom").moved.hook == "bottom"
+    assert P.faults(P.ringcords, "beam; add=out", "green ring, five cords") == ["add-full"]    # three out: full
+    assert P.ringcords("beam; add=in", "green ring, five cords").moved.hook == "middle"     # two in: the gap
+    assert P.faults(P.ringcords, "beam; add=in", "green ring, four in") == ["add-hooks"]      # no names
+    assert P.faults(P.ringcords, "slid; add=in", "green ring") == ["step-view"]
+
+
 def pictures():
     assert f'"{QUOTE}"' in __doc__                              # quoted byte for byte
     check_transcription()
-    p11, p12, p13 = DIALOGUE.check_layout("First", sizes=[1, 2])
+    check_add_step()
+    found = P.check_section(DIALOGUE, "First", sizes=[1, 2], frames=[3, 2])
+    (p11, [(f01, cap01), (f02, cap02), (f03, cap03)]), = found[0]
+    (p12, [(b12, cap12)]), (p13, [(b13, cap13)]) = found[1]
     calls = (p11, p12, p13)
-    assert [c.macro for c in calls] == ["ringcords"] * 3
+    assert [c.macro for c in calls] == ["ringsteps", "ringcords", "ringcords"]
+    assert (cap01, cap02, cap03, cap12, cap13) == ("as he found it", "another in", "another out",
+                                                   "two rings, two turns", "slid into one")
     for c in calls:
         assert words_only(c.caption, forbidden=P.NOT_IN_CAPTIONS) and P.caption_ok(c), c.caption
-    # only what the First draws: a ring on the beam, two rings loose, the slide
-    assert [c.opt for c in calls] == ["beam", "", "slid"]
+    # only what the First draws: a ring on the beam (a strip), two rings loose, the slide --
+    # the views as the Lua parses the brackets
+    assert [c.opt for c in calls] == ["view=beam", "", "slid; marks=on"]          # as written
+    assert [P.view_of(c) for c in calls] == ["beam", "", "slid"]
+    assert P.options(p11) == {"view": "beam", "bare": ""} and P.options(p13) == {"marks": "on", "bare": "slid"}
     assert not any(c.args[0].lower() in P.FRAME for c in calls)
     assert [c.keyed for c in calls] == [True, False, False]          # a demonstration ring, keyed once
-    b11, b12, b13 = (P.picture(c) for c in calls)
     sec = DIALOGUE.section("First")
-    a1, a2 = P.anchors(DIALOGUE, "First")
-    f1, f2 = P.following(DIALOGUE, "First")
+    a1, a2 = DIALOGUE.anchors("First")
+    f1, f2 = DIALOGUE.following("First")
     assert QUOTE in sec and f1 == "**Achilles:** " + QUOTE             # the docstring's line, right after
+    # the directions edited this round (N1, N2 with the Dramatist's wording, N3), in both files
+    P.check_edits(DIALOGUE, "First", [
+        ("two running out to hooks at its right]*",
+         "two running out to hooks at its right, the left hook high and the right ones high and low]*"),
+        ("then a fifth out of it to the right.]*",                    # HEAD's close: N2 adds
+         "Each hangs from a hook of its own along the beam: the new one in, from a hook low on the "
+         "left; the new one out, from a hook on the right between the other two."),
+        ("lifts the first ring down off the beam, cords and all,",
+         "lifts the first ring down off the beam, peg, cords and all,")])
 
-    # P1.1: the grown ring on its peg -- one in and two out as found, one more of each added
+    # Strip 1.1: the grown ring on its peg -- one in and two out as found, then one more of
+    # each, in the order the Crab runs them ("a fourth cord into the ring from the left, then
+    # a fifth out of it to the right"); each frame starts from the state the one before left
     assert ("one running in from a hook at the beam's left end, two running out to hooks at its right"
             in sec)
     assert "He runs a fourth cord into the ring from the left, then a fifth out of it to the right." in a1
     assert a1.endswith("The dot has grown up.")
-    assert b11.setting == "beam" and b11.drawn.kind == "single" and b11.labels == ("green", "bead")
-    (r,) = b11.drawn.rings
-    ends = [e for s in P.segments(b11.drawn) for e in s if isinstance(e, P.End)]
-    assert r.c == "green" and (sum(e.side == "L" for e in ends), sum(e.side == "R" for e in ends)) == (1 + 1, 2 + 1)
-    assert "Bead at the top, no turn at all." in sec and r.t == P.parse_turn("at the top")
+    assert p11.args == ("green ring, in at top, out at top and bottom", "add=in; add=out")
+    assert a1.index("into the ring from the left") < a1.index("out of it to the right")
+    frames = P.frame_calls(p11)
+    assert [(c.opt, c.args[0]) for c in frames] == [
+        ("beam", "green ring, in at top, out at top and bottom"),
+        ("beam; add=in; keyroom=on", "green ring, in at top, out at top and bottom"),
+        ("beam; add=out; keyroom=on", "green ring, in at top and bottom, out at top and bottom")]
+    assert [c.keyed for c in frames] == [True, False, False]
+    assert f02.made.cords == f01.drawn.cords and f03.made.cords == f02.drawn.cords   # in order
+    for fr in (f01, f02, f03):
+        assert fr.setting == "beam" and fr.drawn.kind == "single" and fr.labels == ("green", "bead")
+        (r,) = fr.drawn.rings
+        assert (r.c, r.t, r.x, r.y) == ("green", 0, 0, 0)
+        assert fr.marks == () and fr.mark_tikz == () and not fr.pale           # no mark: from the hand
+    assert f01.keyed and not f01.phantom and f02.phantom and f03.phantom   # the frames stand level
+    assert f01.step is None and f02.step == ("add", "in") and f03.step == ("add", "out")
+    ends = lambda t: [e for s in P.segments(t) for e in s if isinstance(e, P.End)]
+    L, R = (lambda y: P.End("L", y)), (lambda y: P.End("R", y))
+    # F01: "the left hook high and the right ones high and low"
+    assert ends(f01.drawn) == [L(0.42), R(0.42), R(-0.42)]
+    # F02: "the new one in, from a hook low on the left"; the cords there stay on their hooks
+    assert f02.moved.hook == "bottom" and ends(f02.drawn) == [L(0.42), L(-0.42), R(0.42), R(-0.42)]
+    # F03: "the new one out, from a hook on the right between the other two"
+    assert f03.moved.hook == "middle" and ends(f03.drawn) == [L(0.42), L(-0.42), R(0.42), R(0), R(-0.42)]
+    assert -0.42 < 0 < 0.42
+    # the strip's last frame IS round 3's P1.1, \ringcords*[beam]{green ring, five cords}, cord
+    # for cord (HEAD's call, written out here)
+    p11_round3 = P.ringcords("beam", "green ring, five cords", True)
+    assert f03.drawn.cords == p11_round3.drawn.cords and f03.drawn.rings == p11_round3.drawn.rings
+    assert f03.labels == p11_round3.labels
+    assert f03.log[0].split(" | ")[1] == p11_round3.log[0].split(" | ")[1]   # the same dump reading
+    # the wrong order (out first) would pass a different state between: the strip shows the order
+    assert P.ringcords("beam; add=out", p11.args[0]).drawn.cords != f02.drawn.cords
+    # three cords, then four, then five: one in two out, two in two out, two in three out
+    for fr, (nin, nout) in zip((f01, f02, f03), ((1, 2), (2, 2), (2, 3))):
+        assert (sum(e.side == "L" for e in ends(fr.drawn)), sum(e.side == "R" for e in ends(fr.drawn))) == (nin, nout)
+        assert np.allclose(tangle_map(fr.drawn), zspider(nin, nout, 0))
+    assert "Bead at the top, no turn at all." in sec and f03.drawn.rings[0].t == P.parse_turn("at the top")
+    assert P.describe(p11)[0] == "ringsteps: strip of 3 frames" and len(P.describe(p11)) == 6
 
-    # P1.2, P1.3: the slide, before and after, the same tangle
+    # Block 1.2: the slide, before and after, the same tangle
     assert p12.args == p13.args
     assert "one bead — the left-hand ring's — a third of the way round, the other a quarter" in a2
     assert "the near ring, the left-hand one as they face it," in a2
     assert "the two turns added -- a third and a quarter together" in a2
     assert a2.endswith("the far end of the cord is exactly where it was.]*")
-    assert b12.setting == "loose" and b12.drawn.kind == "two"
+    assert b12.setting == "loose" and b12.drawn.kind == "two" and b12.marks == ()
     left, right = b12.drawn.rings
     assert left.c == right.c == "green" and left.x < right.x
     assert (left.t, right.t) == (P.parse_turn("a third of the way round"), P.parse_turn("a quarter"))
@@ -238,6 +334,31 @@ def pictures():
     assert ends12 == ends13                                                   # the cord's ends unmoved
     assert np.allclose(tangle_map(b12.drawn), tangle_map(b13.drawn))          # fusion, the pictured turns
     assert np.allclose(tangle_map(b13.drawn), zspider(1, 1, phase(8) + phase(6)))
+    # its marks (marks=on): "She sets a finger to the near ring ... slides it along the cord until
+    # it meets the far one; the cord does not move and its far end does not stir"
+    assert "slides it along the cord until it meets the far one; the cord does not move and its far end does not stir" in a2
+    assert [m.kind for m in b13.marks] == ["ghost", "slide", "bead", "bead-arc", "pin"]
+    ghost, slide, bead, arc, pin = b13.marks
+    assert ghost.ring == left and ghost.at == (-0.4, 0)                      # the near ring, where it stood
+    assert all(np.hypot(ghost.at[0] - q.x, ghost.at[1] - q.y) > 2 * P.RO for q in b13.drawn.rings)  # uncovered: in full
+    (x0, y0), c1, c2, (x1, y1) = slide.pts                                   # the slide: from it to the far ring
+    assert (x0, x1) == (left.x, right.x) and y0 == y1 == P.SLIDE_Y > P.RO   # above the cord, clear of the rings
+    assert all(y > P.RO for _, y in (c1, c2))                                # bowed upward
+    assert np.isclose(np.hypot(pin.at[0] - P.BX, pin.at[1]), 0.01) and pin.r < 0.1   # the cord's far end held
+    # "at a turn that is the two turns added": the far ring's bead from its own turn on by the
+    # near ring's, clockwise (the way the Crab measures a turn: "clockwise as you face it")
+    assert "clockwise as you face it" in sec
+    assert bead.ring == right and np.allclose(bead.at, P.bead_xy(right)) and arc.dir == 1
+    (cx, cy), (rad, b0, b1) = arc.pts
+    assert (cx, cy) == (right.x, right.y) and rad == P.RO + 0.06
+    assert np.isclose((b0 - b1) % 360 + 2 * 0.07 / rad * 180 / np.pi, 15 * left.t)   # by the near turn
+    assert P.describe(p13)[1:] == ["ringcords: + ghost green ring 8 at (-0.400,0.000)",
+                                   "ringcords: + slide arc -0.400 -> 0.400 above the cord",
+                                   "ringcords: + ghost bead 6 on the far ring",
+                                   "ringcords: + bead arc 6 -> 14 clockwise",
+                                   "ringcords: + pin the cord's far end at (1.000,0.000)"]
+    # without marks=on the old call draws what it drew (round 3): no mark at all
+    assert P.ringcords("slid", p13.args[0]).marks == () and P.ringcords("slid", p13.args[0]).drawn == b13.drawn
 
 
 # --- pictures: phases below are Fractions in units of pi ---

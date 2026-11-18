@@ -111,8 +111,13 @@ def blackboard():
 #   \ringcords[view]{tangle}{caption}           (pdf/props/ch08.tex)
 # and the Crab's press, \koekpan[view]{caption}.  The Lua COMPUTES the views:
 # slid, flipped, pushed, pressed, and the ring come clear of the flip-slot.
-# tools/props_ch08.py transcribes the Lua; the calls are read out of this
-# challenge's section of dialog.md, never copied.
+# Round 4 ("Show the process") adds the marks (marks=on: a moved part's ghost,
+# its arc, a pin on what is held), the prediction frames (expects=: Achilles's
+# refuted rule, drawn paler) and \ringsteps[opts]{tangle}{steps}{captions}, a
+# strip whose every frame starts from the state the one before left.
+# tools/props_ch08.py transcribes the Lua (proved against texlua; P.check_lua
+# holds the Lua and the .tex to the text it was proved on); the calls are read
+# out of this challenge's section of dialog.md and dialog.raw.md, never copied.
 #
 # The state model (identity card, section 3): a green ring is a Z spider, a red
 # ring an X spider; a ring's turn t (twenty-fourths, clockwise from the top as
@@ -171,6 +176,8 @@ def cradle_maps():
 def check_transcription():
     """The Lua's frame and its pressed views against the bialgebra and Hopf
     laws (a structural check, not a second proof)."""
+    P.check_lua()
+    P.check_sites()
     lhs, rhs, hopf = cradle_maps()
     # pressed cradle <-> bialgebra: the transcription's cradle IS the file's lhs, and what
     # the pan presses it to (red on the left gathering both in-hooks, one cord, green on the
@@ -218,22 +225,41 @@ def spoken_cross(text):
     return sorted(f"{FRAME_RINGS[a]}-{FRAME_RINGS[b]}" for a, b in pairs)
 
 
+def between(T):
+    """The cords drawn between two rings (ring to ring)."""
+    return [d for d in T.cords if isinstance(d.a, int) and isinstance(d.b, int)]
+
+
+def tighter(T):
+    """Achilles's rule, in the challenge's own model: "Two cords must bind them twice as
+    tightly" -- the press keeps both cords; the pair comes off as it went on, its map the
+    twice-tied pair's own."""
+    assert len(between(T)) == 2
+    return tangle_map(T)
+
+
 def pictures():
     assert f'"{QUOTE}"' in __doc__                              # quoted byte for byte
     check_transcription()
     lhs, rhs, hopf = cradle_maps()
-    p41, p42, p43, p44 = DIALOGUE.check_layout("Fourth", sizes=[1, 1, 2])
-    calls = (p41, p42, p43, p44)
-    assert [c.macro for c in calls] == ["ringcords"] * 4
+    found = P.check_section(DIALOGUE, "Fourth", sizes=[1, 1, 3], frames=[1, 1, 3])
+    calls = tuple(c for b in found for c, _ in b)
+    p41, p42, p43, p44, p45 = calls
+    b41, b42, b43, b44, b45 = (fr[0][0] for b in found for _, fr in b)
+    assert [c.macro for c in calls] == ["ringcords"] * 5
     for c in calls:
         assert words_only(c.caption, forbidden=P.NOT_IN_CAPTIONS) and P.caption_ok(c), c.caption
     assert not P.quantity_words(p41.caption)                           # a drawn copy of the frame
-    assert [c.opt for c in calls] == ["", "pressed", "", "pressed"]
-    assert [c.keyed for c in calls] == [True, False, False, False]     # the frame keyed once
-    b41, b42, b43, b44 = (P.picture(c) for c in calls)
+    assert [P.options(c) for c in calls] == [
+        {"bare": ""}, {"bare": "pressed"}, {"bare": ""}, {"bare": "pressed", "expects": "tighter"},
+        {"bare": "pressed"}]
+    assert [P.is_prediction(c) for c in calls] == [False, False, False, True, False]
+    assert [c.keyed for c in calls] == [True, False, False, False, False]   # the frame keyed once
+    assert [c.caption for c in calls] == ["the cradle", "off the pan", "doubly joined", "as Achilles expects",
+                                          "nothing between"]
     sec = DIALOGUE.section("Fourth")
-    a1, a2, a3 = P.anchors(DIALOGUE, "Fourth")
-    f1, f2, f3 = P.following(DIALOGUE, "Fourth")
+    a1, a2, a3 = DIALOGUE.anchors("Fourth")
+    f1, f2, f3 = DIALOGUE.following("Fourth")
 
     # P4.1: the cradle on the beam, keyed -- its cords the ones the scene strings
     assert p41.args == p42.args == ("cradle",)
@@ -249,29 +275,56 @@ def pictures():
     assert g_top.x < r_top.x and g_top.y > g_bot.y and r_top.y > r_bot.y   # greens left, reds right
     assert all(r.t == 0 for r in b41.drawn.rings)
     assert np.allclose(tangle_map(b41.drawn), lhs)
+    # the counted frame (the chapter's eight wires): eight cords, four rings, and no mark --
+    # no ghost, no arc, no outline adds a line to it
+    assert len(b41.drawn.cords) == len(P.segments(b41.drawn)) == 8 and len(b41.drawn.rings) == 4
+    assert b41.marks == () and b41.mark_tikz == () and not b41.pale
 
     # P4.2: off the pan, the pair -- red gathering on the left, green issuing on the right
     assert "one knot-pair, doing what the whole cross did" in a2
     assert "the cradle on the beam is untouched" in a2
-    assert b42.setting == "hooks" and b42.labels == ()
+    assert b42.setting == "hooks" and b42.labels == () and b42.marks == ()
     red, green = b42.drawn.rings
     assert (red.c, green.c) == ("red", "green") and red.x < green.x
     assert "comes off as one red ring, one cord, one green ring" in f2 and QUOTE in f2
     assert np.allclose(tangle_map(b42.drawn), rhs)
     assert np.allclose(tangle_map(b41.drawn), tangle_map(b42.drawn) / np.sqrt(2))   # bialgebra
 
-    # P4.3, P4.4: twice tied, then nothing between
-    assert p43.args == p44.args == ("green and red, two cords",)
+    # B4.3: twice tied, Achilles's guess, then nothing between
+    assert p43.args == p44.args == p45.args == ("green and red, two cords",)
     assert "a cord running in to the green and one running out of the red" in sec
     assert "The green ring and the red ring hang joined by two distinct cords." in a3
     assert "but with nothing between them at all" in a3
-    assert b43.setting == "loose" and b44.setting == "hooks"
+    assert b43.setting == "loose" and b44.setting == b45.setting == "hooks"
     assert sorted(P.segments(b43.drawn), key=str).count((1, 2)) == 2
-    assert not any(isinstance(a, int) and isinstance(b, int) for a, b in P.segments(b44.drawn))
-    assert [r.c for r in b44.drawn.rings] == ["green", "red"]
+    assert not any(isinstance(a, int) and isinstance(b, int) for a, b in P.segments(b45.drawn))
+    assert [r.c for r in b45.drawn.rings] == ["green", "red"]
     assert np.allclose(tangle_map(b43.drawn), hopf)
-    assert np.allclose(tangle_map(b43.drawn), tangle_map(b44.drawn) / 2)          # Hopf
+    assert np.allclose(tangle_map(b43.drawn), tangle_map(b45.drawn) / 2)          # Hopf
     assert f3.startswith("**Achilles:** They fell apart.") and "Twice tied is untied." in f3
+    # the prediction frame: Achilles's "tighter", the macro's wrong rule the challenge's model
+    # of what he said, drawn paler, never keyed, between the pair and its true press
+    for q in P.rule_quotes()[2:]:
+        assert q in sec, q                                     # the Lua's WRONG quotes, spoken here
+    assert "**Achilles:** " + P.rule_quotes()[2] in sec and P.rule_quotes()[3] in a3   # said, refuted
+    assert sec.index(P.rule_quotes()[2]) < sec.index(P.rule_quotes()[3])
+    assert b44.expects == "tighter" and b44.pale and not b44.keyed and b44.labels == ()
+    assert b44.marks == () and b44.mark_tikz == ("\\begin{scope}[transparency group, opacity=0.500]",)
+    assert b44.made == b43.drawn                                            # from the tangle as made
+    assert np.allclose(tangle_map(b44.drawn), tighter(b43.drawn))           # the rule drawn
+    assert [r.c for r in b44.drawn.rings] == ["green", "red"] and all(r.t == 0 for r in b44.drawn.rings)
+    # "drawn short and taut, the rings pulled close": closer than the pair on the pan, and the
+    # two cords between still two (bowed apart, so neither hides the other)
+    (g44, r44), (g45, r45) = b44.drawn.rings, b45.drawn.rings
+    assert r44.x - g44.x < r45.x - g45.x and r44.x - g44.x > 2 * P.RO
+    bows = sorted(d.bow for d in between(b44.drawn))
+    assert len(bows) == 2 and bows[0] < 0 < bows[1]
+    # the prediction differs from what came off: two cords between against none
+    assert len(between(b44.drawn)) == 2 and len(between(b45.drawn)) == 0
+    assert not np.allclose(tangle_map(b44.drawn), tangle_map(b45.drawn))
+    assert P.describe(p44)[1:] == ["ringcords: + expects tighter (the whole picture paler)"]
+    assert P.faults(P.ringcords, "pressed; expects=tighter", "cradle") == ["wrong-tighter"]
+    assert P.faults(P.ringcords, "pressed; expects=nonsense", "green and red, two cords") == ["expects-rule"]
 
 
 # --- pictures: all spiders phase-free (bialgebra / Hopf need it) ---

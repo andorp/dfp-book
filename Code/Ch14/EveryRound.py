@@ -13,6 +13,7 @@ wheel, is exactly (|000> + |011>)/sqrt2 (Result 14.18).
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools"))
 
+import re
 from fractions import Fraction
 from functools import reduce
 from itertools import product
@@ -208,7 +209,7 @@ def dial_clearances(p):
     aside), the least gap, in cm, between: two rings (or face-down pairs); a ring and the
     hand; two beads; a bead and any ring but its own (outside it, or inside its hole); a
     bead and the hand.  All positive: nothing at an hour overlaps or touches."""
-    v = p.shown
+    v = p.view
     S = PC.DIAL_STROKE
     ro, ri, rb = PC.RRO + S["ring"], PC.RRI - S["ring"], PC.RBR + S["bead"]
     places = [(x, y) for _, _, x, y in v.pairs] + [(r[3], r[4]) for r in v.rings]
@@ -232,51 +233,84 @@ def dial_clearances(p):
     return gaps
 
 
+COUNT = ("once", "twice", "three times", "four times", "five times", "six times", "seven times", "eight times")
+
+
 def pictures():
-    """The Fourth Challenge's prop pictures (identity card, section 4), read from the
-    dialogue through tools/dfp_props.py and the transcription tools/props_ch14.py.  The
-    ties below hold the transcription against this file's blackboard: a structural
-    check of the pictures, not a second proof."""
-    calls = DIALOGUE.check_layout("Fourth", sizes=[1, 1, 1])
+    """The Fourth Challenge's prop pictures (identity card, sections 4 and 3e), read from the
+    dialogue through tools/dfp_props.py and the transcription tools/props_ch14.py: four single
+    calls, four frames (F25-F28), the third a prediction (pale: as Achilles expects).  The ties
+    below hold the transcription against this file's blackboard: a structural check of the
+    pictures, not a second proof."""
+    calls = DIALOGUE.check_layout("Fourth", sizes=[1, 1, 1, 1])
     assert [(c.macro, c.keyed, c.opt, c.args, c.caption) for c in calls] == [
         ("tickdial", False, "", ("every round",), "the rounds together"),
-        ("tickdial", False, "", ("every round; pairs face down",), "turned face down"),
-        ("tickdial", False, "", ("hand ticked twice; every round; pairs face down",), "the hand gone on")]
+        ("tickdial", False, "step=pairs face down", ("every round",), "turned face down"),
+        ("tickdial", False, "step=tick twice; expects=two ticks home", ("every round; pairs face down",),
+         "as Achilles expects"),
+        ("tickdial", False, "step=tick twice", ("every round; pairs face down",), "the hand gone on")]
     PC.check_captions(DIALOGUE, "Fourth", calls)
     PC.check_section(DIALOGUE, "Fourth", calls)
     dial_h = round(PC.DIAL_FTOP - PC.DIAL_FBOT, 2)
     assert dial_h == 2.42                                             # read from the Lua
-    assert [[PC.height(c) for c in b] for b in DIALOGUE.blocks("Fourth")] == [[dial_h]] * 3
+    assert [[PC.height(c) for c in b] for b in DIALOGUE.blocks("Fourth")] == [[dial_h]] * 4
+    assert [PC.is_prediction(c) for c in calls] == [False, False, True, False]
+    p41, p42, pw, p43 = (PC.picture(c) for c in calls)               # F25, F26, F27 (pale), F28
 
-    # the anchors (card section 4), in dialog.md; the raw file's following paragraphs agree
-    a1, a2, a3 = DIALOGUE.anchors("Fourth")
-    f1, f2, f3 = DIALOGUE.following("Fourth")
+    # the anchors (card sections 4 and 3e.4), in dialog.md; the raw file's following paragraphs agree
+    a1, a2, a3, a4 = DIALOGUE.anchors("Fourth")
+    f1, f2, f3, f4 = DIALOGUE.following("Fourth")
     assert "in a little square, side by side so that every bead shows" in a1                      # D27
     assert f1.startswith("**Achilles:** *[going round with a finger]* At one they all agree.")
     assert "the pair lies as one plain ring" in a2 and "in their little square" in a2             # D28
     assert f2.startswith("**Achilles:** So all the rounds laid together are the hand at one")
-    assert "It points at four, not at one." in a3
-    assert f3.startswith("**Achilles:** Four. Not home.")
-    assert DIALOGUE.following("Fourth", DIALOGUE.raw) == [f1, f2, f3]
+    assert a3 == "**Tortoise:** Tick it and see."                                                 # B15
+    assert f3.startswith("*[The paper hand stands at one. Achilles carries it once round to seven")
+    assert "It points at four, not at one." in a4 and a4 == f3                                    # B16
+    assert f4.startswith("**Achilles:** Four. Not home.")
+    assert DIALOGUE.following("Fourth", DIALOGUE.raw) == [f1, f2, f3, f4]
     assert "four rings sit together, one over another." not in DIALOGUE.section("Fourth")          # D27's old
 
-    p41, p42, p43 = (PC.picture(c) for c in calls)
+    # the wrong rule (card 3e.1): every spoken reaction, in order, around the pale frame -- the
+    # premise, the prediction, "Tick it and see." (the pale frame), the look (the true frame),
+    # the refutation naming the true hour, the wrong rule named, and the true count agreed
+    paras = DIALOGUE.paragraphs("Fourth")
+    at = lambda s: [k for k, q in enumerate(paras) if s in q]
+    (premise,), (said,), (see,), (b15,), (look,), (b16,), (four,), (named,), (agreed,) = (
+        at("had shown you a half."), at("**Achilles:** A half at every tick: two ticks home."),
+        at("**Tortoise:** Tick it and see."), at(calls[2].text), at("Two ticks have moved it twice, and it has not come home."),
+        at(calls[3].text), at("**Achilles:** Four. Not home."),
+        at("The half came from the round that goes a half at each step, and that round comes home in two. The hand doesn't."),
+        at("Two of the four readings give it, then. Half the time."))
+    assert [said, see, b15, look, b16, four, named] == list(range(premise + 1, premise + 8)) and agreed == named + 2
+    assert paras[premise].startswith("**Tortoise:**") and "A quarter says four ticks home" in paras[agreed]
+    # the Lua's wrong rule says the same, in the dialogue's words (its comment pinned by check_lua)
+    rule = PC.rule_comment("THE DIAL'S STEP, ITS MARKS AND ITS WRONG RULE")
+    quotes = PC.comment_quotes("THE DIAL'S STEP, ITS MARKS AND ITS WRONG RULE")
+    for q in ("A half at every tick: two ticks home.",
+              "It points at four, not at one. Two ticks have moved it twice, and it has not come home.",
+              "Four. Not home."):
+        assert q in quotes and q in DIALOGUE.section("Fourth"), q
+    assert "-- THE DIAL'S WRONG RULE, given with expects=<rule>" in rule
+    assert "only where it differs" in rule
+
     orb = PC.dial_orbit(15)
     psis = rounds(7, 15, 4, 4)
 
-    # P4.1: every round laid as first laid -- at the i-th hour of the hand's way the k-th
+    # F25 (P4.1): every round laid as first laid -- at the i-th hour of the hand's way the k-th
     # round's bead stands k i quarters back; adding the beads at each hour gives 4 at one
     # and 0 elsewhere: the four rounds (each with its 1/2) add up to 2|1>, the hand at one
     assert p41.dump == ("hours=15 hand=1 rings=1:0:0,1:1:0,1:2:0,1:3:0,7:0:0,7:1:18,7:2:12,7:3:6,"
                         "4:0:0,4:1:12,4:2:0,4:3:12,13:0:0,13:1:6,13:2:12,13:3:18")
+    assert p41.words == () and p41.notes == [] and p41.mark_tikz == []   # keyed in the Second (F06)
     for k in range(4):
         v = np.zeros(16, dtype=complex)
-        for ring in p41.state.rings:
+        for ring in p41.after.rings:
             if ring["k"] == k:
                 v[ring["hour"]] = bead_phase(ring["t"]) / 2
         assert np.allclose(v, psis[k])
     total = np.zeros(16, dtype=complex)
-    for ring in p41.state.rings:
+    for ring in p41.after.rings:
         total[ring["hour"]] += bead_phase(ring["t"]) / 2
     assert np.allclose(total, sum(psis)) and np.allclose(total, 2 * ket(0, 0, 0, 1))
     assert np.isclose(2 * total[1], 4) and all(np.isclose(total[h], 0) for h in orb[1:])
@@ -284,48 +318,159 @@ def pictures():
     # at rest (k = 0) far right, the half's (k = 2) near left, three quarters back's near right
     for h in orb:
         hx, hy = PC.hourxy(15, h)
-        at = {k: (x - hx, y - hy) for hour, k, t, x, y, bx, by in p41.shown.rings if hour == h}
-        assert at[1][0] < 0 < at[1][1] and at[0][0] > 0 < at[0][1]
-        assert at[2][0] < 0 > at[2][1] and at[3][0] > 0 > at[3][1]
+        at_ = {k: (x - hx, y - hy) for hour, k, t, x, y, bx, by in p41.view.rings if hour == h}
+        assert at_[1][0] < 0 < at_[1][1] and at_[0][0] > 0 < at_[0][1]
+        assert at_[2][0] < 0 > at_[2][1] and at_[3][0] > 0 > at_[3][1]
     # "so that every bead shows": at every hour the rings, the beads and the hand clear one
     # another on the drawn extents, strokes included -- no overlap, no touching stroke
     gaps = dial_clearances(p41)
-    assert len(p41.shown.rings) == 16 and min(gaps.values()) > 0.01, gaps
+    assert len(p41.view.rings) == 16 and min(gaps.values()) > 0.01, gaps
 
-    # P4.2: the beads that point opposite ways (a half apart) turned face down in pairs --
+    # F26 (P4.2): the beads that point opposite ways (a half apart) turned face down in pairs --
     # exactly the pairs whose phases cancel; the four at one stay face up, all at rest
     assert p42.dump == ("hours=15 hand=1 rings=1:0:0,1:1:0,1:2:0,1:3:0,7:0:0:down2,7:1:18:down1,7:2:12:down2,"
                         "7:3:6:down1,4:0:0:down1,4:1:12:down1,4:2:0:down2,4:3:12:down2,13:0:0:down2,"
                         "13:1:6:down1,13:2:12:down2,13:3:18:down1")
-    up = [ring for ring in p42.state.rings if not ring["down"]]
+    up = [ring for ring in p42.after.rings if not ring["down"]]
     assert {(r_["hour"], r_["t"]) for r_ in up} == {(1, 0)} and len(up) == 4
     for h in orb[1:]:
-        here = [r_ for r_ in p42.state.rings if r_["hour"] == h]
+        here = [r_ for r_ in p42.after.rings if r_["hour"] == h]
         for n in (1, 2):
             pair = [r_ for r_ in here if r_["pair"] == n]
             assert len(pair) == 2 and (pair[0]["t"] - pair[1]["t"]) % 24 == 12
             assert np.isclose(bead_phase(pair[0]["t"]) + bead_phase(pair[1]["t"]), 0)
     # drawn: each pair one plain ring, the two at an hour side by side; nothing else moved
-    assert len(p42.shown.pairs) == 6 and len(p42.shown.rings) == 4
+    assert len(p42.view.pairs) == 6 and len(p42.view.rings) == 4
     for h in orb[1:]:
         hx, hy = PC.hourxy(15, h)
-        xs = sorted(x - hx for hour, n, x, y in p42.shown.pairs if hour == h)
+        xs = sorted(x - hx for hour, n, x, y in p42.view.pairs if hour == h)
         assert np.allclose(xs, [-PC.SLOT, PC.SLOT])
-    assert p42.shown.rings == tuple(r_ for r_ in p41.shown.rings if r_[0] == 1)
-    assert p42.shown.hand_outline == p41.shown.hand_outline
+    assert p42.view.rings == tuple(r_ for r_ in p41.view.rings if r_[0] == 1)
+    assert p42.view.hand_outline == p41.view.hand_outline
     # the twine follows its rings: at one, where nothing turned over, every loop is as it lay
-    assert all(p42.shown.loops[k][0] == p41.shown.loops[k][0] for k in range(4))
+    assert all(p42.view.loops[k][0] == p41.view.loops[k][0] for k in range(4))
     gaps = dial_clearances(p42)
     assert min(gaps.values()) > 0.01, gaps
+    # F26's marks (card 3e.6): every face-up ring at seven, four and thirteen ghosted where it
+    # lay in F25 (its dotted outline cut away under the pairs); no arc (each moves under the
+    # 0.2 cm a head and its gap need)
+    assert p42.notes[0] == "step pairs face down -> " + p42.dump and p42.arcs == []
+    ghosted = set()
+    for note in p42.notes[1:]:
+        m = re.fullmatch(r"ghost of the ring \(round (\d)\) at (\d+) in dotted outline at \((-?\d\.\d{3}),(-?\d\.\d{3})\), "
+                         r"cut away under the pairs: turned face down", note)
+        assert m, note
+        k, h, x, y = int(m.group(1)), int(m.group(2)), float(m.group(3)), float(m.group(4))
+        (was,) = [r_ for r_ in p41.view.rings if (r_[0], r_[1]) == (h, k)]
+        assert np.allclose((x, y), (was[3], was[4]), atol=6e-4)
+        ghosted.add((h, k))
+    assert ghosted == {(h, k) for h in orb[1:] for k in range(4)} and len(p42.notes) == 13
+    # the cut: one circle per pair at each hour turned (both rings of a pair lie at one place,
+    # and the same circle given twice would cancel itself under the even odd rule, leaving the
+    # ghosts drawn over the pairs)
+    clips = [l for l in p42.mark_tikz if l.startswith("\\clip ")]
+    assert len(clips) == 3 and p42.mark_tikz.count("\\begin{scope}[even odd rule]") == 3
+    for line in clips:
+        circles = re.findall(r"\((-?\d\.\d{3}),(-?\d\.\d{3})\) circle \(([\d.]+)\)", line)
+        assert len(circles) == len(set(circles)) == 2, line
+        centres = sorted((float(x), float(y)) for x, y, _ in circles)
+        (h,) = [hour for hour in orb[1:]
+                if np.allclose(centres, sorted((x, y) for hr, n, x, y in p42.view.pairs if hr == hour), atol=6e-4)]
+        assert all(float(rad) == round(PC.RRO + 0.012, 3) for _, _, rad in circles)
+    assert PC.drawn(PC.twin(calls[1])) == PC.drawn(PC.run_frame("dial", "", "every round; pairs face down", False))
 
-    # P4.3: the hand ticked twice -- at four, 7^2 mod 15, not home: the half's "two ticks"
+    # F27: the prediction, two ticks home -- the dial paler, the hand where Achilles expects
+    # it (at one) at full strength; the true hand stands at four (its '+ step' line).  The
+    # wrong rule: the hand at one iff the ticks in all are even (else at seven); it is drawn
+    # only where it differs from the true hand, so it is refused after 1, 4, 5 and 8 ticks
+    assert pw.drawn.hand == pw.wrong.hand == 1 and pw.after.hand == p43.drawn.hand == 4
+    assert pw.head == p42.dump and pw.marked is False and pw.mark_tikz == [] and pw.arcs == []
+    assert pw.notes == ["step tick twice -> " + p43.dump + " (no marks)",
+                        "expects two ticks home: the dial paler, the hand at 1 at full strength, a shade darker, "
+                        "its outline heavier (it stands at 4)"]
+    assert pw.view.hand_outline == p42.view.hand_outline != p43.view.hand_outline
+    refused = []
+    for m, w in enumerate(COUNT, 1):
+        f = PC.faults(PC.run_frame, "dial", "step=tick " + w + "; expects=two ticks home", "every round; pairs face down", False)
+        wrong = 1 if m % 2 == 0 else 7
+        assert bool(f) == (wrong == pow(7, m, 15)), (m, f)
+        if f:
+            refused.append(m)
+    assert refused == [1, 4, 5, 8]
+    PC.TEX_ERRORS.clear()
+
+    # F28 (P4.3): the hand ticked twice -- at four, 7^2 mod 15, not home: the half's "two ticks"
     # fails; the rounds lie as they lay, only the hand has moved
-    assert p43.state.hand == pow(7, 2, 15) == 4 != 1
+    assert p43.drawn.hand == pow(7, 2, 15) == 4 != 1
     assert p43.dump == p42.dump.replace("hand=1", "hand=4")
-    assert (p43.shown.rings, p43.shown.pairs, p43.shown.loops) == (p42.shown.rings, p42.shown.pairs, p42.shown.loops)
-    assert p43.shown.hand_outline != p42.shown.hand_outline
+    assert (p43.view.rings, p43.view.pairs, p43.view.loops) == (p42.view.rings, p42.view.pairs, p42.view.loops)
+    assert p43.view.hand_outline != p42.view.hand_outline
     gaps = dial_clearances(p43)
     assert min(gaps.values()) > 0.01, gaps
+    # its marks (the Editor's item 3): two ticks, one after another, as B03 draws single ticks --
+    # a ghost at each hour the hand stood at before a tick (one, seven), and one clockwise arc
+    # per tick with its own head: one to seven over 6 marks, seven to four over 12 (6 + 12 =
+    # 18, more than a turn); the second arc, whose way would lie on the first's, a whole step in
+    assert [7 * 1 % 15, 7 * 7 % 15] == [7, 4] and [(7 - 1) % 15, (4 - 7) % 15] == [6, 12]
+    assert 6 + 12 == 18 and 18 * 24 > 360
+    plan = p43.plan
+    assert plan["ghosts"] == [1, 7] and plan["count"] == 2
+    assert [(a["from"], a["to"], a["marks"]) for a in plan["arcs"]] == [(1, 7, 6), (7, 4, 12)]
+    assert [a["r"] for a in plan["arcs"]] == [PC.ARCIN, PC.ARCIN - PC.ARCSTEP] and PC.ARCIN == 0.45
+    assert np.isclose(PC.ARCIN - PC.ARCSTEP, 0.37) and [a["lev"] for a in plan["arcs"]] == [0, 1]
+    assert not any(a["short"] or a["shared"] for a in plan["arcs"])
+    veil = ", filled with the sheet's shade (opacity 0.850) over the twine"
+    assert p43.notes[0] == "step tick twice -> " + p43.dump
+    assert p43.notes[1:3] == ["ghost of the hand in dotted outline at hour %d, under the hand and the pin: where it "
+                              "stood before a tick" % h + veil for h in (1, 7)]
+    cased = ", drawn OVER the twine, cased where it crosses a loop (the casing 1.800 pt wide, in the sheet's shade; "
+    assert p43.notes[3].startswith("swing arc round the pin, clockwise, tick 1 of 2, from hour 1 to hour 7: 6 marks "
+                                   "(144.000 degrees), radius 0.450, ")
+    assert p43.notes[4].startswith("swing arc round the pin, clockwise, tick 2 of 2, from hour 7 to hour 4: 12 marks "
+                                   "(288.000 degrees), radius 0.370, ")
+    assert "short of the ghost at 7" + cased in p43.notes[3] and "short of the hand" + cased in p43.notes[4]
+    # drawn: the two ghosts veiled, then every casing, then the two arcs, each with its head
+    tk = p43.mark_tikz
+    ghost_lines = [l for l in tk if l.startswith("\\draw[propchfourteenghost")]
+    veils = [l for l in tk if l.startswith("\\fill[propchfourteenpaper!") and "opacity=0.850" in l]
+    casings = [l for l in tk if "line width=1.800pt, line cap=butt, overlay]" in l]
+    swings = [l for l in tk if l.startswith("\\draw[propchfourteenswing, overlay, -{Stealth")]
+    assert len(ghost_lines) == 2 and len(veils) == 2 and len(swings) == 2
+    assert len(casings) == sum(a["cases"] for a in plan["arcs"]) > 0
+    assert tk == [veils[0], ghost_lines[0], veils[1], ghost_lines[1]] + casings + swings     # casings before dots
+    assert [p_[1] for p_ in p43.ghosts] == [1, 7] and all(p_[3] for p_ in p43.ghosts)
+    one, two = p43.arcs
+    assert not one.headless and not two.headless                                        # two heads
+    clock = lambda q: (90 - np.degrees(np.arctan2(q[1] - PC.DCY, q[0] - PC.DCX))) % 360
+    radius = lambda q: np.hypot(q[0] - PC.DCX, q[1] - PC.DCY)
+    assert 24 * 1 < clock(one.p0) < clock(one.p1) < 24 * 7                              # one -> seven
+    assert 24 * 7 < clock(two.p0) and clock(two.p1) < 24 * 4                            # seven -> past the top -> four
+    assert np.allclose([radius(one.p0), radius(one.p1)], 0.45, atol=1e-3)
+    assert np.allclose([radius(two.p0), radius(two.p1)], 0.37, atol=1e-3)
+    # the clearances as logged: every arc and ghost clear of the pin, the rings, the circle and
+    # the sheet; the arcs lie OVER the twine on their casings (the twine figure as logged), and
+    # tick 2 passes over the ghost at one, where the hand stood before (crossed, as it should)
+    c1, c2, g1, g7 = p43.notes[5:9]
+    assert len(p43.notes) == 9
+    assert c1.startswith("clearances of tick 1's arc (edge to edge): the hand passed under (the arc lies beneath it), "
+                         "the ghost at 1 0.031, the ghost at 7 0.031, tick 2's arc 0.016, ")
+    assert c2.startswith("clearances of tick 2's arc (edge to edge): the hand 0.034, the ghost at 1 crossed, "
+                         "the ghost at 7 0.031, tick 1's arc 0.016, ")
+    for c in (c1, c2):
+        assert "the twine -0.028 (it lies over the twine, on its casing)" in c
+        g = {k: float(v) for k, v in re.findall(r"(the pin|the rings|the circle|its marks|inside the sheet by) "
+                                                r"(-?\d\.\d{3})", c)}
+        assert len(g) == 5 and min(g.values()) > 0.2, g
+    assert g1 == ("clearances of the ghost at 1 (edge to edge, its blade beyond 0.200 of the pin): the hand 0.131, "
+                  "the ghost at 7 0.059, the rings 0.030, the twine crossed (the ghost lies over it, by 0.025)")
+    assert g7 == ("clearances of the ghost at 7 (edge to edge, its blade beyond 0.200 of the pin): the hand 0.131, "
+                  "the ghost at 1 0.059, the rings 0.172, the twine crossed (the ghost lies over it, by 0.024)")
+    # a single tick keeps its own way (one ghost, one arc under the twine, its head over it)
+    single = PC.run_frame("dial", "step=tick", "every round; pairs face down", False)
+    assert len(single.arcs) == 2 and single.arcs[0].headless and single.plan is None
+    assert single.notes[2].startswith("swing arc round the pin, clockwise, 6 marks") and "UNDER the twine" in single.notes[2]
+    assert PC.drawn(PC.twin(calls[3])) == PC.drawn(PC.run_frame("dial", "", "hand ticked twice; every round; "
+                                                                "pairs face down", False))
     assert not PC.TEX_ERRORS
 
 

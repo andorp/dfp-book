@@ -16,18 +16,32 @@ bash check-code.sh 16
 ```
 
 Each file also runs `pictures()`, at the end of its blackboard. The dialogue's prop pictures
-(`\cradlemodel`, `\belltray`, `\bowcloth`, `\trayledger`, `\eighthcloth`: twenty calls, four
-per challenge) are read out of `dialog.md` and `dialog.raw.md` through `tools/dfp_props.py`.
+(`\cradlemodel`, `\belltray`, `\bowcloth`, `\trayledger`, `\eighthcloth`, and since round 4
+("Show the process", card §3e) the strips `\cradlemodelsteps`, `\bowclothsteps` and
+`\eighthclothsteps`: 22 blocks, 23 calls, 42 frames) are read out of `dialog.md` and
+`dialog.raw.md` through `tools/dfp_props.py`.
 Their state is computed by `tools/props_ch16.py`, a transcription of `pdf/props/ch16.lua` (with
 the shared cloth and Office kits). The transcription carries a drift guard against the Lua's
 numbers and code, and where the Lua has values still being tuned (the clip pair's offsets, the
 "ring" word's drop, the tassel's and the ledger names' places) it reads them from the Lua instead
-of pinning them. It was diffed against the Lua under texlua: the 20 reference calls, 140 error
-calls and 4080 fuzzed calls give 0 differences (in three fuzzed calls the kit itself reports no
-room for a keyed word, an allowed fault), and every one of the 45 `tex.error` sites is reached.
+of pinning them; every chunk of the Lua is pinned by its hash as transcribed (`check_lua`). It
+was diffed against the Lua under texlua, every strip frame run as TeX runs it: the 23 dialogue
+calls, 141 error calls and 16 500 fuzzed calls (seeds 1–3 and 11–16) give 0 differences.
+The one gap is the cloth kit's own "no room for a keyed word" fault, which `tools/props_cloth.py`
+leaves untranscribed: 13 such lines over the nine fuzz files are filtered out. All 97 `tex.error` sites (`merr` 7, `terr` 7, `lerr` 5,
+`berr` 30, `ierr` 11, `oerr` 37) are reached, each by its own case in `HalfATouch.py`'s
+`FAULT_CASES`.
 `pictures()` ties each picture to the blackboard. A model's lug holds $U^\dagger PU$, a clip's
 turn is a phase, a tray's touch is a string of Paulis, the ledger's rows are the stabilizers,
-and a cloth is a net with its number. It also checks the dialogue's rules: blocks and sizes,
+and a cloth is a net with its number. Round 4's strips are checked frame by frame. Each frame
+is the state its steps leave, in order, and the last frame of a block is round 3's picture of
+it. Every ghost is a part of the state before the step, drawn where that part was
+(`PC.check_ghosts`). Every slide arc runs from where a part was to where a part arrives
+(`PC.check_slides`). Every model swing arc runs the way the move turns the tip it follows, and
+every pin sits on the part the move holds still; the short upright arcs (the quarter, an
+eighth) keep at least `PINKEEP` clear of the pin on the drawn extent, and their bodies bow
+at least `MINSAG` from the chord, so that they read curved. The bell tray, the
+counted frame, is never marked. It also checks the dialogue's rules: blocks and sizes,
 captions in words only and no echoes, the anchor phrases, the starred pictures (P1.1, P2.1,
 P2.2, P4.1, P5.2), and every keyed word's clearance on drawn extents. A word's node box clears
 the frame by at least $0.025$ cm, and its letters (glyph ink boxes measured from the book's
@@ -36,6 +50,10 @@ cm. Five words come nearer to one neighbour each and are held clear of it by a p
 the sleeve's word ($0.0197$ above its sleeve's shadow) and the four wing bells' names in the
 ledger ($0.0127$ between the rows' names, a descender over an ascender). This is a structural
 check of the pictures, not a third proof.
+
+**Pins (the cloth kit).** The shared cloth kit, `pdf/props/cloth.{lua,tex}`, is pinned in
+`tools/props_cloth.py`, which every file imports through `props_ch16`; a change to the kit fails
+every file of this chapter (see the note in `chapter10/Code/README.md`).
 
 Five things hold in every file.
 
@@ -95,7 +113,18 @@ asserted for every place of the four dumps, and the conjugation the other way ro
 walk is replayed through the transcription's `model_state`: twenty-five steps, twenty-four
 different seatings, back home, named exactly as Achilles names them. The Opening's D1–D7
 phrases each occur once, before the First Challenge, in both files. P1.1's keyed words
-clear everything, the stand and lugs stay fixed, and the frame is $2.07$ cm.
+clear everything, the stand and lugs stay fixed, and the frame is $2.07$ cm. In round 4 the
+quarter (B02) is marked, and over (B03) and the half about the red line (B04) are strips of two
+frames: the start seating, then the move. Each pin is checked against the blackboard. It sits
+on the point where the move's rotation axis, the eigenvector of $R(U_1U_0^\dagger)$, meets the
+solid: the top tip for the quarter, the front tip for the half, and for over the middle of the
+top-front edge, where no tip holds.
+
+```python
+M = compose(moves, start) @ compose("", start).conj().T
+assert np.isclose(x, ex) and np.isclose(y, ey)       # the pin, where the axis meets the solid
+assert len(held) == (0 if moves == "over" else 2)     # over holds no tip
+```
 
 ## Safe Touches — `SafeTouches.py` (the headline and the master)
 
@@ -135,6 +164,18 @@ against the net its dump describes. A wrongly threaded net fails. The kit sets P
 words (`tie`, `tube`, `ring`, `loose cord`). Its placement is not transcribed, so their
 clearances were measured from the Lua's output, after the kit's raise of the words above the
 linen: all at least $0.024$ cm (`loose cord` now clears the linen's edge by $0.052$). The rings stay at their places from picture to picture.
+In round 4, P2.3 is threaded as a step, and the push (B08) is a strip of four frames: the red
+half pushed through the knot onto its four ties, turned green by the tubes, into the corner
+rings, then cancelled by the waiting halves. The file's `bow_net` draws a half riding a tie as a
+two-legged spider on that tie, before its tube or past it. **Every frame is P2.3's net exactly**,
+with nothing set aside. Dropping the riding halves, or putting the red half on the far side of
+the tube, gives another net:
+
+```python
+for R in push:
+    assert same_picture(bow_net(R.state), net23), R.step
+assert not same_picture(bow_net(lost), net23) and not same_picture(bow_net(swapped), net23)
+```
 
 ## Half a Touch — `HalfATouch.py`
 
@@ -184,6 +225,28 @@ right wing. The two clear each other, strokes and shadows included, by at least 
 knot, $0.020$ and $0.031$ elsewhere). No clip touches its bell, pad, pad shadow or crown,
 and every clip lies inside the tray's outline.
 
+Round 4 threads the bow (B10's first frame) and draws Achilles's prediction beside it, pale.
+`expects=the same tray` is the named wrong rule `PC.the_same_tray`. It shows the cloth as it
+was before the re-knot: every tie kept, the quarter rings on, nothing by the teapot. It is
+drawn over the true re-knot, which takes up the left-front–knot tie, and its telling part is
+that kept tie. The prediction is wrong about the drawing and right about the value. Its value
+is the vee's with its counter, but as nets the two differ. The re-tying itself (B11) takes two
+frames: the re-knot, with the quarter rings still on, then the quarter rings off with the
+counter. B13 undoes it in three, threaded again, knotted as before and back to the bow, and
+ends on P2.2's dump: two re-tyings make no change. The wrong rule's comment is asserted word
+for word in the Lua, on the card and in both dialogue files' planning comment. This file also
+holds `FAULT_CASES` and `check_faults()`. These check that each of the 97 sites is raised by
+its own case. Three sites are reached only together with a second fault: `bow-push-rest` with
+`bow-lay-piece`, `bow-rule-refused` with `bow-retie-needs`, and `strip-unknown` with
+`strip-captions`. The checks also run every order of a refused bracket, test that a refused
+step draws no marks, and confirm that a frame's items are order-free.
+
+```python
+assert pale.wrong == pale.before == thread.state and pale.after == f1.state
+assert np.allclose(value(pale), value(p32))                   # right about the value
+assert not same_picture(bow_net(pale.state), bow_net(p32.state))
+```
+
 ## The Crab's Ledger — `CrabsLedger.py`
 
 The Crab writes five rows and shows one update; the Tortoise shrinks her cloth net to lone
@@ -221,6 +284,13 @@ each other at letter level. P4.3 caps every loose cord a quarter round. The clos
 exactly $1+i$, and the same net capped a quarter back is not. P4.4 pulls out the left-back
 and the right-back. That leaves three lone rings, worth $2$, $1-i$ and $2$, and two counters
 of $e^{i\pi/4}/2$ each, so $2(1-i)2\cdot(e^{i\pi/4}/2)^2=1+i$. Without both counters this fails.
+In round 4 the capping (B16) is a strip: the bare net, then a green end-ring a quarter round
+tied on every loose cord, then slid in. The end-ring and its ring, one colour joined by a cord,
+are one ring with their turns added, so frames 2 and 3 are `same_picture`. The pulling-out
+(B17) goes ring by ring, and each frame, with the counters it sets aside, is worth $1+i$.
+Every bead turned by hand has its turn arc, one per turned ring: along the bead's own way, or,
+where a tie crosses that way (the knot's in frame 1), the same quarter turn drawn a quarter
+round the ring.
 
 ## An Eighth — `AnEighth.py`
 
@@ -264,12 +334,17 @@ of the sketchbook. P5.3, the dark reading, is exactly $T\ket\psi$ on a random no
 $\ket\psi$, with no counter. P5.4, the lit reading, has one counter, $e^{i\pi/4}$: the counter
 times the net is $S$ after the lit branch, $e^{i\pi/4}T\ket\psi$, and without the quarter or
 the counter it fails. Every step of either reading keeps the value, counted with its
-counters. The kit sets `end-ring`, `tie` and `cord` (measured from the Lua's output, at least
+counters. In round 4, B18 is the model at home and then an eighth from home, with its pin on
+the top tip. The readings are strips: B20 for the dark reading, B21 then B22 for the lit one.
+Each slide and the lifted joiner keep the value exactly, as `same_picture` wherever no counter
+is added. The lit half's push turns the eighth-end round and adds one counter. The quarter set
+beside the end is $S$ applied, a step and not a rewrite; sliding it in changes nothing. The kit sets `end-ring`, `tie` and `cord` (measured from the Lua's output, at least
 $0.019$ cm: `cord` to its cord). The Lua sets `ring` itself, below the red joiner. Its letters
 clear the joiner by $0.038$, the cord by $0.097$ and the linen's edge by $0.157$ (asserted at
 least $0.02$). This file also checks the
-whole dialogue against both files: the five sections in order, twenty pictures all inside
-them, the starred pictures, the card's negative anchors (comments stripped), the §1c form
+whole dialogue against both files: the five sections in order, the 22 blocks, 23 calls and 42
+frames (asserted as sums of the per-file tables), all inside them, the starred pictures (a strip
+counted by its frames' macro), every call in its place, the card's negative anchors (comments stripped), the §1c form
 check (twenty-four seatings, one `An eighth.`), the signal grep, no "Let Bob draw" and no
 Genie.
 

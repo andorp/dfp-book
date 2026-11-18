@@ -60,21 +60,30 @@ def blackboard():
 # --------------------------------------------------------------------------
 # The prop pictures.  The dialogue draws the Crab's viewer and the slate its
 # looks are cut on,
-#   \crabviewer[view]{state}{caption}   \notchslate[view]{notches}{caption}
+#   \crabviewer[<view>; step=...; marks=off; expects=spyglass]{state}{caption}
+#   \notchslate[<view>; step=cut ...]{notches}{caption}
 # (pdf/props/ch09.tex).  tools/props_ch09.py transcribes the Lua; the calls are
-# read out of this challenge's section of dialog.md, never copied.
+# read out of this challenge's section of dialog.md, never copied.  Round 4
+# ("Show the process"): the look is drawn as a STEP -- the state written is the
+# state before it, the picture the state after, computed, with the step's marks
+# (the needle's ghost where it stood, a swing arc round the pivot) -- and beside
+# it, paler, what Achilles's spyglass rule foresaw; the slate's notch is a step
+# too.
 #
 # The state model (identity card, section 3): a restless stone is a state the
 # look has not settled (both outcomes possible); a look is the projective
 # measurement {P0, P1}, outcome 0 = the needle HIGH (the right stop), 1 = LOW
 # (the left); the stone is then spent -- the post-measurement basis state; the
 # stylus cuts one notch an answer, only when a look throws the needle from the
-# middle to a stop (high into the top edge, low into the foot).  A structural
-# check of the pictures against this file's blackboard, not a second proof.
+# middle to a stop (high into the top edge, low into the foot).  A spyglass, the
+# wrong rule, shows what is there and changes nothing: the needle at the note,
+# the stone as it was.  A structural check of the pictures against this file's
+# blackboard, not a second proof.
 # --------------------------------------------------------------------------
 DIALOGUE = Dialogue(__file__, macros=P.MACROS)
 QUOTE = "The look didn't read the stone, it *made* it."
 PROJ = {"high": np.outer(ket(0), ket(0).conj()), "low": np.outer(ket(1), ket(1).conj())}
+EDITS = [("{restless stone}{the viewer}", "{restless stone}{the Crab's viewer}")]   # C1
 
 
 class ViewerModel:
@@ -104,37 +113,60 @@ class ViewerModel:
         self.needle = word
         return p
 
+    def dish(self):
+        return "restless" if self.restless() else "spent"
+
 
 def check_faults():
-    """The Lua's refusals on the viewer and the slate: each the state the chapter
-    rules out."""
+    """The Lua's refusals on the viewer and the slate: each the state or the step the
+    chapter rules out."""
     assert P.faults(P.crabviewer, "", "restless stone, needle high") == ["viewer-restless"]
     assert P.faults(P.crabviewer, "", "spent stone") == ["viewer-spent"]   # the needle in the middle
     assert P.faults(P.crabviewer, "bare", "restless stone") == []           # a view, unused here
     assert P.faults(P.notchslate, "", "high, unread") == ["slate-unread"]  # read only under the cloth
     assert P.faults(P.notchslate, "", ", ".join(["low"] * 13)) == ["notch-many"]
     assert P.faults(P.notchslate, "", "") == ["notch-none"]
+    # round 4: a look forces an answer on a restless stone only -- a spent stone is not
+    # looked at again into a new answer (the re-look below cuts nothing); a look with
+    # the dial bare goes to a side; the spyglass is said of that look and no other
+    assert P.faults(P.crabviewer, "step=look high", "spent stone, needle high") == ["vstep-look"]
+    assert P.faults(P.crabviewer, "step=look", "restless stone") == ["vstep-bare"]
+    assert P.faults(P.crabviewer, "step=look high", "restless stone, dial covered") == ["vstep-covered"]
+    assert P.faults(P.crabviewer, "expects=spyglass", "restless stone") == ["viewer-rule-step"]
+    assert P.faults(P.crabviewer, "step=empty; expects=spyglass",
+                    "spent stone, needle high") == ["spyglass-look"]
+    assert P.faults(P.crabviewer, "step=look high; expects=spyglass", "restless stone",
+                    True) == ["expects-keyed"]                    # a prediction is never keyed
+    assert P.faults(P.notchslate, "step=cut high", ", ".join(["low"] * 12)) == ["cut-full"]
+    assert P.faults(P.notchslate, "marks=on; step=cut high", "clean") == ["slate-marks"]
 
 
 def pictures():
     assert f'"{QUOTE}"' in __doc__                               # quoted byte for byte
+    P.check_lua()
+    P.check_sites()
     check_faults()
-    calls = DIALOGUE.check_layout("First", sizes=[1, 2, 1])
-    p11, p12, p13, p14 = calls
-    blocks = DIALOGUE.blocks("First")
-    for c in calls:
-        assert words_only(c.caption, forbidden=P.CAPTION_FORBIDDEN), c.caption
-        assert P.place_ok("First", c), c.text
-    for b in blocks:
-        assert len({P.height(c) for c in b}) == 1                 # no block mixes frames
-    assert [c.macro for c in calls] == ["crabviewer", "crabviewer", "notchslate", "notchslate"]
-    assert [c.keyed for c in calls] == [True, False, True, False]
-    assert all(c.opt == "" for c in calls)                         # the viewer shut, the slate plain
-    v11, v12, s13, s14 = (P.picture(c) for c in calls)
+    found = P.check_section(DIALOGUE, "First", sizes=[1, 3, 1], frames=[1, 3, 1])
+    P.check_edits(DIALOGUE, "First", EDITS)
+    calls = [c for b in found for c, _ in b]
+    p11, e12, p12, p13, p14 = calls
+    assert [c.macro for c in calls] == ["crabviewer"] * 3 + ["notchslate"] * 2
+    assert [c.keyed for c in calls] == [True, False, False, True, False]
+    assert [P.is_prediction(c) for c in calls] == [False, True, False, False, False]
+    assert [P.options(c) for c in calls] == [
+        {"bare": "shut"}, {"step": "look high", "expects": "spyglass", "bare": ""},
+        {"step": "look high", "bare": ""}, {"step": "cut high", "bare": ""}, {"bare": "plain"}]
+    assert [c.args[0] for c in calls[:3]] == ["restless stone"] * 3   # one state before, written
+    v11, w12, v12, s13, s14 = (P.picture(c) for c in calls)
     sec = DIALOGUE.section("First")
     a1, a2, a3 = DIALOGUE.anchors("First")
     f1, f2, f3 = DIALOGUE.following("First")
     assert QUOTE in a3 and QUOTE in sec                            # the docstring's line
+    # the Lua's round-4 comments quote the First's lines (and the Second's), verbatim
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        here = [(n, o) for n, _, o in P.quote_places(DIALOGUE, path) if o == "First"]
+        assert sorted(set(here)) == [("THE SLATE'S STEP", "First"), ("THE VIEWER'S STEPS", "First"),
+                                     ("THE VIEWER'S WRONG RULE", "First")] and len(here) == 9
 
     # the model, run through the First as the dialogue tells it
     rng = np.random.default_rng(911)
@@ -149,20 +181,51 @@ def pictures():
             "at the right") in a1
     assert P.PLACES == {"flask": "left", "dish": "right"}
     assert (v11.view, v11.dish, v11.needle) == ("shut", "restless", "middle")
-    assert v11.labels == ("eyepiece", "needle", "flask", "stone")
+    assert v11.labels == ("eyepiece", "needle", "flask", "stone") and v11.marks == ()
     assert V.restless() and V.needle == v11.needle and V.slate == []
     assert f1.startswith("**Crab:** The answer it forces is cut here.")   # the slate, after
     assert "at the top edge for high, at the foot for low" in f1
 
-    # P1.2, P1.3: the look -- the needle hard against the right stop, one notch in the top edge
+    # B1.2: the look, as a step from P1.1's state -- the needle hard against the right
+    # stop, the stone spent; one notch cut in the slate's top edge
     assert "swings hard over to the high stop, on the right" in a2 and P.STOP["high"] == "right"
     assert "The stylus scratches a single notch into the slate's top edge." in a2
-    assert P.EDGE["high"] == "top" and s13.labels == ("high", "low")
+    assert "lies quite still now: it has an answer, and it is spent" in a2
+    assert v12.before == w12.before == (v11.dish, v11.needle)    # the state before: P1.1's
     p = V.look("high")
     assert 0 < p < 1                                              # it might have gone either way
-    assert (v12.dish, v12.needle) == ("spent", V.needle) == ("spent", "high")
+    assert (v12.dish, v12.needle) == (V.dish(), V.needle) == ("spent", "high")
     assert not V.restless()                                       # spent: settled
-    assert list(s13.shown) == V.slate == ["high"]
+    # its marks: the needle's ghost at the middle, a swing round the pivot to the high stop
+    ghost, swing = v12.marks
+    assert (ghost.kind, ghost.name, ghost.how, ghost.at) == ("ghost", "needle", "full", (90,))
+    assert P.NEEDLE_ANGLE == {"middle": 90, "high": 36, "low": 144}
+    (centre, (R, a0, b1)) = swing.pts
+    assert swing.kind == "swing" and centre == P.PIVOT and R == P.NEEDLE_ARC_R
+    assert a0 == P.NEEDLE_ANGLE["middle"] - P.NEEDLE_ARC_OFF     # 7 degrees off the ghost
+    assert P.NEEDLE_ANGLE["high"] < b1 < a0                       # clockwise, to the right, short of it
+    assert (a0, round(b1, 1)) == (83, 47.8)                       # the card's arc: 83 -> 47.8 degrees
+    assert v12.mark("pin") == [] and v12.mark("slide") == []      # nothing held fast
+    # its marks-off twin is round 3's P1.2, the state words written out
+    t12 = P.twin(p12)
+    r3 = P.crabviewer("", "spent stone, needle high")
+    assert t12.marks == () and (t12.dish, t12.needle) == (r3.dish, r3.needle) == (v12.dish, v12.needle)
+    # the slate: the notch computed as a step from the clean slate = round 3's P1.3 (keyed)
+    assert P.EDGE["high"] == "top" and s13.labels == ("high", "low") and s13.marks == ()
+    assert s13.before == () and list(s13.shown) == V.slate == ["high"]
+    r3 = P.notchslate("", "high", True)
+    assert (r3.notches, r3.shown, r3.labels) == (s13.notches, s13.shown, s13.labels)
+    # the prediction, paler: Achilles's spyglass -- the needle at the note the stone kept,
+    # the stone in the dish as it was (restless); the model's look left it spent
+    assert "Like a spyglass, then — it will show me which note the stone has been keeping." in sec
+    assert sec.index("Like a spyglass, then") < sec.index(a2)     # said before the look
+    assert w12.expects == "spyglass" and w12.pale and w12.marks == () and w12.labels == ()
+    assert w12.needle == v12.needle == V.needle                   # the needle: the same side
+    assert w12.dish == v11.dish == "restless"                     # the stone: unchanged ...
+    assert w12.dish != V.dish() and (w12.dish, w12.needle) != (v12.dish, v12.needle)   # ... refuted
+    assert P.faults(P.crabviewer, "", "restless stone, needle high") == ["viewer-restless"]
+    # (the spyglass state is no state of the viewer: written out, the Lua refuses it)
+    assert calls.index(e12) == calls.index(p12) - 1               # the prediction before the truth
 
     # the re-look: the needle holds, the stylus cuts nothing, the answer is certain
     assert f2.startswith("**Achilles:** High.")

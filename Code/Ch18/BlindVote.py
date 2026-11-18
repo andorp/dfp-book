@@ -14,7 +14,10 @@ spider comes off with (1 + e^{i theta})/2 (Result 18.8); a bell asks a pair (Res
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools"))
 
+import re
 from fractions import Fraction
+import copy
+import itertools
 from itertools import product
 
 import numpy as np
@@ -210,29 +213,231 @@ def signature(g):
                   for v in g.vertices())
 
 
+FRAME_DUMPS = (                                        # the log's dump, frame by frame (card 3e.6, item 6)
+    'mend=0,2,0 tell=0,0,0 clip=none glass=clear',
+    'drawn | cols=10 rows=3 y=0..2 near=false folded=false; gaps=0.5 1.5; 1:ring red 0 @2.5,0; 2:ring green 0 '
+    '@3.9,0; 3:ring red 0 @6.6,0; 4:hub red 0 @5,0.5; 5:ring green 0 @1,1; 6:ring red 0 @2.5,1; 7:ring green 0 '
+    '@3.9,1; 8:ring red 0 @6.6,1; 9:ring green 0 @8,1; 10:hub red 0 @5,1.5; 11:ring red 0 @2.5,2; 12:ring green 0 '
+    '@3.9,2; 13:ring red 0 @6.6,2; tie 10-12 []; tie 2-4 []; tie 4-7 []; tie 7-10 []; cord 11-12 [2.5,2 3.9,2]; '
+    'cord 12-13 [3.9,2 6.6,2]; cord 1-2 [2.5,0 3.9,0]; cord 1-5 [2.5,0 1,1]; cord 2-3 [3.9,0 6.6,0]; cord 3-9 '
+    '[6.6,0 8,1]; cord 5-11 [1,1 2.5,2]; cord 5-6 [1,1 2.5,1]; cord 6-7 [2.5,1 3.9,1]; cord 7-8 [3.9,1 6.6,1]; '
+    'cord 8-9 [6.6,1 8,1]; cord 9-13 [8,1 6.6,2]; cord loose-5 [0,1 1,1]; cord loose-9 [9,1 8,1]',
+    'halves,through tiehalves=2 | cols=10 rows=3 y=0..2 near=false folded=false; gaps=0.5 1.5; 1:ring red 0 '
+    '@2.5,0; 2:ring green 0 @3.9,0; 3:ring red 0 @6.6,0; 4:hub red 12 @5,0.5; 5:ring green 0 @1,1; 6:ring red 0 '
+    '@2.5,1; 7:ring green 0 @3.9,1; 8:ring red 12 @5,1; 9:ring red 12 @6.6,1; 10:ring green 0 @8,1; 11:hub red 12 '
+    '@5,1.5; 12:ring red 0 @2.5,2; 13:ring green 0 @3.9,2; 14:ring red 0 @6.6,2; tie 11-13 []; tie 2-4 []; tie '
+    '4-7 []; tie 7-11 []; cord 10-14 [8,1 6.6,2]; cord 12-13 [2.5,2 3.9,2]; cord 13-14 [3.9,2 6.6,2]; cord 1-2 '
+    '[2.5,0 3.9,0]; cord 1-5 [2.5,0 1,1]; cord 2-3 [3.9,0 6.6,0]; cord 3-10 [6.6,0 8,1]; cord 5-12 [1,1 2.5,2]; '
+    'cord 5-6 [1,1 2.5,1]; cord 6-7 [2.5,1 3.9,1]; cord 7-9 [3.9,1 6.6,1]; cord 9-10 [6.6,1 8,1]; cord loose-10 '
+    '[9,1 8,1]; cord loose-5 [0,1 1,1]',
+    'halves,through,slidin | cols=10 rows=3 y=0..2 near=false folded=false; gaps=0.5 1.5; 1:ring red 0 @2.5,0; '
+    '2:ring green 0 @3.9,0; 3:ring red 0 @6.6,0; 4:hub red 0 @5,0.5; 5:ring green 0 @1,1; 6:ring red 0 @2.5,1; '
+    '7:ring green 0 @3.9,1; 8:ring red 0 @6.6,1; 9:ring green 0 @8,1; 10:hub red 0 @5,1.5; 11:ring red 0 @2.5,2; '
+    '12:ring green 0 @3.9,2; 13:ring red 0 @6.6,2; tie 10-12 []; tie 2-4 []; tie 4-7 []; tie 7-10 []; cord 11-12 '
+    '[2.5,2 3.9,2]; cord 12-13 [3.9,2 6.6,2]; cord 1-2 [2.5,0 3.9,0]; cord 1-5 [2.5,0 1,1]; cord 2-3 [3.9,0 '
+    '6.6,0]; cord 3-9 [6.6,0 8,1]; cord 5-11 [1,1 2.5,2]; cord 5-6 [1,1 2.5,1]; cord 6-7 [2.5,1 3.9,1]; cord 7-8 '
+    '[3.9,1 6.6,1]; cord 8-9 [6.6,1 8,1]; cord 9-13 [8,1 6.6,2]; cord loose-5 [0,1 1,1]; cord loose-9 [9,1 8,1]',
+    'halves,through,slidin,part1 | cols=10 rows=3 y=0..2 near=false folded=false; gaps=0.5 1.5; 1:ring red 0 '
+    '@6.6,0; 2:hub red 0 @5,0.5; 3:ring green 0 @1,1; 4:ring red 0 @2.5,1; 5:ring green 0 @3.9,1; 6:ring red 0 '
+    '@6.6,1; 7:ring green 0 @8,1; 8:hub red 0 @5,1.5; 9:ring red 0 @2.5,2; 10:ring green 0 @3.9,2; 11:ring red 0 '
+    '@6.6,2; tie 2-3 []; tie 2-5 []; tie 5-8 []; tie 8-10 []; cord 10-11 [3.9,2 6.6,2]; cord 1-3 [6.6,0 3.9,0 '
+    '2.5,0 1,1]; cord 1-7 [6.6,0 8,1]; cord 3-4 [1,1 2.5,1]; cord 3-9 [1,1 2.5,2]; cord 4-5 [2.5,1 3.9,1]; cord '
+    '5-6 [3.9,1 6.6,1]; cord 6-7 [6.6,1 8,1]; cord 7-11 [8,1 6.6,2]; cord 9-10 [2.5,2 3.9,2]; cord loose-3 [0,1 '
+    '1,1]; cord loose-7 [9,1 8,1]',
+    'halves,through,slidin,part2 | cols=10 rows=3 y=0..2 near=false folded=false; gaps=0.5 1.5; 1:hub red 0 '
+    '@5,0.5; 2:ring green 0 @1,1; 3:ring red 0 @2.5,1; 4:ring green 0 @3.9,1; 5:ring red 0 @6.6,1; 6:hub red 0 '
+    '@5,1.5; 7:ring red 0 @2.5,2; 8:ring green 0 @3.9,2; 9:ring red 0 @6.6,2; tie 1-2 []; tie 1-4 []; tie 4-6 []; '
+    'tie 6-8 []; cord 2-3 [1,1 2.5,1]; cord 2-5 [1,1 2.915,0.291 6.171,0.291 6.81,0.75 6.6,1]; cord 2-7 [1,1 '
+    '2.5,2]; cord 2-9 [1,1 2.707,0.145 6.385,0.145 7.02,0.6 7.3,1 6.6,2]; cord 3-4 [2.5,1 3.9,1]; cord 4-5 [3.9,1 '
+    '6.6,1]; cord 7-8 [2.5,2 3.9,2]; cord 8-9 [3.9,2 6.6,2]; cord loose-2 [0,1 1,1]; cord loose-2 [9,1 8,1 6.6,0 '
+    '2.5,0 1,1]',
+    'halves,through,slidin,part3 tiedtwice=1 | cols=10 rows=3 y=0..2 near=false folded=false; gaps=0.5 1.5; 1:hub '
+    'red 0 @1,0.5; 2:ring green 0 @1,1; 3:hub red 0 @5,1.5; 4:ring red 0 @2.5,2; 5:ring green 0 @3.9,2; 6:ring '
+    'red 0 @6.6,2; tie 2-3 []; tie 3-5 []; cord 2-4 [1,1 2.5,2]; cord 2-6 [1,1 2.707,0.145 6.385,0.145 7.02,0.6 '
+    '7.3,1 6.6,2]; cord 4-5 [2.5,2 3.9,2]; cord 5-6 [3.9,2 6.6,2]; cord loose-2 [0,1 1,1]; cord loose-2 [9,1 8,1 '
+    '6.6,0 2.5,0 1,1]',
+    'halves,through,slidin,together tiedtwice=2 | cols=10 rows=3 y=0..2 near=false folded=false; gaps=0.5 1.5; '
+    '1:hub red 0 @1,0.5; 2:ring green 0 @1,1; 3:hub red 0 @1,1.5; cord loose-2 [0,1 1,1]; cord loose-2 [9,1 1,1]',
+    'halves,through,slidin,together,off | cols=10 rows=3 y=0..2 near=false folded=false; gaps=0.5 1.5; 1:ring '
+    'green 0 @1,1; cord loose-1 [0,1 1,1]; cord loose-1 [9,1 1,1]',
+    'halves,through,slidin,together,off,straight | cols=10 rows=3 y=0..2 near=false folded=false; gaps=0.5 1.5; '
+    'cord loose-loose [0,1 9,1]',
+)
+
+
+# an arc ends beside its ring: a hop HOPR from its centre, a route ROUTER, the third strand's 0.16 (its end
+# set back past the parting ring's ties); every one within NEAR
+NEAR = 0.17
+GRID = re.compile(r"no ghost of the (\w+) (\w+) \(grid ([-\d.]+),([-\d.]+)\): (.+)")
+
+
+def check_cloth_marks(R, scene_of, opts, who, extra=()):
+    """A cloth step's marks, on the drawn extent (card 3e.6): every piece of the state before that
+    left its place has a ghost there, the size of a ring, or the log says why it has none; every
+    ghost stands on such a piece (or on one of `extra`, a place that is no piece of the cloth's
+    table); every arc runs from beside a piece of the state before to beside a piece of the step's
+    state (or to one of this step's ghosts: a ring slid into one that goes with it), another place, bowed at least the Lua's floor and clear of the net by its clearance;
+    pieces gone and no arc drawn: the log says why."""
+    S0, S1 = scene_of(R.before), scene_of(R.after)
+    g = PC.G(S1, opts, who)
+    at = lambda S: {(t["x"], t["y"]): (t["kind"], t["c"]) for t in S["things"]}
+    old, new = at(S0), at(S1)
+    gone = {p for p in old if p not in new}
+    hidden = {p for p in old if p in new and new[p] != old[p]}
+    said = {(float(x), float(y)): why for c, kw, x, y, why in (m.groups() for m in map(GRID.fullmatch, R.notes) if m)}
+    for p in hidden:
+        assert said.get(p) == "the piece lying on its place now hides it", p
+    ghosted = set()
+    for q in R.ghosts:
+        assert np.isclose(q[2], g.RO), q.what
+        here = [p for p in gone if np.allclose(q[:2], g.XY(p), atol=1e-3)]
+        assert here or any(np.allclose(q[:2], e, atol=1e-3) for e in extra), q.what
+        ghosted |= set(here)
+    assert gone - ghosted <= set(said), (gone, ghosted, said)          # a piece gone: ghosted, or why not
+    assert not (ghosted & set(said)), ghosted & set(said)
+    near = lambda pt, places: min(((np.hypot(pt[0] - c[0], pt[1] - c[1]), c) for c in places), key=lambda u: u[0])
+    for a in R.arcs:
+        assert a.kind == "slide" and a.sag >= PC.MINSAG - 1e-9 and a.fit[0] >= PC.MINCLEAR - 1e-9, (a.what, a.sag, a.fit)
+        d0, c0 = near(a.frm, [g.XY(p) for p in old] + list(extra))
+        d1, c1 = near(a.to, [g.XY(p) for p in new] + [tuple(q[:2]) for q in R.ghosts])   # or this step's ghost: both gone
+        assert d0 < NEAR and d1 < NEAR and c0 != c1, (a.what, d0, d1)
+    if gone and not R.arcs:
+        assert any(n.startswith("no arc") for n in R.notes), R.step
+    assert len(R.mark_tikz) >= len(R.arcs) + len(R.ghosts)
+
+
+STEPS = ["halves set", "gust's half sent through", "halves slid in", "green rings slid together", "bells off", "drawn straight"]
+PARTS = ["first tell ring in", "joining ring in", "middle strand in", "third strand in"]
+# fixed parts (card 3e.6, item 6): every piece of the line on the cloth, at its place, and the frames
+# of P2.2 .. P2.4 (0 .. 8) it lies there in -- each green ring until its own part-step, each red ring at
+# rest until a green ring passes it or its loop is lifted, each bell until its strand's part-step lays
+# it by the parting ring, which stays at the door end until it is unclipped
+LIFE = {
+    ("ring", "green", 1.0, 1.0): range(0, 8), ("ring", "green", 3.9, 0.0): range(0, 3),
+    ("ring", "green", 8.0, 1.0): range(0, 4), ("ring", "green", 3.9, 1.0): range(0, 5),
+    ("ring", "green", 3.9, 2.0): range(0, 6),
+    ("ring", "red", 2.5, 0.0): range(0, 3), ("ring", "red", 6.6, 0.0): range(0, 4),
+    ("ring", "red", 2.5, 1.0): range(0, 5), ("ring", "red", 6.6, 1.0): range(0, 5),
+    ("ring", "red", 2.5, 2.0): range(0, 6), ("ring", "red", 6.6, 2.0): range(0, 6),
+    ("ring", "red", 5.0, 1.0): range(1, 2),                       # the half on the mending cord (P2.3)
+    ("hub", "red", 5.0, 0.5): range(0, 5), ("hub", "red", 5.0, 1.5): range(0, 6),
+    ("hub", "red", 1.0, 0.5): range(5, 7), ("hub", "red", 1.0, 1.5): range(6, 7),
+}
+ONLYCORD = ('a red ring at rest on a strand is only cord ("And a red ring at rest on a strand is only cord"): '
+            'not a piece that moves')
+
+
+def lc_scene(K):
+    return PC.lc_scene2(K)[0]
+
+
 def pictures():
-    """The Second Challenge's prop pictures (identity card, section 4), read from the dialogue
-    through tools/dfp_props.py and the transcription tools/props_ch18.py, and held against this
-    file's storm_line (graph_of: a structural reading of each cloth dump, not a proof)."""
-    calls = DIALOGUE.check_layout("Second", sizes=[1, 1, 1, 1])
+    """The Second Challenge's prop pictures (identity card, sections 4 and 3e), read from the
+    dialogue through tools/dfp_props.py and the transcription tools/props_ch18.py, and held against
+    this file's storm_line (graph_of: a structural reading of each cloth dump, not a proof).  Round
+    4 draws the mending on the cloth move by move: the gust's half sent through, the halves slid in,
+    the green rings slid together one strand at a time, the bells lifted off, the cord drawn
+    straight; every frame is the bare wire, exactly."""
+    calls = DIALOGUE.check_layout("Second", sizes=[1, 1, 1, 1, 1, 1])
     assert [(c.macro, c.keyed, c.opt, c.args, c.caption) for c in calls] == [
         ("stormline", False, "middle mending ring at a half, glass clear", (), "Lifted at the kitchen"),
         ("linecloth", True, "", (), "On the cloth, at rest"),
-        ("linecloth", False, "halves set, gust's half sent through", (), "Gone through"),
-        ("linecloth", False, "halves set, gust's half sent through, halves slid in, green rings slid together, "
-                             "bells off, drawn straight", (), "Drawn straight")]
+        ("linecloth", False, "halves set; step=gust's half sent through", (), "The gust gone through"),
+        ("linecloth", False, "halves set, gust's half sent through; step=halves slid in", (), "Reds at rest again"),
+        ("lineclothsteps", False, "after=halves set, gust's half sent through, halves slid in; from=off", ("; ".join(PARTS),),
+         "Greens start to gather; The joining ring follows; The middle loop gone; Every green gathered"),
+        ("lineclothsteps", False, "after=halves set, gust's half sent through, halves slid in, green rings slid together; "
+                                  "from=off", ("bells off; drawn straight",), "Ring and leads; Drawn straight")]
     PC.check_captions(DIALOGUE, "Second", calls)
     PC.check_section(DIALOGUE, "Second", calls)
-    PC.check_anchors(DIALOGUE, "Second", ["P2.1", "P2.2", "P2.3", "P2.4"])
-    pics = [PC.picture(c) for c in calls]
-    p21, p22, p23, p24 = pics
-    assert tuple(p.dump for p in pics) == SECOND_DUMPS
+    assert PC.check_anchors(DIALOGUE, "Second", PC.BLOCKS["Second"]) == (5, 9)  # next-starts, phrases before
+    frames = [PC.frame_chain(c) for c in calls]
+    assert [len(f) for f in frames] == [1, 1, 1, 1, 4, 2]                  # card 3e.6: 6 blocks, 10 frames
+    assert tuple(R.head for f in frames for R in f) == FRAME_DUMPS          # the log's dump, frame by frame
+    assert all(R.head == R.dump for f in frames for R in f)                 # the Lua's dump is the picture's
+    (p21,), (p22,), (p23,), (b23a,), b23b, b24 = frames
+    p24 = b24[-1]
+    pics = [p21, p22, p23, p24]
+    assert tuple(p.dump for p in pics) == SECOND_DUMPS                   # round 3's pictures, as last frames
     lc = lambda s: PC.linecloth(s)
-    steps = ["halves set", "gust's half sent through", "halves slid in", "green rings slid together", "bells off",
-             "drawn straight"]
-    states = [""] + [", ".join(steps[:k]) for k in range(1, 7)]
-    assert {lc(s).frame for s in states} == {p22.frame}           # one frame in every state
+    assert p23.dump == lc("halves set, gust's half sent through").dump and p24.dump == lc(", ".join(STEPS)).dump
+    states = [""] + [", ".join(STEPS[:k]) for k in range(1, 7)] + [", ".join(STEPS[:3] + PARTS[:k]) for k in (1, 2, 3)]
+    assert {PC.linecloth2(s).frame for s in states} == {p22.frame}         # one frame in every state, part-way too
+    assert {R.frame for f in frames[1:] for R in f} == {p22.frame}
     assert {PC.stormline(s).frame for s in ("", "glass cloudy")} == {p21.frame}
+    # the strips take up where the block before stops: B2.3b from the halves slid in (B2.3a), P2.4
+    # from B2.3b's last frame; P2.3 from the halves set, a state not pictured (it cannot be told from
+    # P2.2 at print size), whose value is P2.2's
+    line = [p22, p23, b23a] + b23b + b24
+    for P, R in zip(line[2:], line[3:]):
+        assert PC.lc_dump2(R.before) == PC.lc_dump2(P.drawn), R.step
+    assert PC.lc_dump(p23.before) == PC.lc_dump(PC.lc_state("halves set")) != PC.lc_dump(p22.drawn)
+    assert same_picture(PC.graph_of(lc("halves set").dump), PC.graph_of(p22.dump))
+    # B2.3b's last frame is the whole step, green rings slid together: its state and its picture
+    last = b23b[-1]
+    assert PC.lc_dump2(last.drawn) == PC.lc_dump(PC.lc_state(", ".join(STEPS[:4])))
+    assert last.dump == lc(", ".join(STEPS[:4])).dump and last.drawn.part == 0
+    assert [R.drawn.part for R in b23b] == [1, 2, 3, 0] and [R.step for R in b23b] == PARTS
+    # fixed parts, frame to frame: each piece where it lay until the step that moves it (LIFE)
+    for i, R in enumerate(line):
+        here = {(k, c, x, y) for k, c, t, x, y in PC.parse_dump(R.dump)[0].values()}
+        assert here == {p for p, when in LIFE.items() if i in when}, (i, R.step)
+
+    # every frame of the cloth line is the bare wire, scalar 1 (card 3e.6, item 7): the half sent
+    # through (C4), each half slid into a red ring (the turns adding), each green ring slid along
+    # bare cord into another (green meets green, every turn at rest; a red ring at rest is plain
+    # cord; a loop lifted off with the scalar the picture gives), each bell tied twice coming off,
+    # a ring with two leads plain cord; a bell's place is no part of the value.  DERIVED: each
+    # frame's picture rewrites (full_reduce) to the bare wire with number 1.
+    for R in line:
+        g = PC.graph_of(R.dump)
+        assert np.allclose(matrix_of(g), I2), R.step
+        assert same_picture(g, PC.graph_of(b23a.dump)), R.step
+        h = g.copy()
+        simp.full_reduce(h)
+        assert h.num_vertices() == 2 and h.num_edges() == 1 and np.isclose(h.scalar.to_number(), 1), R.step
+    # the plausible mix-ups: a bell tied twice read as tied once, or not tied at all
+    for R in b23b[2:]:
+        n = PC.parse_dump(R.dump)[4]["tiedtwice"]
+        bare = PC.graph_of(R.dump.replace(" tiedtwice=%d" % n, "", 1))
+        assert not np.allclose(matrix_of(bare), I2), R.step
+    # the twice-ties part-way are \linecloth's own drawing (the middle strand in: the first bell's);
+    # once the green rings are all together, round 3's own picture draws them
+    drawn = [[l for l in R.own if l not in R.mark_tikz] for R in b23b]
+    assert [len(d) > 0 for d in drawn] == [False, False, True, False]
+
+    # the marks, frame by frame: every piece that left its place ghosted there (or the log says
+    # why: a red ring at rest is only cord), every arc from the piece that moves to where it goes
+    for R in line[1:]:
+        assert R.marked and not R.refused, R.step
+        extra = PC.lcpos(PC.G(lc_scene(R.after), PC.LINEOPTS, PC.KWHO))["tiehalf"] if R.step == "halves slid in" else ()
+        check_cloth_marks(R, lc_scene, PC.LINEOPTS, PC.KWHO, extra)
+        for n in R.notes:
+            if n.startswith("no ghost of the red ring") and "hides it" not in n:
+                assert n.endswith(ONLYCORD), n
+    # P2.3: the gust's half slid into the tell ring (a hop); the three arcs out of it refused
+    # together, every arc or none (the ties and the bells box the cord on to the mending ring)
+    (hop,) = p23.arcs
+    assert hop.what == "slide arc for the gust's half, along its cord into the tell ring" and p23.ghosts == []
+    assert any(n.startswith("no arcs out on every other cord (3 like moves, every arc or none)") for n in p23.notes)
+    # B2.3a: the halves on the ties and on the mending cord, each into its red ring; their ghosts
+    assert [a.what for a in b23a.arcs] == ["arc for the half on the tie, down into its bell"] * 2 + [
+        "arc for the half on the mending cord, into the middle mending ring"]
+    assert sorted(q.what for q in b23a.ghosts) == ["the half on the tie"] * 2 + ["the red ring (grid 5.0,1)"]
+    # B2.3b: one slide each, the green ring's ghost where it lay; a bell's ghost where it hung, no
+    # arc (it follows its slack ties); P2.4: the bells' and the ring's ghosts, no arcs
+    assert [len(R.arcs) for R in b23b] == [1, 1, 1, 1] and [len(R.ghosts) for R in b23b] == [1, 1, 2, 2]
+    assert [a.what.split(",")[0] for R in b23b for a in R.arcs] == [
+        "slide arc for the first tell ring", "slide arc for the joining ring", "slide arc for the middle tell ring",
+        "slide arc for the third tell ring"]
+    assert "the red bell (grid 5.0,0.5)" in [q.what for q in b23b[2].ghosts]
+    assert "the red bell (grid 5.0,1.5)" in [q.what for q in b23b[3].ghosts]
+    assert [R.arcs for R in b24] == [[], []] and [len(R.ghosts) for R in b24] == [2, 1]
+    # the whole step slid together at once draws no arcs (its after-state crowds every arc's end:
+    # the twice-tied bells' ties run into the parting ring), which is why the strip goes ring by ring
+    whole = PC.run_frame("lc", "halves set, gust's half sent through, halves slid in; step=green rings slid together", "", False)
+    assert whole.arcs == [] and any(n.startswith("no arcs for the green rings slid together") for n in whole.notes)
+    assert whole.dump == last.dump and not PC.TEX_ERRORS
 
     # P2.1: the Crab's mend for the gust's pattern.  The gust turned the middle weather ring and
     # fell back (never drawn); both bells rang, s = (1, 1); the dump's mending ring at a half is
@@ -281,12 +486,12 @@ def pictures():
     assert np.allclose(matrix_of(g23), I2)                         # and it is the identity
     no_tie_halves = PC.graph_of(p23.dump.replace(" tiehalves=2", ""))
     assert not same_picture(no_tie_halves, halves)                 # the halves on the ties carry it
-    assert "through" in p23.dump.split(" |")[0]                    # "Gone through"
-    # the unpictured steps between, each the same line (C4, C1, C6): slid in, slid together
-    # (each bell tied twice to the one ring), the bells off
+    assert "through" in p23.dump.split(" |")[0]                    # "The gust gone through"
+    # the steps between, now pictured (round 4), each the same line (C4, C1, C6): slid in (B2.3a),
+    # slid together ring by ring (B2.3b; each bell tied twice to the one ring), the bells off
     for k in (3, 4, 5):
-        assert same_picture(PC.graph_of(lc(", ".join(steps[:k])).dump), master)
-    together = PC.graph_of(lc(", ".join(steps[:4])).dump)       # one ring, each bell tied twice
+        assert same_picture(PC.graph_of(lc(", ".join(STEPS[:k])).dump), master)
+    together = PC.graph_of(last.dump)                             # one ring, each bell tied twice
     assert (together.num_vertices(), together.num_edges()) == (7, 8)
     # fixed parts: the parting and joining rings at their columns until the green rings slide
     for pic in (p22, p23):
@@ -301,9 +506,11 @@ def pictures():
     assert p24.dump.split(" |")[0].endswith("straight")
 
     # the keyed word (P2.2): bell, set by the Lua, measured clear; the kit is never keyed here
-    assert p22.labels == ("bell",) and all(p.labels == () for p in (p21, p23, p24))
-    PC.check_compiled_boxes(p22)
-    assert min(PC.check_keyed_words(p22).values()) >= PC.LETTER_FLOOR
+    assert p22.labels == ("bell",) and all(R.labels == () for R in [p21] + line[1:])
+    PC.check_compiled_boxes(p22.picture)
+    assert min(PC.check_keyed_words(p22.picture).values()) >= PC.LETTER_FLOOR
+    # P2.2 is a counted frame: the eighteen cords drawn, never marked
+    assert p22.step is None and not p22.marked and p22.mark_tikz == p22.arcs == p22.ghosts == []
 
     # the Lua's refusals: the green rings slid together while a half is still out; a step
     # out of order; a mending ring turned a quarter
@@ -314,6 +521,227 @@ def pictures():
     PC.line_state("middle mending ring a quarter round")
     assert [k for k, _ in PC.TEX_ERRORS] == ["lc-together", "lc-after", "lc-after", "line-mend-quarter"]
     assert PC.TEX_ERRORS[2][1] == "linecloth: 'halves set' comes first, before every other step"
+    PC.TEX_ERRORS.clear()
+    check_faults()
+
+
+# Every tex.error site of ch18.lua (PC.TEX_SITES, in the Lua's file order), each tripped by a call of
+# its own: (site, kind, keyed, bracket, start[, the sites raised]) -- a strip's case is (site,
+# "steps", keyed, kind, start, options, steps, captions[, the sites raised]).  Two sites are reached
+# only with a second fault each, named: expects=...; marks=on raises marks=on's own fault too, and an
+# unknown strip has no captions to count.  The unit is round 3's: a literal call of a fault wrapper
+# outside its definition; the four bare re-raisings of collected messages in the round-4 helpers
+# re-raise a message some site already made, and are no sites of their own (PC.RERAISE).
+DP, TP, FR, NI = "the dark point", "the turned point", "a fresh parting ring", "nine strands"
+NG = "nothing gets past the bells"
+FAULT_CASES = [
+    # \plaintin (terr)
+    ("tin-lifted", "tin", False, "first dark, first lit", ""),
+    ("tin-order", "tin", False, "second dark", ""),
+    ("tin-step", "tin", False, "first grey", ""),
+    # \stormline (lerr)
+    ("line-mend", "line", False, "middle mending ring at a third", ""),
+    ("line-mend-quarter", "line", False, "middle mending ring a quarter round", ""),
+    ("line-tell", "line", False, "middle tell ring at a third", ""),
+    ("line-weather", "line", False, "middle weather ring at a half", ""),
+    ("line-bell", "line", False, "first bell ringing", ""),
+    ("line-dial", "line", False, "door dial at a half", ""),
+    ("line-item", "line", False, "kettle on", ""),
+    # \partcloth (perr)
+    ("part-start", "part", False, "", "a cube"),
+    ("part-twice", "part", False, "pushed in, pushed in", DP),
+    ("part-step", "part", False, "pulled out", DP),
+    # \linecloth (kerr)
+    ("lc-step", "lc", False, "halves frobbed", ""),
+    ("lc-twice", "lc", False, "halves set, halves set", ""),
+    ("lc-together", "lc", False, "halves set, green rings slid together", ""),
+    ("lc-after", "lc", False, "halves slid in", ""),
+    # \tubecloth (uerr)
+    ("tube-start", "tube", False, "", "a cube"),
+    ("tube-nine", "tube", False, "pairs put on", NI),
+    ("tube-pairs", "tube", False, "pairs put on, pairs put on", FR),
+    ("tube-first", "tube", False, "drawn through", FR),
+    ("tube-through", "tube", False, "pairs put on, drawn through, drawn through", FR),
+    ("tube-step", "tube", False, "pulled out", FR),
+    # \splitcloth (jerr)
+    ("split-step", "split", False, "drawn out, half on the penny", ""),
+    ("split-order", "split", False, "half on the string", ""),
+    # round 4 (xerr): the bracket and the step
+    ("opt-unknown", "tin", False, "step=first dark; colour=red", ""),
+    ("opt-twice", "tin", False, "step=first dark; step=first dark", ""),
+    ("opt-bare-two", "tin", False, "first dark; first dark; marks=off", ""),
+    ("opt-onoff", "tin", False, "step=first dark; marks=maybe", ""),
+    ("marks-no-step", "tin", False, "first dark; marks=on", ""),
+    ("expects-keyed", "part", True, "expects=three copies", TP),
+    # expects-marked fires only past another fault: without a step, marks-no-step; with one, the
+    # macro's own refusal of a step in a prediction (part-expects-step)
+    ("expects-marked", "part", False, "expects=three copies; marks=on", TP, ("marks-no-step", "expects-marked")),
+    ("marks-keyed", "tin", True, "step=first dark", ""),
+    ("step-commas", "tin", False, "step=first dark, second dark", ""),
+    ("step-empty", "tin", False, "first dark; step=", ""),
+    # round 4 (xerr): the six macros
+    ("tin-expects", "tin", False, "expects=coin", ""),
+    ("line-same", "line", False, "glass clear; step=glass clear", ""),
+    ("line-glass-once", "line", False, "glass clear; step=glass cloudy", ""),
+    ("line-clip-rides", "line", False, "clip-bell on; step=clip-bell on the third tell ring", ""),
+    ("line-marks-counted", "line", False, "glass clear; step=glass reset; marks=on", ""),
+    ("line-marks-on", "line", False, "step=glass clear; marks=on", ""),
+    ("line-expects-rule", "line", False, "middle tell ring at a half, glass cloudy; expects=the bells ring", ""),
+    ("line-expects-step", "line", False, "middle tell ring at a half; expects=" + NG + "; step=glass cloudy", ""),
+    ("line-expects-unlifted", "line", False, "middle tell ring at a half; expects=" + NG, ""),
+    ("line-expects-clear", "line", False, "glass clear; expects=" + NG, ""),
+    ("line-expects-clip", "line", False, "clip-bell on, glass cloudy; expects=" + NG, ""),
+    ("part-expects-rule", "part", False, "expects=three dark copies", TP),
+    ("part-expects-step", "part", False, "expects=three copies; step=pushed in", TP),
+    ("part-expects-bare", "part", False, "pushed in; expects=three copies", TP),
+    ("part-expects-true", "part", False, "expects=three copies", DP),
+    ("lc-part-turn", "lc", False, "joining ring in", ""),
+    ("lc-part-begin", "lc", False, "halves set, first tell ring in", ""),
+    ("lc-part-next", "lc", False, "first tell ring in, halves set", ""),
+    ("lc-expects", "lc", False, "expects=two bells", ""),
+    ("tube-expects", "tube", False, "expects=green", FR),
+    ("split-expects", "split", False, "expects=two halves", ""),
+    # round 4 (xerr): the strips
+    # strip-unknown fires only past strip-captions: an unknown strip has no frames, and any
+    # captions (even none: one empty item) are one too many
+    ("strip-unknown", "steps", False, "nope", "", "", "x", "a", ("strip-unknown", "strip-captions")),
+    ("strip-bare", "steps", False, "tin", "", "loud", "first dark", "a; b"),
+    ("strip-star-from", "steps", True, "tin", "", "from=off", "first dark", "a"),
+    ("strip-none", "steps", False, "tin", "", "", "", "a"),
+    ("strip-commas", "steps", False, "tin", "", "", "first dark, second dark", "a; b"),
+    ("strip-long", "steps", False, "split", "", "", "drawn out; half on the string; slid into the split; slid apart",
+     "a; b; c; d; e"),
+    ("strip-captions", "steps", False, "tin", "", "", "first dark", "a"),
+]
+
+
+def check_faults():
+    """Every fault site of the chapter's Lua raised by its own call (the strip faults by the strip
+    alone, as TeX raises them before any frame runs), each with messages of its own; the 63 sites
+    are the Lua's, all of them; a refused step draws no marks, nor does a call with a fault; no
+    step on the storm line is marked; the ';' bracket is order-free, each order run."""
+    seen = {}
+    for case in FAULT_CASES:
+        site = case[0]
+        if case[1] == "steps":
+            _, _, keyed, kind, scene, opt, stepspec, caps = case[:8]
+            want = case[8] if len(case) > 8 else (site,)
+            fn, args = PC.steps, (kind, keyed, scene, opt, stepspec, caps)
+        else:
+            _, kind, keyed, br, state = case[:5]
+            want = case[5] if len(case) > 5 else (site,)
+            fn, args = PC.run_frame, (kind, br, state, keyed)
+        assert tuple(dict.fromkeys(PC.faults(fn, *args))) == tuple(want), (site, PC.TEX_ERRORS)
+        msgs = {m for s_, m in zip(PC.faults(fn, *args), PC.messages(fn, *args)) if s_ == site}
+        assert msgs, site
+        for m in msgs:
+            assert m not in seen, (site, seen.get(m))                    # no two sites share a message
+            seen[m] = site
+    # the mutual-exclusion checks are made on the whole parse: every order of a refused bracket's
+    # items raises the same faults (and a strip's options, likewise)
+    orders = 0
+    for case in FAULT_CASES:
+        if case[1] == "steps":
+            _, _, keyed, kind, scene, opt, stepspec, caps = case[:8]
+            items, fn = opt.split("; "), lambda br: PC.faults(PC.steps, kind, keyed, scene, br, stepspec, caps)
+        else:
+            _, kind, keyed, br, state = case[:5]
+            items, fn = br.split("; "), lambda br: PC.faults(PC.run_frame, kind, br, state, keyed)
+        if len(items) < 2:
+            continue
+        want = sorted(fn("; ".join(items)))
+        for order in itertools.permutations(items):
+            assert sorted(fn("; ".join(order))) == want, (case[0], order)
+            orders += 1
+    assert orders >= 40
+    # a step the Lua refuses draws no marks, in each macro's step= form; the same kind of step
+    # taken draws them
+    refused = 0
+    for kind, br, state, site in (("tin", "step=second dark", "", "tin-order"),
+                                  ("tin", "first dark; step=first lit", "", "tin-lifted"),
+                                  ("part", "pushed in; step=pushed in", DP, "part-twice"),
+                                  ("lc", "step=halves slid in", "", "lc-after"),
+                                  ("lc", "halves set; step=green rings slid together", "", "lc-together"),
+                                  ("lc", "step=joining ring in", "", "lc-part-turn"),
+                                  ("lc", "halves set; step=first tell ring in", "", "lc-part-begin"),
+                                  ("lc", "first tell ring in; step=halves set", "", "lc-part-next"),
+                                  ("tube", "step=drawn through", FR, "tube-first"),
+                                  ("tube", "pairs put on, drawn through; step=drawn through", FR, "tube-through"),
+                                  ("tube", "step=pairs put on", NI, "tube-nine"),
+                                  ("split", "step=half on the string", "", "split-order"),
+                                  ("line", "glass clear; step=glass clear", "", "line-same"),
+                                  ("line", "glass clear; step=glass cloudy", "", "line-glass-once"),
+                                  ("line", "clip-bell on; step=clip-bell on the third tell ring", "", "line-clip-rides"),
+                                  ("line", "step=middle weather ring at a half", "", "line-weather")):
+        PC.TEX_ERRORS.clear()
+        p = PC.run_frame(kind, br, state, False)
+        assert [s_ for s_, _ in PC.TEX_ERRORS] == [site] and p.refused, (kind, br, PC.TEX_ERRORS)
+        assert p.mark_tikz == [] and p.ghosts == [] and p.arcs == [], (kind, br)
+        assert "no marks: the step was refused" in p.notes, (kind, br)
+        refused += 1
+    assert refused == 16
+    for kind, br, state in (("tin", "step=first dark", ""), ("part", "step=pushed in", DP),
+                            ("lc", "halves set; step=gust's half sent through", ""),
+                            ("lc", ", ".join(STEPS[:3]) + "; step=first tell ring in", ""),
+                            ("tube", "pairs put on; step=drawn through", FR),
+                            ("split", "drawn out, half on the string; step=slid into the split", "")):
+        PC.TEX_ERRORS.clear()
+        p = PC.run_frame(kind, br, state, False)
+        assert p.mark_tikz and p.arcs and p.marked and not PC.TEX_ERRORS, kind
+    # the arcs' floor: an arc bowed under the Lua's MINSAG is refused, with the reason, and the same arc
+    # bowed just over it fits (no arc of the dialogue or of the sweeps is ever refused for its bow, so
+    # the rule is tried here on a drawn arc, the near tube's on the lead in, its bow changed)
+    R = PC.run_frame("tube", "pairs put on; step=drawn through", FR, False)
+    S1 = PC.tube_scene(R.after)
+    g = PC.G(S1, PC.TUBEOPTS, PC.UWHO)
+    O_ = PC.c_obstacles(S1, g)
+    assert PC.c_fits(R.arcs[0], O_, list(R.ghosts), g)[0]
+    flat = copy.copy(R.arcs[0])
+    flat.sag = PC.MINSAG - 0.001
+    assert PC.c_fits(flat, O_, list(R.ghosts), g) == (False, "it bows only %s from its chord, under %s" % (
+        PC.f(flat.sag), PC.f(PC.MINSAG)))
+    flat.sag = PC.MINSAG + 0.0005
+    assert PC.c_fits(flat, O_, list(R.ghosts), g)[0]
+    # a call with a fault draws no marks either
+    for case in FAULT_CASES:
+        if case[1] != "steps" and "step=" in case[3]:
+            PC.TEX_ERRORS.clear()
+            p = PC.run_frame(case[1], case[3], case[4], case[2])
+            if PC.TEX_ERRORS:
+                assert p.mark_tikz == [] and p.arcs == [] and p.ghosts == [], case[0]
+    # no step on the storm line is marked (a bead's turn, the glass, the clip-bell): the log says
+    # why, and a frame back at the line as strung is the counted frame
+    for br, why in (("step=middle tell ring at a half", "no marks: the middle tell ring's bead turned from at rest to at a half"),
+                    ("glass reset; step=glass clear", "no marks: the open mouth shows where the lid sat"),
+                    ("glass clear; step=glass reset", "no marks: the line as strung is the wires themselves"),
+                    ("step=clip-bell on", "no marks: the clip-bell comes from the Crab's claw")):
+        PC.TEX_ERRORS.clear()
+        p = PC.run_frame("line", br, "", False)
+        assert not PC.TEX_ERRORS and not p.marked and p.mark_tikz == p.own == [], br
+        assert p.notes[1].startswith(why), (br, p.notes)
+    assert PC.faults(PC.run_frame, "line", "step=middle tell ring at a half; marks=on", "", False) == ["line-marks-on"]
+    assert PC.faults(PC.run_frame, "line", "glass clear; step=glass reset; marks=on", "", False) == ["line-marks-counted"]
+    assert [c[0] for c in FAULT_CASES] == [k for k, _ in PC.TEX_SITES] and len(PC.ERROR_SITES) == 63
+    assert {k.rstrip("("): v for k, v in PC.SITE_COUNTS.items()} == {"terr": 3, "lerr": 7, "perr": 3, "kerr": 4, "uerr": 6,
+                                                                     "jerr": 2, "xerr": 38}
+    assert sum(PC.SITE_COUNTS.values()) == 63 == 25 + 38
+    assert PC.tex_error_calls() == 11 == 7 + len(PC.RERAISE)             # seven wrappers' bodies, four re-raisings
+    PC.check_sites()                                                     # the wrappers' tex.error calls
+    PC.check_lua()                                                       # every rule and place, in the Lua's words
+    PC.check_pins()                                                      # every chunk as transcribed, pinned
+    # the bracket is order-free: every order of a frame's items draws the same frame
+    for kind, state, items in (("lc", "", ["halves set", "step=gust's half sent through", "marks=off"]),
+                               ("tin", "", ["first dark", "step=second dark"]),
+                               ("part", DP, ["step=pushed in", "marks=on"]),
+                               ("split", "", ["drawn out", "step=half on the string"]),
+                               ("line", "", ["middle tell ring at a half, glass cloudy", "expects=" + NG])):
+        drawn = set()
+        for order in itertools.permutations(items):
+            PC.TEX_ERRORS.clear()
+            p = PC.run_frame(kind, "; ".join(order), state, False)
+            assert not PC.TEX_ERRORS, (kind, order)
+            drawn.add((p.head, tuple(p.log[1:]), tuple(p.own)))        # the log, its bracket as written aside
+        assert len(drawn) == 1, kind
     PC.TEX_ERRORS.clear()
 
 

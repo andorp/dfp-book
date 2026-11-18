@@ -14,12 +14,13 @@ entangled, never as three copies (Result 18.4).  The bit-flip channel, doubled, 
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools"))
 
+import re
 from fractions import Fraction
 from itertools import product
 
 import numpy as np
 import pyzx.simplify as simp
-from pyzx.utils import VertexType as VT
+from pyzx.utils import EdgeType as ET, VertexType as VT
 
 from dfp import I2, Picture, ket, kron, matrix_of, random_state, same_picture, verdict
 from dfp_props import Dialogue
@@ -176,29 +177,233 @@ FIRST_DUMPS = (
 )
 
 
+FRAME_DUMPS = (                                        # the log's dump, frame by frame (card 3e.6, item 6)
+    'first=down second=down third=down',
+    'first=dark second=down third=down',
+    'first=dark second=dark third=down',
+    'first=dark second=dark third=lit',
+    'dark aside=0 | cols=7 rows=3 y=0..2 near=false folded=false; 1:end red 0 @0,1; 2:ring green 0 @3,1; cord '
+    'loose-1 [1,1 0,1]; cord loose-2 [6.3,0 4,0 3,1]; cord loose-2 [2,1 3,1]; cord loose-2 [6.3,1 3,1]; cord '
+    'loose-2 [6.3,2 4,2 3,1]',
+    'dark,pushed aside=1 | cols=7 rows=3 y=0..2 near=false folded=false; 1:end red 0 @4,0; 2:end red 0 @4,1; '
+    '3:end red 0 @4,2; cord loose-1 [6.3,0 4,0]; cord loose-2 [6.3,1 4,1]; cord loose-3 [6.3,2 4,2]',
+    'turned aside=0 | cols=7 rows=3 y=0..2 near=false folded=false; 1:end green 6 @0,1; 2:ring green 0 @3,1; cord '
+    'loose-1 [1,1 0,1]; cord loose-2 [6.3,0 4,0 3,1]; cord loose-2 [2,1 3,1]; cord loose-2 [6.3,1 3,1]; cord '
+    'loose-2 [6.3,2 4,2 3,1]',
+    'turned aside=0 | cols=7 rows=3 y=0..2 near=false folded=false; 1:end green 6 @0,1; 2:ring green 0 @3,1; cord '
+    'loose-1 [1,1 0,1]; cord loose-2 [6.3,0 4,0 3,1]; cord loose-2 [2,1 3,1]; cord loose-2 [6.3,1 3,1]; cord '
+    'loose-2 [6.3,2 4,2 3,1]',
+    'turned,pushed aside=0 | cols=7 rows=3 y=0..2 near=false folded=false; 1:ring green 6 @3,1; cord loose-1 '
+    '[6.3,0 4,0 3,1]; cord loose-1 [6.3,1 3,1]; cord loose-1 [6.3,2 4,2 3,1]',
+    'mend=0,0,0 tell=0,0,0 clip=none glass=reset',
+)
+
+
+DP, TP = "the dark point", "the turned point"
+
+
+def knot(g):
+    """The point's cord knotted to the lead (the step the Tortoise takes before she pushes): the
+    picture's one input, the lead's loose end, joined to its output at the point's loose end (on
+    the middle row, the leftmost), both loose ends gone."""
+    h = g.copy()
+    (i,) = h.inputs()
+    o = min((v for v in h.outputs() if h.qubit(v) == 1), key=h.row)
+    (a,), (b,) = h.neighbors(i), h.neighbors(o)
+    assert h.edge_type(h.edge(i, a)) == h.edge_type(h.edge(o, b)) == ET.SIMPLE
+    outs = tuple(v for v in h.outputs() if v != o)
+    h.remove_vertices([i, o])
+    h.add_edge((a, b))
+    h.set_inputs(())
+    h.set_outputs(outs)
+    assert h.num_edges() == g.num_edges() - 1
+    return h
+
+
+# an arc ends beside its ring: a hop HOPR from its centre, a route ROUTER, the third strand's 0.16 (its end
+# set back past the parting ring's ties); every one within NEAR
+NEAR = 0.17
+GRID = re.compile(r"no ghost of the (\w+) (\w+) \(grid ([-\d.]+),([-\d.]+)\): (.+)")
+
+
+def check_cloth_marks(R, scene_of, opts, who, extra=()):
+    """A cloth step's marks, on the drawn extent (card 3e.6): every piece of the state before that
+    left its place has a ghost there, the size of a ring, or the log says why it has none; every
+    ghost stands on such a piece (or on one of `extra`, a place that is no piece of the cloth's
+    table); every arc runs from beside a piece of the state before to beside a piece of the step's
+    state (or to one of this step's ghosts: a ring slid into one that goes with it), another place, bowed at least the Lua's floor and clear of the net by its clearance;
+    pieces gone and no arc drawn: the log says why."""
+    S0, S1 = scene_of(R.before), scene_of(R.after)
+    g = PC.G(S1, opts, who)
+    at = lambda S: {(t["x"], t["y"]): (t["kind"], t["c"]) for t in S["things"]}
+    old, new = at(S0), at(S1)
+    gone = {p for p in old if p not in new}
+    hidden = {p for p in old if p in new and new[p] != old[p]}
+    said = {(float(x), float(y)): why for c, kw, x, y, why in (m.groups() for m in map(GRID.fullmatch, R.notes) if m)}
+    for p in hidden:
+        assert said.get(p) == "the piece lying on its place now hides it", p
+    ghosted = set()
+    for q in R.ghosts:
+        assert np.isclose(q[2], g.RO), q.what
+        here = [p for p in gone if np.allclose(q[:2], g.XY(p), atol=1e-3)]
+        assert here or any(np.allclose(q[:2], e, atol=1e-3) for e in extra), q.what
+        ghosted |= set(here)
+    assert gone - ghosted <= set(said), (gone, ghosted, said)          # a piece gone: ghosted, or why not
+    assert not (ghosted & set(said)), ghosted & set(said)
+    near = lambda pt, places: min(((np.hypot(pt[0] - c[0], pt[1] - c[1]), c) for c in places), key=lambda u: u[0])
+    for a in R.arcs:
+        assert a.kind == "slide" and a.sag >= PC.MINSAG - 1e-9 and a.fit[0] >= PC.MINCLEAR - 1e-9, (a.what, a.sag, a.fit)
+        d0, c0 = near(a.frm, [g.XY(p) for p in old] + list(extra))
+        d1, c1 = near(a.to, [g.XY(p) for p in new] + [tuple(q[:2]) for q in R.ghosts])   # or this step's ghost: both gone
+        assert d0 < NEAR and d1 < NEAR and c0 != c1, (a.what, d0, d1)
+    if gone and not R.arcs:
+        assert any(n.startswith("no arc") for n in R.notes), R.step
+    assert len(R.mark_tikz) >= len(R.arcs) + len(R.ghosts)
+
+
 def pictures():
-    """The First Challenge's prop pictures (identity card, section 4), read from the dialogue
-    through tools/dfp_props.py and the transcription tools/props_ch18.py, and held against this
-    file's blackboard and pictures (graph_of: a structural reading of each cloth dump, not a
-    proof)."""
-    calls = DIALOGUE.check_layout("First", sizes=[1, 1, 1, 1])
+    """The First Challenge's prop pictures (identity card, sections 4 and 3e), read from the
+    dialogue through tools/dfp_props.py and the transcription tools/props_ch18.py, and held against
+    this file's blackboard and pictures (graph_of: a structural reading of each cloth dump, not a
+    proof).  Round 4 draws the process: the tin opened lid by lid, each point laid before it is
+    pushed, and Achilles's prediction (three copies of the turned point) drawn pale -- three turned
+    points, a product state, which is not what the parting ring makes of a turn."""
+    calls = DIALOGUE.check_layout("First", sizes=[1, 1, 2, 1])
     assert [(c.macro, c.keyed, c.opt, c.args, c.caption) for c in calls] == [
-        ("plaintin", True, "first dark, second dark, third lit", (), "A tin, spent"),
-        ("partcloth", True, "pushed in", ("the dark point",), "Out at the ends"),
-        ("partcloth", False, "pushed in", ("the turned point",), "Taken in"),
+        ("plaintinsteps", True, "", ("first dark; second dark; third lit",),
+         "The tin as set; Left lid off; Centre lid up; A tin, spent"),
+        ("partclothsteps", True, "", (DP, "pushed in"), "The dark point; Out at the ends"),
+        ("partcloth", False, "expects=three copies", (TP,), "as Achilles expects"),
+        ("partclothsteps", False, "", (TP, "pushed in"), "The turned point; Taken in"),
         ("stormline", True, "", (), "Strung for the storm")]
     PC.check_captions(DIALOGUE, "First", calls)
     PC.check_section(DIALOGUE, "First", calls)
-    PC.check_anchors(DIALOGUE, "First", ["P1.1", "P1.2", "P1.3", "P1.4"])
-    pics = [PC.picture(c) for c in calls]
-    p11, p12, p13, p14 = pics
+    assert PC.check_anchors(DIALOGUE, "First", PC.BLOCKS["First"]) == (3, 5)   # next-starts, phrases before
+    frames = [PC.frame_chain(c) for c in calls]
+    assert [len(f) for f in frames] == [4, 2, 1, 2, 1]                     # card 3e.6: 4 blocks, 10 frames
+    assert tuple(R.head for f in frames for R in f) == FRAME_DUMPS          # the log's dump, frame by frame
+    assert all(R.head == R.dump for f in frames for R in f if R.wrong is None)   # the Lua's dump is round 3's
+    tin, dark, (pale,), turned, (p14,) = frames
+    p11, p12, p13 = tin[-1], dark[-1], turned[-1]
+    pics = [p11, p12, p13, p14]
+    # every strip's last frame is round 3's picture of its block (round 3's assertions carry over)
     assert tuple(p.dump for p in pics) == FIRST_DUMPS
+    assert p11.dump == PC.plaintin("first dark, second dark, third lit").dump
+    assert p12.dump == PC.partcloth("pushed in", DP).dump and p13.dump == PC.partcloth("pushed in", TP).dump
 
     # one frame per macro, in every state (the counter band drawn whether or not it holds one)
     assert {PC.plaintin(s).frame for s in ("", "first lit", "first dark, second lit, third dark")} == {p11.frame}
     assert {PC.partcloth(s, st).frame for s in ("", "pushed in")
-            for st in ("the dark point", "the lit point", "the turned point")} == {p12.frame} == {p13.frame}
+            for st in (DP, "the lit point", TP)} == {p12.frame} == {p13.frame} == {pale.frame}
     assert {PC.stormline(s).frame for s in ("", "clip-bell on, glass cloudy", "middle mending ring at a half")} == {p14.frame}
+    assert {R.frame for f in frames[:4] for R in f} == {p11.frame} | {p12.frame}
+    assert len({R.frame for R in [pale] + turned}) == 1                    # P1.3's block: one height
+
+    # P1.1, lid by lid (card 3e.6, item 7): the tin as set, every lid down; then the readings in
+    # order -- dark, dark, then lit -- each step lifting one lid, the lids it does not lift kept
+    # as they were; two dark readings already decide the vote, and the third (lit, false) leaves it
+    want = ("first dark", "second dark", "third lit")
+    assert tin[0].step is None and not tin[0].marked and tin[0].keyed is True
+    assert not any(L["up"] for L in tin[0].state.lids)
+    for k, R in enumerate(tin[1:]):
+        assert R.step == want[k] and R.marked and not R.refused
+        for j, (L0, L1) in enumerate(zip(tin[k].state.lids, R.state.lids)):
+            assert L1 == L0 if j != k else (not L0["up"] and L1["up"] and L1["r"] == want[k].split()[1]), (k, j)
+    shown = lambda R: [{"dark": 0, "lit": 1}[L["r"]] for L in R.state.lids if L["up"]]
+    assert [shown(R) for R in tin] == [[], [0], [0, 0], [0, 0, 1]]
+    for third in (0, 1):                                          # after "Centre lid up" the vote is cast
+        assert int(sum(shown(tin[2]) + [third]) >= 2) == 0
+    # the marks: one lift arc per lid lifted, from beside its hollow to beside it laid in front,
+    # bowed at least the floor and clear of the other lids; no ghost (the open hollow shows it)
+    for k, R in enumerate(tin[1:]):
+        (arc,) = R.arcs
+        assert arc.kind == "swing" and R.ghosts == [] and arc.what == "lift arc for the %s lid" % PC.LIDS[k]
+        assert np.isclose(np.hypot(arc.frm[0] - PC.LIDX[k], arc.frm[1]), PC.LIFTOUT, atol=1e-3)
+        assert np.isclose(np.hypot(arc.to[0] - PC.LIDX[k], arc.to[1] - PC.LY), PC.LIFTOUT, atol=1e-3)
+        assert arc.frm[1] > arc.to[1] and arc.sag >= PC.MINSAG - 1e-9 and arc.fit[0] > 0
+        assert any(n.startswith("no ghost of the %s lid" % PC.LIDS[k]) for n in R.notes)
+        assert len(R.mark_tikz) == 1
+
+    # P1.2 and P1.3, the point laid and then pushed (item 7): the before-frame read as a picture,
+    # the point's cord knotted to the lead, has the value of the frame after it times what the
+    # counter set aside stands for -- 1/2 for the dark point, nothing for the turned one (green
+    # meets green, the turns adding)
+    for R, st, aside in ((dark[0], DP, 0), (turned[0], TP, 0)):
+        assert R.step is None and not R.marked and R.state == PC.part_state("", st) and R.state.aside == aside
+    assert dark[0].keyed is True and turned[0].keyed is False
+    laid = PC.graph_of(dark[0].dump)
+    assert laid.num_inputs() == 1 and laid.num_outputs() == 4                  # the lead in; the point's end
+    k_dark = knot(laid)
+    pushed = PC.graph_of(p12.dump)
+    half = pushed.copy()
+    half.scalar.add_power(-2)                                     # the counter: 1/2 = sqrt2^-2
+    assert same_picture(k_dark, half) and not same_picture(k_dark, pushed)
+    assert same_picture(k_dark, point_into_encoder(VT.X, 0))
+    k_turned = knot(PC.graph_of(turned[0].dump))
+    assert same_picture(k_turned, PC.graph_of(p13.dump))          # exactly: nothing set aside
+    assert same_picture(k_turned, green_three_legs(Fraction(1, 2)))
+    assert not same_picture(k_turned, point_into_encoder(VT.Z, 0))   # the turn is not lost
+    # the marks of the push: the point's hop along the lead into the ring; for the dark point
+    # its three arcs out on every cord (every arc or none), the ring's and the point's ghosts
+    for R, n_arcs in ((dark[1], 4), (turned[1], 1)):
+        check_cloth_marks(R, PC.part_scene, PC.PARTOPTS, PC.PWHO)
+        assert len(R.arcs) == n_arcs and R.arcs[0].what == "slide arc for the point, pushed in along the lead into the ring"
+    assert [a.what for a in dark[1].arcs[1:]] == ["arc for the point out on the %s cord" % w for w in ("first", "middle", "third")]
+    assert sorted(q.what for q in dark[1].ghosts) == ["the green ring (grid 3,1)", "the red point (grid 0,1)"]
+    assert [q.what for q in turned[1].ghosts] == ["the green point (grid 0,1)"]  # the ring stays, turned
+    assert "no mark for the counter set aside: it comes from her work-bag" in dark[1].notes
+
+    # the pale frame: Achilles's rule, "three copies", applied by this file to the point as laid --
+    # whatever point goes in comes out on every cord of it, the same point on each
+    Q = pale.before
+    assert Q == PC.part_state("", TP) and Q.kind == "turned" and pale.step is None and not pale.marked
+    rule = [("end", Q.c, 6 * Q.q, 4.0, float(r)) for r in range(3)]      # its colour and turn, at each near end
+    nodes = PC.parse_dump(pale.dump)[0]
+    assert sorted(nodes.values()) == rule and pale.dump.startswith("aside=0 | ")   # no counter set aside
+    assert pale.head == turned[0].head                            # drawn from the frame of the point as laid
+    guess = PC.graph_of(pale.dump)
+    assert same_picture(guess, three_points(VT.Z, Fraction(1, 2)))  # three turned points ...
+    true = PC.graph_of(p13.dump)
+    for power in (-2, 0, 2):                                     # ... which "Taken in" is not, at any number
+        g_ = guess.copy()
+        g_.scalar.add_power(power)
+        assert not same_picture(g_, true)
+    assert np.linalg.matrix_rank(matrix_of(guess).reshape(2, 4)) == 1          # a product state
+    assert np.linalg.matrix_rank(matrix_of(true).reshape(2, 4)) == 2           # spread, not copied
+    # where the rule is right -- a dark or a lit point -- its picture is the true one up to the
+    # counter, which is why the Lua refuses it there
+    for st, frame_after in ((DP, p12), ("the lit point", PC.run_frame("part", "step=pushed in", "the lit point", False))):
+        S, _ = PC.part_wrong(PC.part_state("", st))
+        g_ = PC.graph_of("aside=0 | " + PC.kit_dump(S, PC.PWHO))
+        assert same_picture(g_, PC.graph_of(frame_after.dump))
+        assert PC.faults(PC.run_frame, "part", "expects=three copies", st, False) == ["part-expects-true"]
+    PC.TEX_ERRORS.clear()
+    # drawn: the cloth under a white veil, cut away round the three points, each at full strength
+    # with a second edge; never keyed, never marked
+    assert PC.PALE == 0.5 and pale.own[0] == "\\begin{scope}[even odd rule]" and pale.own[3] == "\\end{scope}"
+    assert pale.own[2].startswith("\\fill[white, opacity=0.500] ")
+    gp = PC.G(PC.part_wrong(Q)[0], PC.PARTOPTS, PC.PWHO)
+    edges = pale.own[4:7]
+    for r, e in enumerate(edges):
+        m = re.fullmatch(r"\\draw\[propclothgreenedge, line width=([\d.]+)pt\] \((-?[\d.]+),(-?[\d.]+)\) circle \(([\d.]+)\);", e)
+        assert m and float(m.group(1)) == PC.PALEEDGE
+        assert np.allclose([float(m.group(2)), float(m.group(3))], gp.XY((4, r)), atol=1e-3)
+        assert np.isclose(float(m.group(4)), gp.RO + PC.PALEOUT, atol=1e-3)
+        assert 2 * float(m.group(4)) + PC.PALEEDGE * 2.54 / 72.27 >= 0.15     # legible across
+    assert pale.arcs == pale.ghosts == pale.mark_tikz == [] and pale.keyed is False
+    # the wrong rule's comment in the Lua, word for word as the card copies it (section 3e.1), and
+    # every phrase it quotes in both dialogue files (planning comments left out)
+    heading = PC.RULE_COMMENTS[0]
+    assert heading == 'round 4: "three copies" AND ITS WRONG RULE.'
+    card = (pathlib.Path(DIALOGUE.dialog).parent / "identity.md").read_text(encoding="utf-8")
+    assert ("```\n" + PC.rule_comment(heading).rstrip("\n") + "\n```") in card
+    quotes = PC.comment_quotes(heading)
+    assert quotes[0] == "three copies" == PC.PEXPECTS and len(quotes) == 7
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        text = DIALOGUE.read(path)
+        for q in quotes[1:]:
+            assert q in text, (path, q)
+    assert "whatever point is pushed into the green ring at rest comes out on every cord of it" in PC.comment_prose(heading)
 
     # P1.1: three hollows over one setting nobody in the hall knew; the ledger, in the paragraph
     # after the block, shows it was set dark.  For this tin one reading is false (the last), and
@@ -254,9 +459,11 @@ def pictures():
     assert min(box[0] - frame[0], box[1] - frame[1], frame[2] - box[2], frame[3] - box[3]) > 0
     assert box[1] > frame[1] and box[3] < p12.shown.fbot          # in the band below the cloth's frame
     assert (left + right) / 2 < box[0]                            # at its right-hand end
-    # the keyed word point is the kit's own placement (its no-room fault is the check); the Lua
-    # sets no word of its own after the push
-    assert p12.labels == ("point",) and PC.own_words(p12) == ()
+    # round 4 keys the dark point as laid (the frame before the push): point, the kit's own
+    # placement (its no-room fault is the check), and ring, which the Lua sets itself (measured
+    # below); after the push, the frame unkeyed, the Lua sets no word of its own
+    assert dark[0].labels == ("point", "ring") and [w for w, *_ in PC.own_words(dark[0].picture)] == ["ring"]
+    assert p12.labels == () and PC.own_words(p12.picture) == ()
 
     # P1.3: the turned point pushed in EQUALS the turned point knotted in, exactly: one green
     # ring a quarter round with its three cords (C1); nothing set aside
@@ -286,12 +493,15 @@ def pictures():
 
     # the keyed words the Lua sets itself: measured clear (letters 0.02 cm from every part and
     # word, boxes 0.025 cm inside the frame), at the compiled boxes
-    for pic in (p11, p14):
+    # (round 4: the tin keyed as set, before any lid comes up; the dark point keyed as laid)
+    for pic in (tin[0].picture, dark[0].picture, p14.picture):
         PC.check_compiled_boxes(pic)
         least = PC.check_keyed_words(pic)
-        assert set(least) == set(pic.labels) and min(least.values()) >= PC.LETTER_FLOOR
-    assert p11.labels == ("first", "second", "third")
+        assert set(least) == {w for w, *_ in PC.own_words(pic)} and min(least.values()) >= PC.LETTER_FLOOR
+    assert tin[0].labels == ("first", "second", "third") and all(R.labels == () for R in tin[1:] + turned + [pale])
     assert p14.labels == ("door", "kitchen", "weather ring", "mending ring", "tell ring")
+    # P1.4 is a counted frame: the eighteen cords as strung, never marked
+    assert p14.step is None and not p14.marked and p14.mark_tikz == p14.arcs == p14.ghosts == []
 
     # the Lua's refusals: lids out of order, a lid lifted twice, a weather ring turned
     PC.TEX_ERRORS.clear()

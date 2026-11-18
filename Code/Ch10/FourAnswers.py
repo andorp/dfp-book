@@ -116,13 +116,17 @@ def blackboard():
 # --------------------------------------------------------------------------
 # The prop pictures.  The dialogue draws the pairing-glass as it is unwrapped
 # (keyed: its tokens blank in their trays, brass left, copper right), the two
-# tokens close to in the dish (keyed), and the Tortoise's four bends, two above
-# two (keyed), then the flip's ring slid round its bend,
-#   \pairingglass{state}{caption}, \twotokens[place]{pattern}{caption},
-#   \ringstring[operations]{scene}{caption}              (pdf/props/ch10.tex)
-# tools/props_ch10.py transcribes the Lua (the string's layout read by the
-# shared cloth kit, tools/props_cloth.py); the calls are read out of this
-# challenge's section of dialog.md, never copied.
+# tokens close to in the dish (keyed) as one is turned -- round 4, "Show the
+# process": the state after the step, a swing arc over the brass token and a pin
+# round the copper, which held still -- and the Tortoise's four bends, two above
+# two (keyed), then the flip's ring slid round its bend (its ghost where it lay,
+# the slide arc round the outside of the bend),
+#   \pairingglass{state}{caption}, \twotokens[place; step=...]{pattern}{caption},
+#   \ringstring[operations; step=...]{scene}{caption}      (pdf/props/ch10.tex)
+# tools/props_ch10.py transcribes the Lua (proved against texlua; check_lua
+# holds it to the Lua and the .tex it was proved on; the string's layout read
+# by the shared cloth kit, tools/props_cloth.py); the calls are read out of
+# this challenge's section of dialog.md, never copied.
 #
 # The state model (identity card, section 3): a pattern of the tokens is an
 # answer (m1, m2) -- copper up the spin m1, brass up the flip m2; a red ring is
@@ -135,6 +139,9 @@ def blackboard():
 DIALOGUE = Dialogue(__file__, macros=PC.MACROS)
 QUOTE = "It has two cups side by side under one lens, and it reads two stones together, never one."
 RING = {"red": X, "green": Z}
+# round 4, T1: the token's side, named (card section 3e.3)
+EDITS = [("and turns the brass token over: it rocks onto its back",
+          "and turns the brass token over towards the copper: it rocks onto its back")]
 
 
 def leg_operator(rings):
@@ -146,20 +153,34 @@ def leg_operator(rings):
     return R
 
 
+def head(c):
+    """A call's bracket as its log line writes it (the Lua's trim of what TeX hands it):
+    the items in the order the dialogue writes them, which the picture never depends on."""
+    return PC.trim(PC.bracket(c) or "")
+
+
+def r3(x):
+    """A mark's numbers to the Lua's three places (its log's)."""
+    if isinstance(x, tuple):
+        return tuple(r3(y) for y in x)
+    return round(x, 3) if isinstance(x, float) else x
+
+
 def pictures():
     assert f'"{QUOTE}"' in __doc__                               # quoted byte for byte
-    calls = DIALOGUE.check_layout("First", sizes=[1, 1, 1, 1])
+    PC.check_lua()                                                # the Lua the transcription was proved on
+    PC.check_sites()                                              # its 73 fault sites, one for one
+    found = PC.check_section(DIALOGUE, "First", sizes=[1, 1, 1, 1], frames=[1, 1, 1, 1])
+    PC.check_edits(DIALOGUE, "First", EDITS)
+    calls = [c for b in found for c, _ in b]
     p11, p12, p13, p14 = calls
-    for c in calls:
-        assert words_only(c.caption, forbidden=PC.CAPTION_FORBIDDEN), c.caption
-        assert PC.place_ok("First", c), c.text
-    for b in DIALOGUE.blocks("First"):
-        assert len({PC.height(c) for c in b}) == 1                # no block mixes frames
     assert [c.macro for c in calls] == ["pairingglass", "twotokens", "ringstring", "ringstring"]
     assert [c.keyed for c in calls] == [True, True, True, False]  # P1.1, P1.2, P1.3 keyed
-    assert [(c.opt, c.args[0]) for c in calls] == [
-        ("", "tokens in the trays"), ("", "brass up"), ("", "the four bends"),
-        ("slide the flip round", "the four bends")]
+    assert not any(PC.is_prediction(c) or PC.is_strip(c) for c in calls)
+    assert [PC.options(c) for c in calls] == [
+        {"bare": ""}, {"step": "turn brass", "bare": ""}, {"bare": ""},
+        {"step": "slide the flip round", "bare": ""}]
+    assert [c.args[0] for c in calls] == ["tokens in the trays", "both down", "the four bends", "the four bends"]
     assert [c.caption for c in calls] == [
         "blank side up, in the trays", "the brass turned, the copper still",
         "every way a reading ends", "round the bend, unchanged"]
@@ -167,28 +188,73 @@ def pictures():
     a1, a2, a3, a4 = DIALOGUE.anchors("First")
     f1, f2, f3, f4 = DIALOGUE.following("First")
     assert QUOTE in DIALOGUE.section("First")                     # the docstring's line
+    # the Lua's round-4 comments quote the First's lines, verbatim, in both files
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        here = [(n, q) for n, q, o in PC.quote_places(DIALOGUE, path) if o == "First"]
+        assert sorted({n for n, _ in here}) == ["THE STRING'S STEPS", "THE TOKENS' STEP"] and len(here) == 4
+    # the log the four frames write, as the card's dump list has it (F01-F04)
+    assert [l for c in calls for l in PC.describe(c)] == [
+        "pairingglass: [] {tokens in the trays} | cups empty; tokens in the trays; trays level",
+        "twotokens: [" + head(p12) + "] {both down} | dish; brass up",
+        "twotokens: + step turn brass -> brass up",
+        "twotokens: + swing arc over the brass token, turned over where it lies, (-0.710,-0.520) -> "
+        "(-0.090,-0.520) (no ghost: it covers its own place)",
+        "twotokens: + pin round the copper token, which held still, at (0.400,-0.530)",
+        "ringstring: [] {the four bends} | " + s13.dump,
+        "ringstring: [" + head(p14) + "] {the four bends} | " + s14.dump,
+        "ringstring: + step slide the flip round -> " + s14.dump,
+        "ringstring: + ghost flip red ring in dotted outline at (0.440,-0.132) (grid 6,0): it went to grid 6,1",
+        "ringstring: + slide arc flip red round the outside of the flip bend, (0.420,-0.031) -> "
+        "(0.420,-0.629) (the turn at x 0.128)"]
 
     # P1.1: the glass unwrapped, keyed -- cups empty, both tokens blank in their trays,
     # the trays level (nothing has chimed); brass tray left, copper right, as said
     assert (g11.wrapped, g11.cups, g11.tokens, g11.pattern, g11.tipped) == \
         (False, "empty", "trays", None, False)
-    assert g11.labels == ("lens", "cup", "trays", "brass", "copper", "dish")
+    assert g11.labels == ("lens", "cup", "trays", "brass", "copper", "dish") and g11.marks == ()
     assert g11.frame == PC.GLASS_FRAME == 1.58
     assert "A brass dish waits beneath the trays' lips" in a1
     assert "In the left tray lies a brass token, in the right a copper one, each face-down" in a1
     assert f1.startswith("**Crab:** When both cups are full")
 
-    # P1.2: the tokens close to in the dish, keyed -- brass up (its stamp), copper down
+    # P1.2: the tokens close to in the dish, keyed, as a step -- both lay blank (written,
+    # not pictured), the brass is turned over: brass up (its stamp), copper down
+    assert (t12.before, t12.step, t12.turned) == (PC.Pattern(False, False), "turn brass", ("brass",))
     assert (t12.place, t12.pattern, t12.left, t12.right) == \
         ("dish", PC.Pattern(brass=True, copper=False), "brass", "copper")
     assert t12.labels == ("stamp", "blank", "brass", "copper", "dish")
     assert t12.frame == PC.TOKENS_FRAME == 1.10
     assert "the other has held still" in a2
+    assert "and turns the brass token over towards the copper: it rocks onto its back" in a2
+    assert "while the copper token lies exactly as it was" in a2
     assert f2.startswith("**Achilles:** Brass up, copper down.")
+    # its marks: one swing arc over the brass, from its left rim over to its right, its
+    # head towards the copper (T1); no ghost (the token covers its own place); a pin
+    # round the copper, which held still
+    swing, pin = t12.marks
+    assert swing.kind == "swing" and swing.name == "brass" and t12.mark("ghost") == []
+    (x0, y0), _, _, (x1, y1) = swing.pts
+    assert r3((x0, y0, x1, y1)) == (-0.71, -0.52, -0.09, -0.52) and y0 == y1 == PC.TOKEN_Y == -0.52
+    assert PC.TOKEN_X == {"brass": -0.4, "copper": 0.4}
+    assert x0 < PC.TOKEN_X["brass"] < x1 < PC.TOKEN_X["copper"]   # over the brass, towards the copper
+    assert all(y > y0 for _, y in swing.pts[1:3])                  # bowed upward, over it
+    assert (pin.kind, pin.name, r3(pin.at), pin.r) == ("pin", "copper", (0.4, -0.53), (0.33, 0.2))
+    # the marks-off twin is round 3's P1.2 to the byte: \twotokens*{brass up}
+    t = PC.twin(p12)
+    assert t.marks == () and PC.frame_of(t) == PC.frame_of(PC.twotokens(None, "brass up", True))
+    # with pin=off the arc stays and the pin goes; turning both turns both, and pins none
+    assert [m.kind for m in PC.twotokens("step=turn brass; pin=off", "both down").marks] == ["swing"]
+    both = PC.twotokens("step=turn both", "both down")
+    assert both.pattern == PC.Pattern(True, True) and [m.kind for m in both.marks] == ["swing", "swing"]
     # the pattern is an answer: brass up is m2 = 1, the flip -- the one red ring of the
     # flip bend, and the Bell state with X on a leg
     assert PC.bits(t12.pattern) == (0, 1) and PC.legrings(t12.pattern) == ["red"]
     assert np.allclose((kron(X, I2) @ BELL).ravel(), bell(0, 1))
+    # one token turned changes one bit: the step is the flip (x) nothing, on the answer
+    for p in PC.PATTERNS:
+        for which, flips in (("turn brass", (0, 1)), ("turn copper", (1, 0)), ("turn both", (1, 1))):
+            q = PC.twotokens("step=" + which, PC.patname(p)).pattern
+            assert tuple(a ^ b for a, b in zip(PC.bits(p), flips)) == PC.bits(q)
     # the ledger's quarters: the four patterns are the four answers, each a quarter
     # of the time on a NON-REAL message read against half a pair
     assert sorted(PC.bits(p) for p in PC.PATTERNS) == KS
@@ -203,7 +269,7 @@ def pictures():
     # a red close in, a green, a red close in and a green further out
     assert s13.dump == ("four bends; plain: upper [] lower []; flip: upper [red] lower []; "
                         "spin: upper [green] lower []; both: upper [red green] lower []")
-    assert s13.labels == ("bend", "ring", "bead", "string")
+    assert s13.labels == ("bend", "ring", "bead", "string") and s13.marks == ()
     assert PC.bends_of(s13.cloth) == 4 and s13.cloth["gaps"] and s13.frame == 1.95
     assert "two above two" in a3 and "The first she leaves plain." in a3
     assert "a red ring close in by the bend and a green ring further out on the same leg" in a3
@@ -216,14 +282,33 @@ def pictures():
         assert up == PC.legrings(PC.Pattern(brass, copper)) and lo == []
         assert np.allclose(kron(leg_operator(up), I2) @ CUP, np.sqrt(2) * bell(*m))
 
-    # P1.4: the flip's red slid round its bend -- the same distance out on the lower leg,
-    # the other three bends unchanged; the frame kept
+    # P1.4: the flip's red slid round its bend, as a step from P1.3's state -- the same
+    # distance out on the lower leg, the other three bends unchanged; the frame kept
+    assert s14.before.bends == s13.state.bends and s14.step == "slide the flip round"
     assert s14.dump == ("four bends; plain: upper [] lower []; flip: upper [] lower [red]; "
                         "spin: upper [green] lower []; both: upper [red green] lower []")
     assert [s14.state.bends[i] for i in (0, 2, 3)] == [s13.state.bends[i] for i in (0, 2, 3)]
     assert s14.frame == s13.frame and s14.labels == ()
     assert "Nothing about it has changed but the leg it sits on." in a4
+    assert "into the bend, round it, and out along the other leg" in a4
     assert f4.startswith("**Achilles:** It came round exactly")
+    # its marks: the red's ghost in outline where it lay on the upper leg, and one slide
+    # arc round the OUTSIDE of the bend to the same distance out on the lower leg
+    ghost, slide = s14.marks
+    assert (ghost.kind, ghost.name, ghost.how, r3(ghost.at), ghost.grid) == \
+        ("ghost", "flip red", "outline", (0.44, -0.132), (6, 0))
+    assert slide.kind == "slide" and slide.name == "flip red" and s14.mark("pin") == []
+    (sx, sy), (ex, ey) = slide.pts
+    assert r3((sx, sy, ex, ey)) == (0.42, -0.031, 0.42, -0.629)
+    o14 = PC.C.options(PC.options_text(s14.state), "ringstring")
+    ring_x, ring_y = PC.C.cloth_xy(s14.cloth, o14, 6, 1, "ringstring")
+    turn_x, _ = PC.C.cloth_xy(s14.cloth, o14, 5 - 0.42, 0, "ringstring")
+    assert r3(turn_x) == 0.128 and turn_x < ring_x                # the turn, outside the bend's places
+    assert np.isclose(ghost.at[0], ring_x)                         # the same distance from the bend
+    assert sy > ghost.at[1] > ring_y > ey                          # from above the ghost to below the ring
+    # the marks-off twin is round 3's P1.4 to the byte
+    t = PC.twin(p14)
+    assert t.marks == () and PC.frame_of(t) == PC.frame_of(PC.ringstring("slide the flip round", "the four bends"))
     # one ring round a bend: (I (x) R) cup is EXACTLY (R (x) I) cup (a half-turn is its
     # own transpose) -- the flip as drawn, and the spin the same way
     for op, i in (("slide the flip round", 1), ("slide the spin round", 2)):
@@ -244,10 +329,17 @@ def pictures():
     assert not np.allclose(kron(I2, ZX) @ CUP, kron(ZX, I2) @ CUP)
     assert "Two together come round the other way about" in DIALOGUE.section("First")
     assert PC.ringstring("slide both round", "the four bends").frame == s13.frame
+    # marked, the two come round in their own lanes, each its ghost and its arc
+    m2 = PC.ringstring("step=slide both round", "the four bends")
+    assert [(m.kind, m.name) for m in m2.marks] == [("ghost", "both green"), ("ghost", "both red"),
+                                                    ("slide", "both green"), ("slide", "both red")]
     # the Lua refuses a second slide of a bend already slid, and a pull on the bends
     assert PC.faults(PC.ringstring, "slide the flip round, slide the flip round", "the four bends") == \
         ["bends-round"]
     assert PC.faults(PC.ringstring, "pull", "the four bends") == ["bends-op"]
+    # the tokens' step: only a turn, and pin= only with one
+    assert PC.faults(PC.twotokens, "step=flip brass", "both down") == ["turn-word"]
+    assert PC.faults(PC.twotokens, "pin=off", "both down") == ["pin-step"]
 
 
 # --- pictures -----------------------------------------------------------------

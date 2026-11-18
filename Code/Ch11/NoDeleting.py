@@ -122,22 +122,27 @@ def blackboard():
 
 
 # --------------------------------------------------------------------------
-# The prop pictures.  The dialogue draws, in one motion, the Tortoise's knot of
+# The prop pictures.  The dialogue draws, in one block, the Tortoise's knot of
 # Chapter 8's Sixth: the upper line loose from the left (her second stone), the
 # lower line from a red point (the tell's settled start), and three short cords
 # across, green-over-red, red-over-green, green-over-red (keyed: cord, line, knot);
-# then the knot pulled: a plain crossing, the stone's line down to the lower right,
-# into the tell's place, the tell's line up to the upper right,
-#   \copycloth[operations]{the knot}{caption}   (pdf/props/ch11.tex)
-# tools/props_ch11.py transcribes the Lua (with L1-L5); the calls are read out of
-# dialog.md, never copied.
+# then (round 4, "Show the process") Achilles's prediction, paler (rule "deleted":
+# the stone's line stops where the knot was, a fresh blank starts the upper line out
+# to the right, the tell's line runs on as it came in); then the knot pulled, a step:
+# a plain crossing, the stone's line down to the lower right, into the tell's place,
+# the tell's line up to the upper right, with the six knot rings' ghosts and no arc,
+#   \copycloth[operations; step=...; expects=...]{the knot}{caption}   (pdf/props/ch11.tex)
+# tools/props_ch11.py transcribes the Lua (proved against texlua); the calls are
+# read out of dialog.md, never copied.
 #
 # The ties (identity card, section 4), a structural check against this file's
 # blackboard, not a second proof.  A cord green on one line and red on the other is a
 # CNOT, green the control; three of them alternating are CNOT CNOT CNOT = SWAP,
 # Eve's frame, exactly -- the only knot the Lua's pull undoes; three the same way are
 # one CNOT again, not a swap, and the Lua has no pull for them.  The pulled crossing
-# is that swap: what came in on the stone's line leaves in the tell's place.
+# is that swap: what came in on the stone's line leaves in the tell's place.  The pale
+# frame is the deletion the theorem forbids: psi psi A -> psi Sigma A keeps the tell
+# and makes the blank from nothing, so two copies' likeness s^2 would come out s.
 # --------------------------------------------------------------------------
 DIALOGUE = Dialogue(__file__, macros=PC.MACROS)
 QUOTE = "The tell always came out holding the stone she had blanked."
@@ -150,34 +155,60 @@ def cord_cnot(tie):
     return cnot(3, 1, 2) if (tie["upper"], tie["lower"]) == ("green", "red") else cnot(3, 2, 1)
 
 
+def r3(x):
+    """A mark's numbers to the Lua's three places (its log's)."""
+    if isinstance(x, tuple):
+        return tuple(r3(y) for y in x)
+    return round(x, 3) if isinstance(x, float) else x
+
+
 def pictures():
     assert f'"{QUOTE}"' in __doc__                               # quoted byte for byte
-    calls = DIALOGUE.check_layout("Fourth", sizes=[2])
-    p41, p42 = calls
-    text, raw = DIALOGUE.read(DIALOGUE.dialog), DIALOGUE.read(DIALOGUE.raw)
-    spoken = PC.spoken_sentences(text) | PC.spoken_sentences(raw)
-    for c in calls:
-        assert words_only(c.caption, forbidden=PC.CAPTION_FORBIDDEN), c.caption
-        assert CLOTH.caption_ok(c.caption), c.caption
-        assert PC.normal_sentence(c.caption) not in spoken, c.caption   # the gigue: never said twice
-        assert PC.place_ok("Fourth", c), c.text
-    assert [[PC.height(c) for c in b] for b in DIALOGUE.blocks("Fourth")] == [[1.24, 1.24]]
-    assert [c.macro for c in calls] == ["copycloth"] * 2
-    assert [c.keyed for c in calls] == [True, False]
-    assert [(c.opt, c.args[0]) for c in calls] == [("", KNOT), ("pull", KNOT)]
-    assert [c.caption for c in calls] == ["the middle tied the other way about", "pulled, and undone"]
-    c41, c42 = (PC.picture(c) for c in calls)
+    PC.check_lua()                                                # the Lua the transcription was proved on
+    PC.check_sites()                                              # its 55 fault sites, one for one
+    found = PC.check_section(DIALOGUE, "Fourth", sizes=[3], frames=[3])
+    calls = [c for b in found for c, _ in b]
+    p41, w42, p43 = calls
+    assert [[PC.height(c) for c, _ in b] for b in found] == [[1.24, 1.24, 1.24]]
+    assert [c.macro for c in calls] == ["copycloth"] * 3
+    assert [c.keyed for c in calls] == [True, False, False]
+    assert [PC.is_prediction(c) for c in calls] == [False, True, False]
+    assert [PC.options(c) for c in calls] == [
+        {"bare": ""}, {"step": "pull", "expects": "deleted", "bare": ""}, {"step": "pull", "bare": ""}]
+    assert [c.args[0] for c in calls] == [KNOT] * 3
+    assert PC.trim(PC.bracket(w42)) in ("step=pull; expects=deleted", "expects=deleted; step=pull")
+    assert [c.caption for c in calls] == ["the middle tied the other way about", "as Achilles expects",
+                                          "pulled, and undone"]
+    c41, w42p, c43 = (PC.picture(c) for c in calls)
     (a1,) = DIALOGUE.anchors("Fourth")
     (f1,) = DIALOGUE.following("Fourth")
     section = DIALOGUE.section("Fourth")
+    text = DIALOGUE.read(DIALOGUE.dialog)
     assert QUOTE in section                                       # the docstring's line
     assert "the ring and its cords" in section                    # D8: the last layout put away
     assert "only which one ends where has changed" in a1
     assert f1.startswith("**Achilles:** A crossing.")
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        here = [(n, q) for n, q, o in PC.quote_places(DIALOGUE, path) if o == "Fourth"]
+        assert [n for n, _ in here] == ["THE CLOTH'S STEPS"] + ["THE CLOTH'S WRONG RULES"] * 4
+    # the log the block writes (F14-F16)
+    G = "cols=7 rows=2 y=0..1 near=false folded=false; "
+    ghost = ("copycloth: + ghost knot {} {} (cord {}) ring in dotted outline at ({:.3f},{:.3f}) (grid {},{}): "
+             "drawn tight, slid into the knot's other rings and gave way: gone")
+    assert [l for c in calls for l in PC.describe(c)] == [
+        "copycloth: [] {the knot} | " + c41.dump,
+        "copycloth: [" + PC.trim(PC.bracket(w42)) + "] {the knot} | " + w42p.dump,
+        "copycloth: + expects deleted (the whole picture paler)",
+        "copycloth: + step pull -> " + w42p.dump + " (no marks)",
+        "copycloth: [step=pull] {the knot} | " + c43.dump,
+        "copycloth: + step pull -> " + c43.dump] + [
+        ghost.format(row, colour, i, -0.3 + 0.3 * (i - 1), -0.18 - 0.54 * y, 1 + i, y)
+        for i, t in enumerate(PC.KNOT, 1) for row, colour, y in (("upper", t["upper"], 0), ("lower", t["lower"], 1))] + [
+        "copycloth: + every mark on the linen, the least gap to its edge 0.090"]
 
-    # P4.1: the knot, keyed; the upper line loose from the left, the lower from a red
+    # F14 (P4.1): the knot, keyed; the upper line loose from the left, the lower from a red
     # point at rest; three cords across, alternating
-    assert c41.labels == ("cord", "line", "knot")
+    assert c41.labels == ("cord", "line", "knot") and c41.marks == ()
     th = c41.cloth["things"]
     ties = [(th[d["a"] - 1], th[d["b"] - 1]) for d in c41.cloth["cords"] if d["kind"] == "tie"]
     ties = sorted(({"upper": u["c"], "lower": l["c"], "x": u["x"]} for u, l in ties), key=lambda t: t["x"])
@@ -188,16 +219,55 @@ def pictures():
     before = text[:text.index(p41.text)].lower()
     for w in c41.labels:
         assert w in before, w                                     # named before it is keyed
-    # P4.2: pulled, a plain crossing: the red point still at the tell's start, the line
-    # from the stone out at the lower right, the tell's line out at the upper right
-    assert c42.dump.endswith("1:end red 0 @0,1; cord loose-1 [6,0 4,0 2,1 0,1]; "
+
+    # F15: Achilles's prediction, in the spoken order (said before the pull), paler, never
+    # keyed, never marked.  Rule "deleted": the stone's line stops where the knot was
+    # (DELSTOP), a fresh blank -- a red point at rest -- starts the upper line out to the
+    # right (DELBLANK), and the tell's line, ballast, runs on as it came in, on its own row
+    said = "Then she did delete it; the tell is just a bit of ballast that shook when it ran. A blank is a blank."
+    assert said in section and section.index(said) < section.index(w42.text)
+    assert (w42p.expects, w42p.pale, w42p.marks, w42p.labels) == ("deleted", True, (), ())
+    assert w42p.mark_tikz == ("\\begin{scope}[transparency group, opacity=0.500]", "\\end{scope}")
+    assert (PC.DELSTOP, PC.DELBLANK) == (2.4, 3.6)
+    assert w42p.dump == ("scene=knot pulled=true deleted=true | " + G + "1:end red 0 @3.6,0; 2:end red 0 @0,1; "
+                         "cord loose-1 [6,0 3.6,0]; cord loose-2 [6,1 0,1]; cord loose-loose [0,0 2.4,0]")
+    assert w42p.before == c41.state and w42p.state == dict(c43.state, deleted=True)
+    rows = sorted((d["pts"][0][1], min(p[0] for p in d["pts"]), max(p[0] for p in d["pts"]))
+                  for d in w42p.cloth["cords"])
+    assert rows == [(0, 0, PC.DELSTOP), (0, PC.DELBLANK, 6), (1, 0, 6)]   # stops; starts from nothing; runs on
+    assert all(d["pts"][0][1] == d["pts"][-1][1] for d in w42p.cloth["cords"])   # no line changes row
+    assert PC.faults(PC.copycloth, "step=pull; expects=deleted", KNOT, True) == ["expects-keyed"]
+    assert PC.faults(PC.copycloth, "step=pull; expects=deleted; marks=on", KNOT) == ["expects-marks"]
+    assert PC.faults(PC.copycloth, "pull; expects=deleted", KNOT) == ["rule-step"]
+    assert PC.faults(PC.copycloth, "step=thread; expects=deleted", "the fork, green point") == ["rule-deleted"]
+
+    # F16 (P4.2): pulled, a plain crossing: the red point still at the tell's start, the
+    # line from the stone out at the lower right, the tell's line out at the upper right
+    assert c43.before == c41.state and c43.step == "pull"
+    assert c43.dump.endswith("1:end red 0 @0,1; cord loose-1 [6,0 4,0 2,1 0,1]; "
                              "cord loose-loose [0,0 2,0 4,1 6,1]")
-    assert not [d for d in c42.cloth["cords"] if d["kind"] == "tie"] and c42.frame == c41.frame
+    assert not [d for d in c43.cloth["cords"] if d["kind"] == "tie"] and c43.frame == w42p.frame == c41.frame
     start = lambda d: d["pts"][0] if d["pts"][0][0] == 0 else d["pts"][-1]
     finish = lambda d: d["pts"][-1] if d["pts"][0][0] == 0 else d["pts"][0]
-    moved = {start(d)[1]: finish(d)[1] for d in c42.cloth["cords"]}
+    moved = {start(d)[1]: finish(d)[1] for d in c43.cloth["cords"]}
     assert moved == {0: 1, 1: 0}                                  # the lines exchange rows
+    # its marks: each of the knot's six rings' ghosts where it stood (drawn tight into one
+    # another, gone); no arc (the ends are pulled straight out along the lines, and a
+    # straight mark would read as a line)
+    assert [m.kind for m in c43.marks] == ["ghost"] * 6 and not c43.mark("swing") and not c43.mark("slide")
+    rings = [(r["c"], r["x"], r["y"]) for r in c41.cloth["things"] if r["kind"] == "ring"]
+    assert sorted((m.name.split()[2], m.grid[0], m.grid[1]) for m in c43.marks) == sorted(rings)
+    assert all(m.how == "outline" for m in c43.marks)
+    t = PC.twin(p43)                                              # round 3's P4.2 to the byte
+    assert t.marks == () and PC.frame_of(t)[:3] == PC.frame_of(PC.copycloth("pull", KNOT))[:3]
+    assert r3(PC.mark_clearance(c43)) == 0.082 and PC.cord_clearance(c43) is None
     assert PC.faults(PC.copycloth, "pull, pull", KNOT) == ["knot-pull-twice"]
+    # the refutations, spoken after the pull: the stone went into the tell's place (the
+    # crossing), nothing came free (the pale frame's blank came free), and the stone was
+    # not made to be nowhere (the pale frame's stone line ends at DELSTOP)
+    for line in ("The stone went down into the tell, and the tell's own start came up to take its place",
+                 "Nothing came free", "She could not make it be nowhere"):
+        assert line in section and section.index(line) > section.index(p43.text), line
 
     # the ties.  The drawn knot is Eve's frame, and the frame is the swap
     knot = np.eye(8)
@@ -209,6 +279,17 @@ def pictures():
     assert not np.allclose(u, u.conj()) and not np.allclose(w, w.conj())
     assert np.allclose(knot @ kron(x, u, w).ravel(), kron(x, w, u).ravel())   # rows exchanged
     assert np.allclose(knot @ kron(x, x, SIGMA).ravel(), kron(x, SIGMA, x).ravel())   # the blank
+    # the pale frame as a rule on two copies and a tell: psi psi A -> psi Sigma A.  The
+    # likeness of two such inputs is s^2 <A|A> = s^2; of the outputs, s -- no process of
+    # the press's kind (unitary: likeness kept) draws the pale frame; the knot keeps s^2
+    psi, phi, A = random_state(rng), random_state(rng), random_state(rng)
+    s = np.vdot(phi, psi)
+    assert not np.isclose(s.imag, 0) and 0 < abs(s) < 1
+    ins = [kron(v, v, A).ravel() for v in (psi, phi)]
+    dele = [kron(v, SIGMA, A).ravel() for v in (psi, phi)]
+    assert np.isclose(np.vdot(ins[1], ins[0]), s ** 2) and np.isclose(np.vdot(dele[1], dele[0]), s)
+    assert not np.isclose(s ** 2, s)
+    assert np.isclose(np.vdot(knot @ ins[1], knot @ ins[0]), s ** 2)   # the swap keeps the likeness
     # the only knot the pull undoes: three alternating (either way first) -- three the
     # same way are one CNOT, not a swap, and two are not a knot at all
     assert PC.knot_pull(list(PC.KNOT)) and PC.faults(PC.knot_pull, list(PC.KNOT)) == []

@@ -27,26 +27,48 @@ with the Anteater's sealed rooms, whose numbers the code confirms but whose para
 settle.
 
 Each file also runs `pictures()`, at the end of its blackboard. The dialogue's prop pictures
-(`\rulecard`, `\hingecloth`, `\darecloth`, `\boxcloth`, `\crablute`: fifteen calls, three, four,
-four and four by challenge, none in the Fifth) are read out of `dialog.md` and `dialog.raw.md`
-through `tools/dfp_props.py`. Their state is computed by `tools/props_ch19.py`, a transcription of
-`pdf/props/ch19.lua` on the shared cloth kit. The transcription reads the Lua's places and tables
-from the Lua itself; its drift guard holds every top-level statement of the Lua against a pinned
-fingerprint and counts the Lua's `tex.error` call sites (6 sites, 12 macro–site pairs: the shared
-step list's three through each cloth macro, `\rulecard` 2, `\crablute` 1). It was diffed against
-the Lua under texlua: 272 reference lines (the fifteen calls, keyed and unkeyed, every state of
-every trace, every card and view, and the parser's spellings), 30 error calls and 4000 fuzzed
-calls give 0 differences and no raw Lua error, and all twelve pairs are reached. `pictures()`
-ties each picture to the blackboard: a card side is built as a chain on one wire from its dump,
-and a cloth dump is read as a PyZX graph (`PC.graph_of`: a ring a spider of its colour turned as
-its bead, a ring lying on a cord spliced into it, a cord, tie or pendant with an odd number of
-tubes a Hadamard edge, a second cord between the same two rings kept apart by a ring at rest, a
-loose end a boundary; the corner's slips are the picture's number). This is a structural check
-of the pictures, not a third proof. It also checks the dialogue's rules: blocks and sizes,
-captions in words only (no echo, no count, true of the dump), every picture in its place, the
-anchor phrases and D-item phrases, the starred pictures, and the keyed words at their compiled
+(`\rulecard`, `\hingecloth`, `\darecloth`, `\boxcloth`, `\crablute`, and since round 4 their
+step strips `\rulecardsteps` … `\crablutesteps`) are read out of `dialog.md` and `dialog.raw.md`
+through `tools/dfp_props.py`: 21 blocks, one call each (16 single pictures, 5 strips of two), 26
+frames, by challenge 5, 7, 7 and 7 frames, none in the Fifth. Their state is computed by
+`tools/props_ch19.py`, a transcription of `pdf/props/ch19.lua` on the shared cloth kit. The
+transcription reads the Lua's places and tables from the Lua itself; its drift guard holds every
+top-level statement of the Lua against a pinned fingerprint, pins the Lua's 222 chunks, the
+`.tex`'s 77 and twelve round-4 comments word for word (each macro's grammar and marks, the E1, E2,
+E4 and E5 rulings, the five wrong-rule refusals), and counts the Lua's `tex.error` call sites: 34
+sites (round 3's six, the shared step list's three through each cloth macro, `\rulecard` 2,
+`\crablute` 1; and round 4's 28 calls of `xerr`), reached as 113 macro–site pairs. Round 4's
+transcription was proved byte for byte against the Lua under texlua: the dialogue's 21 calls (216
+lines), a call for every site and every pair in every order of its items (344 calls, 1551 lines),
+and two seeded sweeps of legal and illegal calls (32050 and 32643 records, 0 differences, no raw Lua
+error). `pictures()` ties each frame to the blackboard: a card side is built as a chain on one
+wire from its dump, and a cloth dump is read as a PyZX graph (`PC.graph_of`: a ring a spider of
+its colour turned as its bead, a ring lying on a cord spliced into it, a cord, tie or pendant with
+an odd number of tubes a Hadamard edge, a second cord between the same two rings kept apart by a
+ring at rest, a loose end a boundary; the corner's slips are the picture's number). This is a
+structural check of the pictures, not a third proof. It also checks the dialogue's rules: every
+block one call of one macro, the frames per block, captions in words only, frame by frame (no
+echo, no count, no caption repeated within a strip, true of the frame), every call in its place, the
+anchor phrases (the 21 blocks' anchors; for every block round 4 added or changed, the start of the
+paragraph after it and the phrases of the one before it, 30 and 66 checks over both files), the
+starred pictures (the star only on a strip's before-frame), and the keyed words at their compiled
 boxes and clear of every part drawn (letters at least $0.02$ cm from every stroke, shadow and
 other word, node boxes at least $0.025$ cm inside the frame).
+
+**Pins (the cloth kit).** The shared cloth kit, `pdf/props/cloth.{lua,tex}`, is pinned in
+`tools/props_cloth.py`, which every file imports through `props_ch19`; a change to the kit fails
+every file of this chapter (see the note in `chapter10/Code/README.md`).
+
+**Show the process (round 4).** Every frame is read out in full (call, dump, caption, keyed), the
+round-3 pictures unchanged as their blocks' last frames, and each step frame is the step applied
+to the frame before. Every cloth step's marks are checked on the drawn extent: a ghost (grey,
+dotted) exactly where each piece the step moves or lifts off stood, each arc from beside a piece
+of the state before to beside a piece of the state after (or one the step ghosts), bowed at least
+the Lua's floor, clear of the cloth by its clearance, and inside the picture's box by at least
+$0.01$ cm (the lift arcs rise onto the blank margin above the corner); like moves alike, every one or none. No
+card and no lute frame carries a mark, even when one is asked for, and no frame of the chapter
+foresees anything: `expects=` is refused on all five macros, each with its own reason, and every
+dialogue line a reason quotes is in both files.
 
 Six conventions hold across the files.
 
@@ -115,8 +137,11 @@ left sides to one green spider turned $a+b$; a random Clifford circuit composed 
 reduces by `full_reduce` to bare wires, number 1; the bare look composed with its mirror reduces
 to bare wires, number $\tfrac12$.
 
-`pictures()` reads the First Challenge's three cards: the half passing card face up (keyed:
-`is`, `dial`), the sliding card held to the lamp, and the half passing card read from behind. For
+`pictures()` reads the First Challenge's three blocks: the half passing card face up (keyed:
+`is`, `dial`), and two strips of two, the sliding card face up and then held to the lamp, the half
+passing card as dealt and then read from behind (each second frame the see-through of the first,
+computed; no mark on a card, even with `marks=on`; a card already held to the lamp is refused the
+step). For
 every card of the deck, face and through, it checks the see-through's rule: the through sides are
 the adjoints of the face's sides, crossed over (in matrices and as PyZX `adjoint()`), and not
 their transposes; the dial multiplies the picture it stands under, crosses with its picture and
@@ -172,14 +197,24 @@ reduces to two bare wires with the number $\tfrac12$.
 
 
 `pictures()` reads the new card (P2.1: green, red, green a quarter round each is $e^{i\pi/4}$
-times the tube) and the hinge cloth three times. `graph_of` of the hub as laid (keyed: the kit's
+times the tube) and the hinge cloth six times, one frame per move since round 4: laid, the point
+exchanged (no marks: the red point hides the green one's place), slid into the hub (its ghost and a
+hop up the short cord's place), the feet slid apart (two hops, alike), the rings off and the tube on
+(three ghosts), the corner empty (the two slips' ghosts and a lift arc from the slip an eighth back
+onto the slip an eighth round, which direction E1 now states in the text and the Lua's pinned
+comment quotes). `graph_of` of the hub as laid (keyed: the kit's
 `hub`, `point`, `tie`, `line`, and `corner`, set by the Lua) is `hinge_picture("hub")` and
 `hub_matrix()` exactly; every state of the trace, with its corner's slips, is the hub as laid,
 and the three middle states are an eighth off without them. The states are the file's own chain:
 (i), (ii) and (iii) read ring for ring. P2.4, the corner empty, is `hinge_picture("tie")`,
 $\mathrm{CZ}/\sqrt2$, and without its tube it is not. The negatives: the point a quarter back, or
 the feet a quarter round, is not the hub. Fixed parts: the lines' loose ends and the feet's
-column in every picture.
+column in every frame.
+
+```python
+assert [(len(R.ghosts), len(R.arcs)) for R in hub_frames[1:]] == [(0, 0), (1, 1), (0, 2), (3, 0), (2, 1)]
+assert np.isclose(a.frm[0], s2[0]) and np.isclose(a.to[0], s1[0]) and a.frm[1] > s2[1] and a.to[1] > s1[1]
+```
 
 ## Same Number, Same Picture — `SameNumberSamePicture.py`
 
@@ -216,12 +251,16 @@ same turns, and a copy with reversed turns in reversed order (the dagger, not th
 not let go.
 
 
-`pictures()` reads Achilles's dare on the cloth (keyed: the kit's `tube`) and three of its
-steps. P3.1 is the file's dare picture, exactly $e^{i\pi/4}I$. Every state of the trace, read
+`pictures()` reads Achilles's dare on the cloth (keyed: the kit's `tube`) and six of its
+steps, one frame per move: the tubes drawn through into the ring (two hops, no tube ghosted), read
+backwards (no marks), the greens together (two ghosts, two hops, each left-hand green into the
+right-hand one), the green half slid past the red ring, and a strip of two: the rings gone (four
+ghosts; the reds and the green halves each left into right, as E2 now states) and a new slip (the
+lift arc from the slip a quarter round onto the slip an eighth back, E3). P3.1 is the file's dare picture, exactly $e^{i\pi/4}I$. Every state of the trace, read
 ring for ring, is the picture of the Tortoise's moves (laid, then (i) to (v)), and with its
 corner's slips it equals P3.1; without them every state after the first two is off. The two slips
 of P3.4's step before ($21+6$ twenty-fourths) and P3.4's one ($3$) are the same eighth round.
-Fixed parts: the cord's ends at 0 and 10 in every picture, and the red ring at 2 from P3.2 to
+Fixed parts: the cord's ends at 0 and 10 in every frame, and the red ring at 2 from P3.2 to
 P3.3.
 
 ## One Answer Out — `OneAnswerOut.py`
@@ -264,9 +303,20 @@ Achilles's look turned into one that asks the other question (a red spider on th
 tied by a yellow box) makes the odds even.
 
 
-`pictures()` reads the box cloth three times (keyed: `read ring`) and the Crab's lute. `graph_of`
-of every box state (laid, red points slid in, slid together, loops off) is `closed_box()` and
-`green_point()`, value $(1,1)$, exactly. The cloth's graph has 17 edges against the builder's 19,
+`pictures()` reads the box cloth in five frames (keyed: `read ring`) and the Crab's lute in two.
+Round 4 draws the red points slid in (eight ghosts, four hops, each point into its ring), the
+looks' rings slid together move by move as a strip, his look's ring first and then hers (E4, E5:
+the text's order and the two page cords that re-route, asserted on the dumps), and the loops lifted
+off (the read ring's run along the copy's cord). The whole slide drawn at once gets no arc, every
+one or none: her look's runs do not fit beside his, though his fit alone. **L2:** the part-way
+frame is `green_point()`, $(1,1)$, like every other frame; and the part-steps are spider fusions
+in the text's order: PyZX's own `fuse` of his look's ring into the Cat's point, on both layers,
+gives the part-way picture's structure, and hers then gives round 3's slid together, while her
+ring cannot go first (`check_fuse` refuses: it is not yet next to the Cat's point). The lute is
+never marked (its strings are the wires), keyed on its still before-frame, and its top string is
+plucked alone only from still. `graph_of`
+of every box state (laid, red points slid in, the part-way, slid together, loops off) is
+`closed_box()` and `green_point()`, value $(1,1)$, exactly. The cloth's graph has 17 edges against the builder's 19,
 because each let-go cord is one edge, knot and all, where `closed_box()` draws a cap with two
 legs. D16 is asserted on the dump: the copy is the upper layer with its rows in the other order,
 left and right kept, every bead turned the other way round (the conjugate), and the lamp's mirror
@@ -280,6 +330,9 @@ string's nut end to its bridge end, and no arc reaches the nut or the bridge. Th
 asserted in code and never said.
 
 ```python
+assert shape(fused(reds, his)) == shape(PC.graph_of(part1))
+assert shape(fused(part1, hers)) == shape(PC.graph_of(together))
+assert not simp.check_fuse(g, at_place(g, (2, 1)), at_place(g, (0, 0)))
 assert len(strings) == 1 + 2 * 9 == box.num_edges() == 19
 assert same_picture(PC.graph_of(turned(t, 24 - t)), point), (up, t)
 assert not same_picture(PC.graph_of(turned(t, t)), point), (up, t)
@@ -314,10 +367,17 @@ the blackboard's. The theorem itself (Result 19.15) is quoted in the chapter, no
 MIP\* = RE (Result 19.16) is a statement about all games at once, and has no code.
 
 The Fifth Challenge draws no picture. `pictures()` here runs the whole-dialogue checks: the five
-sections in order with all fifteen pictures inside them, the starred form on the first picture of
-each macro, none of the forty negative anchors in either file, the Cat and the Genie never named
+sections in order with all 21 blocks (26 frames) inside them, no picture after the Fifth
+Challenge begins and the Cat's "Awake." the last word spoken, the starred form on the first
+picture of each macro, 13 marked frames and none of them keyed, none of the forty negative anchors in either file, the Cat and the Genie never named
 by a caption, keyed word or dump, no count in a caption or keyed word, and the counting scan's
 whole-file hits exactly the approved ones (32 in `dialog.md`, 29 in `dialog.raw.md`). On both
 files it runs the card's form check (the subject and countersubject by speaker and section, the
 cast, the Cat's last word), the forbidden-word grep (no line), no "Let Bob draw", six Genie lines,
 two Cat lines and the name Cat 25 times. Four broken samples show that the form check bites.
+
+It also runs `check_faults()`: a call raising each of the Lua's 34 fault sites, alone and with a
+message of its own; every one of the 113 macro–site pairs reached; every order of a refused
+bracket's items raising the same faults; no marks from a call with a fault; the arcs' bow floor
+tried on a drawn arc (just under `MINSAG` refused with the Lua's reason, just over it fits); and
+the drift guard and pins (`check_sites`, `check_lua`, `check_pins`).

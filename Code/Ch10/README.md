@@ -51,17 +51,64 @@ changes the state and never the picture, since a stone carries no mark. It holds
 four scenes and their moves: one ring slid round a bend unchanged, two rings the other way
 about (L1), the pull, Bob's corrections, like rings meeting (cyclically on the loop), and the
 answer's ring carried round. It also holds the three frames (1.58, 1.10 and the cloth's
-1.95, 1.78, 1.54, 0.70 cm) and the Lua's forty-seven fault sites, each keyed. The string's
+1.95, 1.78, 1.54, 0.70 cm) and the Lua's fault sites, each keyed. The string's
 picture is a `\tortoisecloth` layout, which the transcription writes as the Lua does and
-reads with the book's one transcription of the cloth kit, `tools/props_cloth.py`. Every
-dump, layout, cloth dump, frame, keyed word and fault message was compared with `texlua` on
-more than three hundred calls while the transcription was written. Each file reads the
-pictures of its own section of `dialog.md` through `tools/dfp_props.py` and checks the
-following: their layout (4, 2, 4, 3, 4 pictures; blocks `[1,1,1,1]`, `[1,1]`, `[1,1,2]`,
-`[1,1,1]`, `[3,1]`; the same in `dialog.raw.md`); one frame height per block; the captions
-(words only, no Stage-D word, no quantity word, and on the string no word for its lengths);
-the places each macro and operation may appear; the speech or direction each block follows
-and the line after it; and every reading against the scene at that moment. Each file also
+reads with the book's one transcription of the cloth kit, `tools/props_cloth.py`.
+
+Round 4 (*Show the process*) adds the bracket's `;` items, read whole so that their order
+never matters: a **step** (`step=turn brass`, `step=slide the flip round`, `step=pull`,
+`step=corrections`, `step=red meets red`, `step=lift off`, `step=slide round`,
+`step=chime both up`, `step=into the glass`, `step=flip`, `step=spin`, `step=tip out`) takes
+the state written as the state *before* it and draws the state after it, computed, with the
+step's **motion marks** — a ring's ghost in dotted outline where it lay (a halo where another
+ring arrives), the slide arc the string takes it along, a swing arc over a turned token or
+round Bob's stone, the pin round the token that held still, the envelope's ghost — unless
+`marks=off`; a **prediction** (`expects=apart`, `expects=more turned`, `expects=either way`)
+draws, paler, what one of Achilles's three named wrong rules foresaw; and `\stringsteps` and
+`\tablesteps` expand into their frames, frame $k$ being the single call
+`[<after and the steps before it>; step=<k>]`. The new string moves are `pull halfway` (the
+S drawn in), `red meets red` and `green meets green` (two like rings run together into one
+ring at rest, a whole turn, where the one that held still lay) and `lift off`. A ring on the
+straight string now keeps its column while it lies still (the P3.3 fix: after red to red the
+greens stay at columns 1 and 5). The transcription carries the marks down to their TikZ
+text and the log lines byte for byte, and it was **proved against texlua**: every dialogue
+call of both files and a sweep of some 67 000 aimed and random calls (every glass state with
+every step and bracket, every token pattern, place and step, the table's scenes with
+operation prefixes and every step, every string scene with up to five operations, every
+step, every prediction, and the strips with every option) — 0 mismatches in about 570 000
+records, all **seventy-three** fault sites raised (forty-four direct `tex.error` calls,
+twenty-nine through the string's `serr`), each message byte for byte. `check_lua` then holds
+the Lua and the `.tex` to the text proved (`LUA_PINS`, `TEX_PINS`, chunk by chunk, comments
+left out) and the five round-4 comments that quote the dialogue word for word
+(`COMMENT_PINS`); `check_sites` holds the seventy-three sites to the Lua's own list.
+
+**Pins (the cloth kit).** The cloth kit this chapter introduced, shared by Chapters 10–19, is pinned
+on its own, in `tools/props_cloth.py`: `check_cloth()`, run when the module is imported (unless
+`DFP_REPIN` is set, to re-pin), holds `pdf/props/cloth.lua` to its 79 top-level chunks (`LUA_PINS`:
+comments left out, white space closed up outside string literals) and `cloth.tex` to its 39 colours,
+styles and macro (`TEX_PINS`). `COMMENT_PINS` is empty: only a kit comment that quotes *spoken*
+dialogue would be pinned, and none does. The header's turn-grammar examples ("an eighth round and a
+half") are grammar, not quotes, even where a stage direction writes the same words. Every challenge
+file of Chapters 10–19 imports its `props_chNN`, which imports `props_cloth`, so a drawing-only or
+style-only edit to the kit fails all of them, naming the chunk. A plain comment edit passes, and so
+does white space outside the Lua's string literals (or trailing blanks and blank lines in the
+`.tex`). The kit may hold no Lua long bracket (`[[`), which the chunker could not see into:
+`check_cloth` refuses one. Before pinning, the transcription was re-proved against the committed kit
+under texlua (every call the twenty dialogue files make into the kit, all 74 transcribed fault sites
+(the drawing-time "no room" fault stays untranscribed) and 63,000 random calls: 0 mismatches). To
+re-pin after a kit edit, prove it again, then print the pins with `DFP_REPIN=1` (the module's
+docstring has the line).
+
+Each file reads the pictures of its own section of `dialog.md` through `tools/dfp_props.py`
+and checks the following: their layout (calls `[1,1,1,1]`, `[1,2]`, `[1,1,3]`, `[1,1,1]`,
+`[3,1]`; frames 4, 4, 6, 3, 6; the same in `dialog.raw.md`); one frame height per block; the
+captions (words only, no Stage-D word, no quantity word, and on the string no word for its
+lengths); the round's direction edits (T1–T3) in both files; the places each macro and
+operation may appear; the speech or direction each block follows and the line after it;
+the Lua comments' quotes of its section; and every reading against the scene at that
+moment: each step from the state before it, each mark where the card's dump list puts it,
+each marked frame's `marks=off` twin against its round-3 picture, each strip frame against
+its single call, and each prediction against the truth that refutes it. Each file also
 **ties the transcription to its own mathematics**, NumPy against its blackboard. This is a
 structural check, not a second proof. A ring on a leg is a Pauli on a wire. The ring
 sequence along the string, read from the message end, is the order in which the turns act.
@@ -122,6 +169,22 @@ $(I\otimes XZ)\,$cup $=(ZX\otimes I)\,$cup, while the order the Lua used before 
 a sign. P1.2's brass-up pattern is the flip bend's one red ring, and each of the four
 patterns comes a quarter of the time on a non-real message.
 
+Round 4 makes P1.2 and P1.4 steps. P1.2 is `[step=turn brass]{both down}`: the swing arc runs
+over the brass from its left rim ($-0.71$) to its right ($-0.09$) at $y=-0.52$, its head
+towards the copper (T1, "turns the brass token over towards the copper"), with no ghost (the
+token covers its own place) and a pin round the copper at $(0.4,-0.53)$. P1.4 is
+`[step=slide the flip round]`: the red's ghost in outline at $(0.44,-0.132)$, grid (6, 0), and
+one slide arc round the outside of the bend (its turn at $x=0.128$) to the same distance out
+on the lower leg. Each `marks=off` twin is round 3's picture to the byte, and turning a token
+flips exactly its bit of the answer.
+
+```python
+assert r3((x0, y0, x1, y1)) == (-0.71, -0.52, -0.09, -0.52)                       # over the brass
+assert (pin.kind, pin.name, r3(pin.at), pin.r) == ("pin", "copper", (0.4, -0.53), (0.33, 0.2))
+assert PC.frame_of(t) == PC.frame_of(PC.twotokens(None, "brass up", True))        # round 3's P1.2
+assert np.isclose(ghost.at[0], ring_x)                       # the same distance from the bend
+```
+
 ```python
 assert np.allclose(kron(leg_operator(up), I2) @ CUP, np.sqrt(2) * bell(*m))      # each bend
 assert both == ("both", [], ["green", "red"])                                     # L1
@@ -172,6 +235,24 @@ file ties the pulled string to the branch. For all four patterns, the rings read
 message end as the order of application make $X^{m_2}Z^{m_1}$, and the Bell-basis branch is
 $\tfrac12X^{m_2}Z^{m_1}\psi$ on a non-real message, a quarter each. Summed, Bob's early peek
 is a coin.
+
+Round 4 makes the pull one block, in the spoken order: Achilles's prediction first, paler,
+never keyed or marked — rule `apart`, the string parted at the pair's bend, the message's
+length straight with Alice's rings and Bob's length bare — then the pull as a strip of two.
+*Drawn in* (`pull halfway`): the two bends slide towards each other, the green from column 2
+to 1 (a halo: the red now lies on its place) and the red from 3 to 2, both arcs below the
+string (the cloth's top edge leaves no room above it), bowed down, end to end and apart.
+*Pulled straight*: both drop onto the straight row, each with
+its ghost and a curved arc straight down; its `marks=off` twin is round 3's P2.2. The tale's
+ends keep columns 0 and 6 and the frame stays 1.78 throughout (look, not length). The
+prediction is refuted: the true frame is one line to Bob's end with the same rings on it.
+
+```python
+assert w.dump == ("tale apart; the message's length from the message end [alice green, alice red]; "
+                  "Bob's length bare")
+assert PC.ringpos(f07.state) == {"alice red": ("red", 2, 0, False), "alice green": ("green", 1, 0, False)}
+assert PC.frame_of(t) == PC.frame_of(PC.ringstring("pull", "the tale, both up"))   # round 3's P2.2
+```
 
 ```python
 assert PC.picture(p13).state.bends[3][1] == s21.state.alice    # the fourth bend's rings
@@ -234,6 +315,24 @@ letter by letter (red to red, green to green, or nothing at all for both down, w
 and never drawn, leaves the rings where nothing meets, the product is $-I$, and the Lua
 refuses red to red past a green.
 
+Round 4 makes P3.2 a step (`[pull; step=corrections]`): no ghost, two slide arcs from Bob's
+end ($x=0.873$), the red's above the string to column 4 and the green's below to column 5.
+The meeting block is in the spoken order: the prediction, paler — rule `more turned`, all
+four rings as threaded — then the strip *red to red* (Alice's red slid to Bob's, the two run
+together into one ring at rest at column 4, its bead all the way round; the ghost at column 2,
+the arc above) and *lifted off* (the met ring's ghost at column 4, into her pouch, no arc),
+then round 3's own *green to green, and bare*, unmarked. After red to red the greens lie at
+columns 1 and 5, where they were put (the P3.3 fix), and the reading is unchanged. The third
+rule, `either way`, is modelled only (its precondition, spin first, never stands in the
+dialogue): paler, the string bare; the true step leaves all four rings, nothing met.
+
+```python
+assert ring_cols(f13) == [(1, "green"), (5, "green")]                 # the greens lie still
+assert f12.dump == "tale straight; from the message end [alice green, met red at rest, bob green]"
+assert w.dump == s32.dump                                             # more turned: all four
+assert ew.dump == "tale straight; from the message end []" and true.dump == PC.dump(wrong)
+```
+
 ```python
 assert np.allclose(applied(bob), correction(m1, m2))           # flip first, then spin
 assert np.allclose(applied(PC.sequence(on)), I2)               # the whole string: no turn
@@ -288,6 +387,17 @@ codebook entry. For all sixteen (writing, answer) pairs, the loop's rings read f
 bend make $X^{j_2}Z^{j_1}Z^{k_1}X^{k_2}$. Half its trace is the dense-coding amplitude.
 Kin to kin, and slide round first where the Lua allows it, keeps that half-trace, and the
 loop is clean exactly when the writing is the answer.
+
+Round 4 makes P4.3 a step (`[step=slide round]`): the state before, the red close in by the
+far bend, is not pictured; its ghost places it, at place 4, and the slide arc runs inside the
+loop from $55.6°$ down through the far bend, Bob's leg and the near bend to $-235.6°$, beside
+the green. Its `marks=off` twin is round 3's P4.3; the two greens may also meet in two steps
+(green meets green, then lift off), and nothing goes round while a ring is at rest.
+
+```python
+assert r3((cx, cy, a0, a1)) == (0.0, -0.65, 55.6, -235.6)            # inside the loop
+assert np.isclose(ghost.at[0], px[1])                                 # from place 4
+```
 
 ```python
 assert np.isclose(0.5 * np.trace(R), amp)                      # the loop's rings: the amplitude
@@ -355,6 +465,18 @@ the L2 rule: the near group in the slab's left half, the Alice–Bob gap the wid
 least twice each near gap, and no two stones or reflections touching. They are also checked
 against the Lua's own constants.
 
+Round 4 computes the glass and the table as steps, `marks=off`: the glass from the message
+stone in the left cup (`[step=chime both up]`), the table `[step=into the glass]`, each the
+same picture as round 3's. The block holds the ten, and a counted frame carries no mark: the
+three frames draw **8, 2 and 4** lines (four things on the black with their reflections; the
+two tokens in the dish, classical; the keepsake and Bob's stone), with no ghost, arc or pin,
+and their log is the head and the step only. The letter is obeyed as a strip of three:
+*flipped* (a swing arc over the crown of Bob's stone and down its far side, radius 0.25 about
+$(0.88,0.086)$, $100°\to-8°$, T2), *spun* (half round and more about $(0.88,0.273)$,
+$160°\to380°$, passing the company's side, T3) and *tokens out* (the envelope's ghost at
+$(0.88,-0.865)$, handed up to Achilles). The flip and spin frames without their arcs are the
+letter-open table exactly; the tip-out frame without its ghost is round 3's P5.4.
+
 The tie is that a slack reflection means a half. Every stone the table draws is
 $\tfrac12 I$ with purity $\tfrac12$ at the opening, after the reading on each of the four
 answers (the keepsake and Bob's stone then the named Bell pair), and after the corrections.
@@ -363,17 +485,34 @@ the pair from $B_{11}$ to $\Phi^+$ and leaves Bob's stone alone at $\tfrac12 I$.
 keepsake's tight reflection is its cloth's, an object outside the tie.
 
 This file also checks the whole dialogue:
-- 17 pictures in 14 blocks, with none before the First Challenge;
-- the keyed rule, whose keyed pictures are exactly P1.1, P1.2, P1.3 and P5.1;
+- 19 calls and 23 frames in 14 blocks (three strips), with none before the First Challenge;
+- the keyed rule on true frames only (a prediction is never keyed), whose keyed pictures
+  are exactly P1.1, P1.2, P1.3 and P5.1;
+- the two predictions (`apart`, `more turned`), pale, unkeyed, unmarked; the eleven marked
+  frames (2, 2, 3, 1, 3), each with its `marks=off` twin and every ghost's destination named;
+- the log: 65 lines (23 heads, 39 entries, 3 strip lines), the same for both files; the
+  25 quotes of the Lua's round-4 comments, each in its one challenge (the flip's and the
+  spin's sides among them, T2 and T3); and the header's quote of the opening direction for
+  the keepsake's hidden reflection, once, before the First Challenge;
+- every mark inside its picture: a mark is drawn `overlay`, so nothing keeps it on the
+  page. Its extent is read from its TikZ text (sampled cubics and arcs, circles, ellipses,
+  rectangles, half its style's line width, the arrow's head) and must clear the linen's edge
+  on the cloth, or the frame's box elsewhere, by more than 0.01 cm. This holds on the eleven
+  marked frames and on 56 marked pictures of every step the Lua marks: the lower pair round
+  the inside of its bend, the loop's short meeting inside it with the long arc kept lower,
+  and the tale drawn in on every pattern;
 - every caption and frame, with no fault on any call;
 - the places, with the table only in the Fifth, the glass only in the First and Fifth, and
   never `wrapped`, `[cloth]`, `end to end`, `slide both round` or `corrections spin first`;
 - P5.4 as the last picture, so the straight string of "Let Bob draw end to end" is not
   drawn;
 - the six "Let Bob draw" hooks spelling C-O-E-C-K-E in order;
-- the forty-seven fault sites, each raised by a call of its own.
+- the seventy-three fault sites, each raised by a call of its own; the bracket's items in
+  every order, one picture.
 
 ```python
+assert [PC.lines_drawn(p) for p in (b51, g52, b53)] == [8, 2, 4]   # the counted block, unmarked
+assert r3((cx, cy, rx, ry, a0, a1_)) == (0.88, 0.086, 0.25, 0.25, 100, -8)   # the flip's arc
 assert replace(v54, tokens_out=None) == v53                    # the turn shows nothing
 assert np.allclose(after_both, BELL) and not np.allclose(pair, BELL)   # B_11 -> Phi+
 assert np.allclose(rho, I2 / 2)                                # every stone: a half

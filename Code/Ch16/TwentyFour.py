@@ -311,23 +311,83 @@ def read_dump(dump):
     return dict(kv.split("=") for kv in re.split(r" (?=\w+=)", words[1]))
 
 
+def fixed_axis(M):
+    """The room axis a move M (a 2x2 unitary) turns about, as +-X/Y/Z mixed (front X, right Y, up
+    Z): the rotation's eigenvector of eigenvalue 1."""
+    w, v = np.linalg.eig(rotation(M))
+    k = int(np.argmin(abs(w - 1)))
+    assert np.isclose(w[k], 1)
+    return np.real(v[:, k])
+
+
+def pinned_point(n, sign_by):
+    """The point of the octahedron (|x|+|y|+|z| = 1, tips at +-X, +-Y, +-Z) on the axis n, on the side
+    `sign_by` picks, in the Lua's room frame (x right, y away from Achilles, z up)."""
+    n = n if np.dot(n, sign_by) > 0 else -n
+    q = n / np.abs(n).sum()
+    return (q[1], -q[0], q[2])
+
+
+def body_bow(R):
+    """The drawn swing arc's body (its samples up to its length, the head left off): its chord and its
+    greatest bow from that chord, in cm.  A short arc whose bow is under MINSAG reads straight."""
+    (a,) = [a for a in R.arcs if a.kind == "swing"]
+    body, run = [a.pts[0]], 0.0
+    for p, q in zip(a.pts, a.pts[1:]):
+        run += np.hypot(q[0] - p[0], q[1] - p[1])
+        if run > a.len + 1e-9:
+            break
+        body.append(q)
+    (x0, y0), (x1, y1) = body[0], body[-1]
+    chord = np.hypot(x1 - x0, y1 - y0)
+    return chord, max(abs((x - x0) * (y1 - y0) - (y - y0) * (x1 - x0)) / chord for x, y in body)
+
+
+def pin_gap(R):
+    """The drawn swing arc's gap to the pin's dotted ring, edge to edge: the nearest of the arc's
+    samples (its head included) to the pin's centre, less the ring's radius and both strokes' halves.
+    Measured on the drawn extent, so a positive gap is a gap on the page."""
+    (a,) = [a for a in R.arcs if a.kind == "swing"]
+    (what, x, y), = R.pins
+    return min(np.hypot(q[0] - x, q[1] - y) for q in a.pts) - PC.PINR - 2 * PC.MARKHALF
+
+
+def arc_sense(R, Rot, n):
+    """The swing arc's chord (tail to head), dotted with the drawn displacement of the point n of
+    the solid under the rotation Rot (both drawn in the frame's orientation): positive when the
+    arc runs the way the move turns.  For a half turn the displacement is taken a quarter of the
+    way (the arc goes over the top, the way the Lua says), from n towards Rot n through the up axis."""
+    (a,) = [a for a in R.arcs if a.kind == "swing"]
+    tilt = PC.model_orient(R.after)[1]
+    lua = lambda v: tuple(PC.MR * c for c in (v[1], -v[0], v[2]))
+    m = Rot @ n
+    if np.allclose(m, -n):                                    # a half turn: which way round is the arc's
+        m = n + np.array([0, 0, 1.0])
+    p0, p1 = PC.m_at(tilt, lua(n)), PC.m_at(tilt, lua(m))
+    return (a.to[0] - a.frm[0]) * (p1[0] - p0[0]) + (a.to[1] - a.frm[1]) * (p1[1] - p0[1])
+
+
 def pictures():
-    """The First Challenge's prop pictures (identity card, section 4), read from the dialogue
-    through tools/dfp_props.py and the transcription tools/props_ch16.py.  The ties below hold
-    the transcription against this file's blackboard: a structural check of the pictures,
-    not a second proof."""
+    """The First Challenge's prop pictures (identity card, sections 4 and 3e), read from the dialogue
+    through tools/dfp_props.py and the transcription tools/props_ch16.py.  The ties below hold the
+    transcription against this file's blackboard (a structural check of the pictures, not a second
+    proof): each frame of a strip is the seating the moves before it compose to, and each pin is on the
+    one part the move holds still (the rotation's axis, read from U on the blackboard)."""
     calls = DIALOGUE.check_layout("First", sizes=[1, 1, 1, 1])
     assert [(c.macro, c.keyed, c.opt, c.args, c.caption) for c in calls] == [
         ("cradlemodel", True, "", ("home",), "Seated as it came"),
-        ("cradlemodel", False, "quarter", ("home",), "Turned about the upright"),
-        ("cradlemodel", False, "over", ("Dark green up, dark gold front",), "Turned over"),
-        ("cradlemodel", False, "a half about the red line", ("home",), "Turned like a spit")]
+        ("cradlemodel", False, "step=quarter", ("home",), "Turned about the upright"),
+        ("cradlemodelsteps", False, "", ("Dark green up, dark gold front", "over"), "The model, gold in front; Turned over"),
+        ("cradlemodelsteps", False, "", ("home", "a half about the red line"), "The model at home; Turned like a spit")]
     PC.check_captions(DIALOGUE, "First", calls)
     PC.check_section(DIALOGUE, "First", calls)
-    PC.check_anchors(DIALOGUE, "First", ["P1.1", "P1.2", "P1.3", "P1.4"])
+    assert PC.check_anchors(DIALOGUE, "First") == (6, 12)            # P1.2-P1.4, both files
+    frames = [PC.pictures(c) for c in calls]
+    assert [len(f) for f in frames] == [1, 1, 2, 2]                   # card 3e.6: 4 blocks, 6 frames
     frame = round(PC.MFTOP - PC.MFBOT, 2)
     assert frame == 2.07                                              # read from the Lua
     assert [[PC.height(c) for c in b] for b in DIALOGUE.blocks("First")] == [[frame]] * 4
+    assert [R.frame for f in frames for R, _ in f] == [frame] * 6
     # the Opening's D-items (D1-D7): each phrase once in each file, before the First Challenge
     for path in (DIALOGUE.dialog, DIALOGUE.raw):
         text = DIALOGUE.read(path)
@@ -337,33 +397,90 @@ def pictures():
             for ph in PC.D_ANCHORS[d]:
                 assert text.count(ph) == 1 and text.index(ph) < first, (d, ph)
 
-    p11, p12, p13, p14 = (PC.picture(c) for c in calls)
+    # the frames, each the state the moves before it leave (from the strip's start), in order
+    (p11, _), = frames[0]
+    (p12, _), = frames[1]
+    (b03a, _), (p13, _) = frames[2]
+    (b04a, _), (p14, _) = frames[3]
     assert p11.dump == ("seated up=dark green front=dark red right=dark gold back=pale red left=pale gold "
                         "socket=pale green")
     assert p12.dump == ("seated up=dark green front=pale gold right=dark red back=dark gold left=pale red "
                         "socket=pale green")
+    assert b03a.dump == ("seated up=dark green front=dark gold right=pale red back=pale gold left=dark red "
+                         "socket=pale green")
     assert p13.dump == ("seated up=dark gold front=dark green right=dark red back=pale green left=pale red "
                         "socket=pale gold")
+    assert b04a.dump == p11.dump
     assert p14.dump == ("seated up=pale green front=dark red right=pale gold back=pale red left=dark gold "
                         "socket=dark green")
-
-    # the mathematics: every lug of every picture holds the tip U^dagger P U names
-    for c, p in zip(calls, (p11, p12, p13, p14)):
-        U = compose(c.opt, c.args[0])
-        seen = read_dump(p.dump)
+    walk = [(p11, "", "home"), (p12, "quarter", "home"), (b03a, "", "Dark green up, dark gold front"),
+            (p13, "over", "Dark green up, dark gold front"), (b04a, "", "home"),
+            (p14, "a half about the red line", "home")]
+    # the mathematics: every lug of every frame holds the tip U^dagger P U names
+    for R, moves, start in walk:
+        U = compose(moves, start)
+        seen = read_dump(R.dump)
         assert set(seen) == set(PLACE)
         for place in PLACE:
-            assert seen[place] == tip_in_lug(U, place), (c.text, place)
-        assert p.state.eighth == 0 and p.shown.seated
+            assert seen[place] == tip_in_lug(U, place), (R.bracket, place)
+        assert R.drawn.eighth == 0 and R.shown.seated
+        assert R.step == (moves or None)                              # a frame shows its one step
     assert np.allclose(compose("", "home"), I2)                         # P1.1: U = I
+    # a strip's frames in order: frame 1 is frame 0 moved by the step, and frame 0 is the call's start
+    assert b03a.before == p13.before and b04a.before == p14.before == p11.before
+    assert PC.model_dump(p13.after) == p13.dump and PC.model_dump(p13.before) == b03a.dump
+    # the last frame of every block is round 3's picture of it (card 3e.2)
+    for (R, _), old in zip((f[-1] for f in frames), ("", "quarter", "over", "a half about the red line")):
+        start = "Dark green up, dark gold front" if old == "over" else "home"
+        assert R.dump == PC.cradlemodel(old, start, R is p11).dump
     # the plausible mix-ups fail: U P U^dagger (where the place's tip goes, not which tip is
     # there) and back for quarter
     U12 = compose("quarter", "home")
     assert TIP[(0, 1)] != "pale gold" and tip_in_lug(U12, "front") == "pale gold"
     assert not np.allclose(U12 @ X @ U12.conj().T, -Y)                 # the dagger on the wrong side: +Y
     assert PC.model_dump(PC.model_state("back", "home")) != p12.dump
-    # the seating a picture's call names is the blackboard's: P1.3 starts from S^dagger
+    # the seating a picture's call names is the blackboard's: B03 starts from S^dagger
     assert seating(S.conj().T) == "Dark green up, dark gold front."
+
+    # the marks.  The before-frames and P1.1 are unmarked; every moved frame carries one swing arc,
+    # one pin, no ghost (a turned solid leaves no part behind)
+    for R in (p11, b03a, b04a):
+        assert not R.marked and R.arcs == R.pins == R.ghosts == []
+    for R in (p12, p13, p14):
+        assert R.marked and [a.kind for a in R.arcs] == ["swing"] and len(R.pins) == 1 and R.ghosts == []
+    # each pin on the part the move holds still: the axis of rotation(M), M = U_after U_before^dagger,
+    # met on the solid -- the top tip for the quarter, the middle of the top-front edge for over (no
+    # tip holds), the front tip for the half about the red line
+    names = {"quarter": "the top tip (it holds)", "over": "the middle of the top-front edge (the one point that holds)",
+             "a half about the red line": "the front tip (the red line holds)"}
+    for R, moves, start, side in ((p12, "quarter", "home", (0, 0, 1)),
+                                  (p13, "over", "Dark green up, dark gold front", (1, 0, 1)),
+                                  (p14, "a half about the red line", "home", (1, 0, 0))):
+        M = compose(moves, start) @ compose("", start).conj().T
+        n = fixed_axis(M)
+        assert np.allclose(rotation(M) @ n, n)
+        what, x, y = R.pins[0]
+        assert what == names[moves]
+        tilt = PC.model_orient(R.after)[1]
+        q = pinned_point(n, side)
+        ex, ey = PC.m_at(tilt, tuple(PC.MR * c for c in q))
+        assert np.isclose(x, ex) and np.isclose(y, ey), (moves, (x, y), (ex, ey))
+        # the swing arc's sense: its head lies the way the move carries the tip it follows (the front
+        # tip for the quarter, the top tip for over, the right tip for the half), the reverse fails
+        follows = {"quarter": (1, 0, 0), "over": (0, 0, 1), "a half about the red line": (0, 1, 0)}[moves]
+        assert arc_sense(R, rotation(M), np.array(follows, dtype=float)) > 0, moves
+        if moves == "quarter":                                          # back's sense is the other way
+            assert arc_sense(R, rotation(M).T, np.array(follows, dtype=float)) < 0
+            # the short upright arc keeps clear of the pin on the top tip it swings over (the Lua lifts
+            # it till it keeps PINKEEP), a positive gap on the drawn extent
+            assert pin_gap(R) >= PC.PINKEEP > 0, pin_gap(R)
+            # and it reads curved: its body bows at least MINSAG from its chord (B02: chord 0.287 cm)
+            chord, bow = body_bow(R)
+            assert np.isclose(chord, 0.287, atol=5e-4) and bow >= PC.MINSAG - 1e-9, (chord, bow)
+        # the tips that hold: two (an axis through tips) for a quarter and a half, none for over
+        held = [(i, t) for i in range(3) for t in (1, -1) if np.allclose(rotation(M)[:, i] * t, np.eye(3)[i] * t)]
+        assert len(held) == (0 if moves == "over" else 2), (moves, held)
+    assert not np.allclose(fixed_axis(H), [0, 0, 1]) and not np.allclose(abs(fixed_axis(H)), [1, 0, 0])
 
     # the walk, through the transcription: 24 distinct seatings, home again
     dumps = [PC.model_dump(PC.model_state(", ".join(WALK_MOVES[:k]), "home")) for k in range(25)]
@@ -379,19 +496,21 @@ def pictures():
 
     # the captions' truth: seated as it came is home; about the upright keeps the top; turned
     # over brings the front tip up; like a spit keeps the red line (front and back) and turns
-    # the top under
+    # the top under; the before-frames: gold in front, and at home
     assert p11.dump == PC.model_dump(PC.model_state("", "home"))
     assert read_dump(p12.dump)["up"] == read_dump(p11.dump)["up"]
-    assert read_dump(p13.dump)["up"] == "dark gold"                    # the start's front tip
+    assert read_dump(p13.dump)["up"] == read_dump(b03a.dump)["front"] == "dark gold"
     assert (read_dump(p14.dump)["front"], read_dump(p14.dump)["back"]) == ("dark red", "pale red")
     assert read_dump(p14.dump)["up"] == read_dump(p11.dump)["socket"]
+    assert b04a.dump == PC.model_dump(PC.model_state("", "home"))
 
     # the keyed words (P1.1): their letters clear the drawing and each other, the frame by 0.025
-    assert p11.labels == ("top", "front lug", "lug", "cradle") and p12.labels == p13.labels == p14.labels == ()
+    assert p11.labels == ("top", "front lug", "lug", "cradle")
+    assert [R.labels for R, _ in sum(frames[1:], [])] == [()] * 5
     PC.check_keyed_words(p11)
-    # fixed parts: the stand and its lugs are the same in every picture of the model
-    assert p11.shown.stand == p12.shown.stand == p13.shown.stand == p14.shown.stand
-    assert [q for _, q, _ in p11.shown.lugs] == [q for _, q, _ in p14.shown.lugs]
+    # fixed parts: the stand and its lugs are the same in every frame of the model
+    assert len({R.shown.stand for f in frames for R, _ in f}) == 1
+    assert len({tuple(q for _, q, _ in R.shown.lugs) for f in frames for R, _ in f}) == 1
     assert not PC.TEX_ERRORS
 
 

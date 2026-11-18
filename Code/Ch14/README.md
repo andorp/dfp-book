@@ -54,23 +54,43 @@ hand at one, which is every round at once, and end with Euclid's algorithm, whic
 reading into a period and a period into factors, with no picture at all.
 
 
-**The prop pictures.** The dialogue draws its devices seventeen times, with four macros from
-`pdf/props/ch14.{tex,lua}`: `\tickdial` (the paper dial, its hand and the rounds' rings),
-`\tickcloth` (the Tortoise's cloth), `\clockcase` (the Office's case) and `\tickstrips`
-(Euclid's strips). `tools/props_ch14.py` transcribes the Lua's rules: the argument grammar,
-the 41 error sites, the state models and the drawn geometry. It reads every constant from the
-Lua and guards every rule with a literal snippet, so an edit to `ch14.lua` that it does not
-follow fails the import. The cloth and the case come from the shared kits
-(`props_cloth.py`, `props_office.py`). Each challenge file's `pictures()`, called at the end
-of its `blackboard()`, parses its own section's calls out of `dialog.md` through
+**The prop pictures.** The dialogue draws its devices in 19 calls and 35 frames, with eight
+macros from `pdf/props/ch14.{tex,lua}`: `\tickdial` (the paper dial, its hand and the rounds'
+rings), `\tickcloth` (the Tortoise's cloth), `\clockcase` (the Office's case) and
+`\tickstrips` (Euclid's strips), and their strips of steps `\tickdialsteps`,
+`\tickclothsteps`, `\clockcasesteps` and `\tickstripssteps` (round 4, *Show the process*:
+a strip of up to four frames, frame $k$ the single call with the steps before it applied and
+`step=` the $k$-th). `tools/props_ch14.py` transcribes the Lua's rules: the `;` bracket
+(`step=`, `marks=`, `expects=`, and a strip's `from=` and `after=`), the state models, every
+step with its preconditions, the marks (each ghost and arc as the Lua logs them), the one
+wrong rule drawn (`two ticks home`) and the one kept but unused (`gave its quarter`), and the
+97 fault sites through five `tex.error` calls. It reads every constant from the Lua, pins every
+chunk, the four round-4 comments word for word and the `.tex`, so an edit to `ch14.lua` it
+does not follow fails the import. It was cross-checked against `texlua` on the dialogue's
+calls, the fault cases and some 25 000 swept calls: every fault message, drawn line and log
+line agrees, except the cloth kit's drawing-time "no room for the word" fault, which
+`props_cloth.py` deliberately does not transcribe (those lines were filtered out before the
+comparison). The cloth and the case come from the
+shared kits (`props_cloth.py`, `props_office.py`). Each challenge file's `pictures()`, called
+at the end of its `blackboard()`, parses its own section's calls out of `dialog.md` through
 `tools/dfp_props.py`. It then checks:
 
-- the layout, the captions (words only, none spoken, none forbidden), the block heights and
-  the anchors (the paragraph before each block, and the one after it, in both files);
-- that each picture's state is the one this file's mathematics computes for that moment;
-- that what is drawn clears what it must, on the drawn extents with the strokes included.
+- the layout, the captions (words only, none spoken, none forbidden, none echoing the next
+  paragraph), the block heights and the anchors (the paragraph before each block, and the
+  one after it, in both files);
+- that a strip's every frame *is* its single call, and that a marked frame with `marks=off`
+  draws the same picture without its marks (and equals its round-3 call where it had one);
+- that each frame's state is the one this file's mathematics computes for that moment, and
+  each mark (a ghost where the part stood, an arc the way it went) is the step's;
+- that what is drawn clears what it must, on the drawn extents with the strokes included:
+  every mark on its sheet or linen by more than 0.01 cm, every cloth arc clear of every
+  cord and tie by more than 0.02 cm.
 
 These are structural checks of the pictures, not a second proof.
+
+**Pins (the cloth kit).** The shared cloth kit, `pdf/props/cloth.{lua,tex}`, is pinned in
+`tools/props_cloth.py`, which every file imports through `props_ch14`; a change to the kit fails
+every file of this chapter (see the note in `chapter10/Code/README.md`).
 
 ---
 
@@ -103,12 +123,23 @@ NOTs is the same picture. $C_7^4=I$ is **derived**: `full_reduce` on four copies
 leaves only the eight boundaries, each input wired straight across, with scalar $1$. $C_7$,
 $C_7^2$ and $C_7^3$ are not the identity.
 
-**The pictures (P1.1–P1.3).** Each is the dial with the hand at one, at seven (ticked once)
-and at one again (ticked four times). The hand's tip points at its hour, counted clockwise
-from the top mark: the first tick turns it $144^\circ$, not $216^\circ$. The hour sequence
-is the file's `orbit(7, 15)`. The keyed word "top" stands just right of the top mark's outer
-end, above the circle. Its measured box clears the sheet's edge, the circle, the marks and the
-hand, and the letters of "hand" clear the hand.
+**The pictures (F01–F05).** Three blocks: the dial with the hand at one (F01, keyed), one
+tick marked (F02), and a strip of three ticks (F03–F05). The hand's hours are the file's
+`orbit(7, 15)`, $7^m\bmod15$ for $m=0,\dots,4$. Every tick is marked: the hand's ghost at the
+hour it left and a swing arc round the pin, clockwise, through the marks it passed:
+
+```python
+assert hands == [pow(7, m, 15) for m in range(5)] == [1, 7, 4, 13, 1]
+assert ways == [6, 12, 9, 3] and sum(ways) == 30        # two whole turns of the dial
+assert 0 < (clockwise(arc.p0) - 24 * h0) % 360 < 12     # starts just past the hand it left
+```
+
+Each arc's logged clearances are over 0.01 cm, and the wrong sense (counter-clockwise,
+$15-k$ marks) is never what is logged. With `marks=off`, F02 and F05 are round 3's P1.2 and
+P1.3. The hand's tip points at its hour, counted clockwise from the top mark: the first tick
+turns it $144^\circ$, not $216^\circ$. The keyed word "top" stands just right of the top mark's
+outer end, above the circle; its measured box clears the sheet's edge, the circle, the marks
+and the hand, and the letters of "hand" clear the hand.
 
 ## II. `KickedTurn.py` — *The Round Turned Whole* (eigenrounds; kickback; the controlled turn; the blur)
 
@@ -151,13 +182,29 @@ for $\pi/2$ and $3\pi/2$, with different amplitudes of the same size. The closed
 green $\theta$ point, a yellow box and a dark point is the number $1+e^{i\theta}$. For a
 quarter and three quarters, `full_reduce` empties it and leaves exactly that number.
 
-**The pictures (P2.1–P2.4).** P2.1, the first round laid, *is* $\ket{\psi_1}$: each hour's
-bead stands a quarter back for every step of the orbit, and it is not $\ket{\psi_3}$. P2.2, one
-tick later, is $U_7\ket{\psi_1}=i\ket{\psi_1}$: every ring is carried on to the next hour,
-and every bead is turned a quarter. P2.3's cloth is the controlled quarter: the halves at
-$e^{i\pi/4}$ and the bob at $e^{-i\pi/4}$. P2.4 reads as $\mathrm{CP}(\pi/2)$ on
-$\ket+\ket1$ for the lit wheel and the dark one. The keyed words "ring" and "bead" clear
-everything drawn. On the cloth, ties clear the other rings, and hubs and bobs clear the cords.
+**The pictures (F06–F13).** F06, the first round laid (keyed "ring", "bead"), *is*
+$\ket{\psi_1}$: each hour's bead stands a quarter back for every step of the orbit, and it is
+not $\ket{\psi_3}$. F07, its strip's second frame, is $U_7\ket{\psi_1}=i\ket{\psi_1}$: every
+ring is lifted on to the next hour with its bead unchanged, so every bead is a quarter on. Its
+four lift arcs each start by the ring they lift and end by the place it is set down, the short
+way round; the two long lifts cross each other and the circle (a lift passes over what it is
+carried across), and their twine and circle figures are asserted as logged. F08's cloth is the
+controlled quarter: the halves at $e^{i\pi/4}$, the bob at $e^{-i\pi/4}$. F09–F13 are the
+push a part at a time, each part checked against $\mathrm{CP}(\pi/2)$ on $\ket+\ket1$:
+
+```python
+assert T9[("ring", 2, 1)]["t"] + T9[("bob", 1, 0.5)]["t"] == T8[("ring", 2, 1)]["t"]   # an eighth, moved
+assert T10[("hub", 3, 0.5)]["t"] == T8[("end", 0, 1)]["t"] == 12                        # the hub gets the half
+assert T11[("bob", 4, 0.5)]["t"] == (-T10[("bob", 4, 0.5)]["t"]) % 24 == 3              # through the bob
+assert T12[("ring", 2, 0)]["t"] == ... == 6                                             # 3 + 3: a quarter
+```
+
+The new bob of F09 hangs to the ring's left, between the cords, as the new direction (T2)
+says. Every ghost stands where its part stood the frame before and stands no more; the
+"no arc up the tie" and "no slide arc ... under the 0.200" lines are asserted; each slide arc
+runs the way its part went, on the linen, clear of every cord by over 0.02 cm. F13 with
+`marks=off` is round 3's P2.4 byte for byte, and its listener lands at a quarter, as the
+single push does.
 
 ## III. `QuarterClock.py` — *Twice the Pace* (the transform; phase estimation; the master)
 
@@ -208,20 +255,34 @@ assert h.num_edges() == 14 and same_picture(h, g) and phases(h) == phases(g)
 The transform's triangles of §14.3 are checked as drawn: $F_8=2^{3/2}\times$ its picture and
 $F_4^{-1}=\sqrt2\times$ its picture. Without the crossing it fails.
 
-**The pictures (P3.1–P3.4).**
-- P3.2's cloth is worked by the transcription's own rules for all four quarter-secrets. It
-  reads $\ket{j_1j_2}$, the file's `phase_estimation` and `bits_of`, and not the reading
-  reversed. The cords cross once and meet no other end-ring.
-- The case after the passage (P3.3) shows `dll`, which is $\ket{011}$. With the knob down it
-  shows $\ket{000}$.
-- The inside view (P3.4) *is* the master at $\vartheta=\tfrac12$:
+**The pictures (F14–F24).**
+- F14 lays the doubled listener (keyed). F15–F17 push the wheel through both turns at once
+  (the lower holds a quarter, the upper a half: $e^{2\pi i2^k\varphi}$ at $\varphi=\tfrac14$),
+  run it on to the far end and read the upper lit. F18–F21 lay the correction (a quarter
+  back, driven by the upper), push the upper through it (the lower back at rest), read the
+  lower dark and cross the far ends.
+- F15's, F16's and F19's ghosts and arcs are asserted part by part; the least cloth arc
+  clearance from a cord is F15's 0.081 cm (centre line 0.123). F17, F18, F20 and F21 log "no
+  marks: ... shows what it changed".
+- F21 (round 3's P3.2, with `marks=off` byte for byte) is worked by the transcription's own
+  rules for all four quarter-secrets. It reads $\ket{j_1j_2}$, the file's
+  `phase_estimation` and `bits_of`, and not the reading reversed. The cords cross once and
+  meet no other end-ring.
+- The case before the word (F22, keyed: `windows=---`) and after it (F23: `dll`, which is
+  $\ket{011}$; with the knob down, $\ket{000}$). F23 is unmarked: the step shows what it
+  changed.
+- The inside view (F24) *is* the master at $\vartheta=\tfrac12$:
   - its fourteen lengths are the master's fourteen edges, by name;
   - its two collars sit on the two Hadamard edges;
   - its seven beads are the master's phases in twenty-fourths;
   - the cord going up crosses the one going down once, and is drawn over it;
   - no tie crosses another.
+
+  It is the counted frame and is never marked: the inside view draws `step=front open`
+  unmarked and refuses every other step and any `expects`.
 - The Genie's thirteen lines are frozen as a literal list. No picture sits between the lamp
-  and `Granted.`, or at the Escher moment.
+  and `Granted.`, or in the Escher moment (from "And if the wheel turned three quarters?" to
+  the end of "The lower listener heard a quarter ..."): B09 stands before it, B10 after it.
 
 ## IV. `EveryRound.py` — *Every Round at Once* (the hand at one; a random reading)
 
@@ -258,10 +319,28 @@ $\tfrac1{\sqrt2}(\ket{000}+\ket{011})$ with no compensation. That is $\tfrac1{\s
 reducing it and a reference picture (a red point beside a two-legged green dot, times
 $\tfrac12$) with `full_reduce` and comparing the two.
 
-**The pictures (P4.1–P4.3).** On P4.1 the four rounds laid together (each with its
-$\tfrac12$) add up to $2\ket1$: four at one, nothing elsewhere. P4.2 turns face down exactly
-the pairs a half apart, whose phases cancel, and leaves the four rings at one face up. P4.3's
-hand stands at $4=7^2\bmod15$. The square at each hour is ordered as Achilles sees it:
+**The pictures (F25–F28).** On F25 the four rounds laid together (each with its
+$\tfrac12$) add up to $2\ket1$: four at one, nothing elsewhere. F26 turns face down exactly
+the pairs a half apart, whose phases cancel, and leaves the four rings at one face up; its
+twelve ghosts stand where F25's rings at seven, four and thirteen lay, cut away under the
+pairs by a clip with one circle per pair (asserted: a circle given twice would cancel itself
+under the even-odd rule and leave the ghosts over the pairs). F27 is the prediction
+(pale, "as Achilles expects"): the hand at one, where "two ticks home" puts it, while the true
+hand (its `+ step` line) stands at four. The wrong rule is the hand at one after an even
+number of ticks, at seven after an odd one; it is drawn only where it differs from the truth,
+so it is refused after 1, 4, 5 and 8 ticks. Every spoken reaction around it is asserted in
+order, and the Lua's comment quotes the dialogue's words. F28's hand stands at
+$4=7^2\bmod15$, drawn as two ticks, one after another, as B03 draws single ticks (the Editor's
+item 3): ghosts at one and at seven, veiled in the sheet's shade; one clockwise arc per tick,
+each with its own head, one to seven over 6 marks at radius 0.45 and seven to four over 12 at
+0.37 (the second steps in, since its way would lie on the first's), $6+12=18$; both arcs lie
+over the twine on casings, all the casings drawn before both arcs. The file asserts the plan,
+the drawing order, the arcs' ends and radii, and every clearance as logged (tick 2 crosses
+the ghost at one, where the hand stood). A mutation dropping the second ghost fails it, as do
+the doubled clip circle, the arcs drawn before their casings, and the second arc kept on the
+first's radius. A single tick still takes the old way (its arc under the twine, its head over
+it). The
+square at each hour is ordered as Achilles sees it:
 - the ticked round far left;
 - the round at rest far right;
 - the half's round near left;
@@ -308,9 +387,16 @@ sends `0b0001` to `0b0100`. The gcd and the continued fraction have no picture (
 109). This is the translation exception recorded on the card, and the docstring quotes the
 spec: *the diagram shows the architecture; the number theory stays on the blackboard*.
 
-**The pictures (P5.1–P5.3).**
-- The strips *are* Euclid's run on $(15,4)$: the counts $3,1,3$, ticks at $4,8,12$, and $3$
-  left after the snip.
+**The pictures (F29–F35).**
+- The strips *are* Euclid's run on $(15,4)$: the counts $3,1,3$; the short strip laid at
+  $0,4,8$ thumbs, a tick at $4q$ where each lay stops; set back to $0$; $15\bmod4=3$ left
+  after the snip. Every lay after the first, and the set-back, is a lift arc over the top
+  (the strip's ghost where it lay); the snip is a slide beneath the edge strip. Each arc
+  clears the strips and ticks and stays inside the taller round-4 frame (0.88 cm).
+- With `marks=off`, F33 and F34 are round 3's P5.1 and P5.2, all but the frame's top (0.62
+  for 0.52).
+- The new direction T5 is asserted: B17's paragraph ends "that the four cannot cover.]*",
+  and "*[He sets the short strip back beside the long one.]*" stands on its own before B18.
 - One scale serves the whole evening: 0.15 cm a thumb, read from the Lua, so the
   fifteen-thumb strip spans 2.25 cm of the 2.5 cm frame.
 - The runs read out but not pictured are checked as follows:
@@ -318,17 +404,22 @@ spec: *the diagram shows the architecture; the number theory stays on the blackb
     against `strips` and `math.gcd`;
   - thirty-two and five, twenty-one and seven, and twenty-one and nine are longer than
     fifteen thumbs. The macro refuses them, and the file's `strips` checks them instead.
-- The two strips never touch, and the short one stays put.
-- The keyed words' measured boxes sit inside the 0.78 cm frame. They touch neither each other
-  nor the strips:
-  - "long strip" stands below the strip's right end, beside "tick";
-  - the other placement rule, where "tick" steps to the left of its tick, is checked on
-    fifteen and nine.
-- P5.3's hand is home after six ticks, `dial_orbit(21) == [1, 2, 4, 8, 16, 11]`, the order of
+- The keyed words' measured boxes sit inside the frame, touching neither each other nor the
+  strips: "short strip" and "long strip" on F29, "tick" on F30 (keyed new, the part the first
+  lay brought). The other placement rule, where "tick" steps to the left of its tick, is
+  checked on fifteen and nine.
+- F35's hand is home after six ticks, `dial_orbit(21) == [1, 2, 4, 8, 16, 11]`, the order of
   $2\bmod21$.
 - This file also checks the whole dialogue:
-  - 17 pictures, none after P5.3, each in its place;
-  - the keyed form exactly on P1.1, P2.1, P2.3, P3.1, P3.3, P3.4 and P5.1;
+  - 19 calls and 35 frames, none before the First Challenge and none after F35, each frame
+    in its place;
+  - the keyed form exactly on F01, F06, F08, F14, F22, F24 and F29 (the prediction F27
+    exempt), and "new" on F30–F32, of which only F30 draws a word;
+  - no keyed frame and not the counted frame carries a mark; a frame without a step draws
+    none;
+  - every one of the 97 fault sites raised by its own call, with a message of its own (the
+    strips' newest: a lay past thirteen, which has no count word), and the `;` bracket
+    order-free for all four macros; a cloth step the Lua refuses draws no marks;
   - the aria-and-Genie one-liner of the card's §1c on both files;
   - no "Let Bob draw";
   - three "Referred." lines, all the Genie's.

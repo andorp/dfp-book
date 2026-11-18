@@ -96,9 +96,13 @@ def blackboard():
 # The prop pictures.  The dialogue draws the black slab with a pair of one piece
 # on it, the far stone under its cloth, the Tortoise's string laid across, the
 # near stone folded and the string pulled,
-#   \blackslab[operations]{scene}{caption}                 (pdf/props/ch09.tex)
+#   \blackslab[<operations>; step=<operation>]{scene}{caption}   (pdf/props/ch09.tex)
 # tools/props_ch09.py transcribes the Lua; the calls are read out of this
-# challenge's section of dialog.md, never copied.
+# challenge's section of dialog.md, never copied.  Round 4 ("Show the process"):
+# the pull is drawn as a step from the folded string, with its marks -- a pin
+# ring on the far stone's cloth (the finger that holds it) and a slide arc above
+# the string's old way, in toward the far stone.  The fold on the strung pair is
+# the same cover as the Third's, a repeat, drawn without marks.
 #
 # The state model (identity card, section 3): a pair of one piece is the Bell
 # state, the far stone on the top wire; its near stone alone is 1/2 I (slack,
@@ -111,26 +115,33 @@ def blackboard():
 # --------------------------------------------------------------------------
 DIALOGUE = Dialogue(__file__, macros=P.MACROS)
 QUOTE = "There's nothing I can do here that reaches there."
+EDITS = [("{the near stone folded}", "{near stone folded}"),                            # C2
+         ("{drawn in to the far stone}", "{drawn in to the stone under its cloth}")]    # C5
 
 
 def pictures():
     assert f'"{QUOTE}"' in __doc__                               # quoted byte for byte
-    calls = DIALOGUE.check_layout("Fourth", sizes=[1, 2, 1])
+    P.check_lua()
+    P.check_sites()
+    found = P.check_section(DIALOGUE, "Fourth", sizes=[1, 2, 1], frames=[1, 2, 1])
+    P.check_edits(DIALOGUE, "Fourth", EDITS)
+    calls = [c for b in found for c, _ in b]
     p41, p42, p43, p44 = calls
-    for c in calls:
-        assert words_only(c.caption, forbidden=P.CAPTION_FORBIDDEN), c.caption
-        assert P.place_ok("Fourth", c), c.text
-    for b in DIALOGUE.blocks("Fourth"):
-        assert len({P.height(c) for c in b}) == 1                 # no block mixes frames
     assert [c.macro for c in calls] == ["blackslab"] * 4
     assert [c.keyed for c in calls] == [True, False, False, False]
     assert [c.args[0] for c in calls] == ["pair of one piece"] + ["pair of one piece, strung"] * 3
-    assert [c.opt for c in calls] == ["", "", "fold near stone", "fold near stone, pull"]
+    assert [P.options(c) for c in calls] == [
+        {"bare": ""}, {"bare": ""}, {"bare": "fold near stone"},
+        {"step": "pull", "bare": "fold near stone"}]
+    assert not any(P.is_prediction(c) for c in calls)
     b41, b42, b43, b44 = (P.picture(c) for c in calls)
     paras = DIALOGUE.paragraphs("Fourth")
     a1, a2, a3 = DIALOGUE.anchors("Fourth")
     f1, f2, f3 = DIALOGUE.following("Fourth")
     assert QUOTE in DIALOGUE.section("Fourth")                    # the docstring's line
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        here = [(n, o) for n, _, o in P.quote_places(DIALOGUE, path) if o == "Fourth"]
+        assert here == [("THE SLAB'S STEPS", "Fourth")]           # the pull's hold and draw
 
     # the model: the Bell pair, far on the top wire
     rho = np.outer(BELL, BELL.conj()).reshape(2, 2, 2, 2)        # far, near, far', near'
@@ -145,18 +156,36 @@ def pictures():
     cloth, near = b41.shown.things
     assert (cloth.kind, cloth.name, cloth.x) == ("cloth", "far stone", -0.8)
     assert (near.name, near.gloss, near.refl) == ("near stone", "restless", "slack")
-    assert cloth.x < near.x and b41.labels == ("cloth", "near", "black slab")
+    assert (cloth.x, near.x) == (-0.8, 0.6) and b41.labels == ("cloth", "near", "black slab")
     assert (near.refl == "tight") == bool(np.isclose(np.trace(near_alone @ near_alone).real, 1))
 
     # P4.2, P4.3: the string laid far to near, reflection beneath; the near stone folded
-    assert "pinched away" in a2
+    # (the same cover as the Third's: a repeat, no marks)
+    assert "pinched away" in a2 and "the same cover as before" in a2
     assert b42.shown.string == "laid" and b42.shown.things == b41.shown.things
     assert b42.shown.frame == b43.shown.frame == P.TALL_FRAME
     assert b43.shown.string == "folded" and b43.shown.things == (cloth,)   # only the cloth stands
+    assert b41.marks == b42.marks == b43.marks == ()
 
-    # P4.4: pulled -- one bend at the far stone's foot, nothing else on the black
+    # P4.4: the pull, a step from P4.3 -- one bend at the far stone's foot, nothing else
+    # on the black; the finger on the far stone's cloth, the slack drawn in toward it
     assert "chalks the one word: *half*" in a3
+    assert "She sets one finger on the far stone to hold it" in a3
+    assert b44.before.string == b43.state.string == "folded" and b44.before.items == b43.state.items
     assert b44.shown.string == "pulled" and b44.shown.things == (cloth,)
+    assert b44.shown.frame == b43.shown.frame
+    slide, pin = b44.marks                                        # no ghost: the string is never ghosted
+    assert b44.mark("ghost") == [] and (slide.kind, pin.kind) == ("slide", "pin")
+    (x0, y0), _, _, (x1, y1) = slide.pts
+    assert tuple(P.f(v) for v in (x0, y0, x1, y1)) == ("0.660", "0.140", "-0.290", "0.120")
+    assert x1 < x0 and np.isclose(x1 - 0.07, P.HEM + 0.17)        # in toward the far stone's bend
+    assert cloth.x + P.HALFW["cloth"] < x1                        # ending right of the cloth
+    assert (pin.at, pin.r) == ((-0.82, 0.25), 0.05) == (P.PULL_PIN[:2], P.PULL_PIN[2])
+    assert abs(pin.at[0] - cloth.x) + pin.r < P.HALFW["cloth"]    # on the cloth, over the stone
+    assert pin.at[1] + pin.r < P.HEIGHT["cloth"]
+    t44 = P.twin(p44)                                             # its marks-off twin
+    assert t44.marks == () and t44.shown == b44.shown
+    assert t44.shown == P.blackslab("fold near stone, pull", "pair of one piece, strung").shown   # round 3
     assert f3.startswith("**Achilles:** The far half, bent round to its own reflection, "
                          "and a half beside it.")
     assert "a partner out of reach is loosening enough" in f3     # S5, the right naming
@@ -179,6 +208,7 @@ def pictures():
     assert P.faults(P.blackslab, "fold far stone", "pair of one piece, strung") == ["far-stone"]
     assert P.faults(P.blackslab, "tip far stone", "pair of one piece") == ["far-stone"]
     assert P.faults(P.blackslab, "pull", "pair of one piece, strung") == ["pull-laid"]
+    assert P.faults(P.blackslab, "step=pull", "pair of one piece, strung") == ["pull-laid"]
     assert P.faults(P.blackslab, "fold near stone, pull, pull",
                     "pair of one piece, strung") == ["pull-pulled"]
     assert P.faults(P.blackslab, "pull", "pair of one piece") == ["pull-none"]

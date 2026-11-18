@@ -92,15 +92,23 @@ def blackboard():
 
 # --------------------------------------------------------------------------
 # The pictures.  The dialogue draws Achilles's card, the masks and the buttons
-#   \notecard[view]{state}{caption}              (pdf/props/ch07.tex)
+#   \notecard[opts]{state}{caption}                       (pdf/props/ch07.tex)
+#   \cardsteps[opts]{state}{steps}{captions}              (a step strip of it)
 # The Lua COMPUTES the buttons: one on every mask whose word the counters in
-# its windows break.  tools/props_ch07.py transcribes it; the calls are read
-# out of this challenge's section of dialog.md, never copied.
+# its windows break; and, round 4 ("Show the process"), the state after each
+# step (the masks laid one at a time, a counter turned), the step's marks (a
+# laid mask's ghost on the card and its arc to its place below; a counter's
+# flip; a button's ghost where it left and its arc where it crossed), and what
+# the named wrong rule `mended` predicts.  tools/props_ch07.py transcribes it
+# (proved against texlua; P.check_lua holds the Lua and the .tex to the text
+# it was proved on); the calls are read out of this challenge's section of
+# dialog.md and dialog.raw.md, never copied.
 #
-# The state model (identity card, section 3): on the front a column for each
-# box (left, right), the lid square above the door square; white = bright =
-# answer 0, black = dark = answer 1.  The card's labelling of the game: Alice
-# (the left box) lid x=0, door x=1; Bob (the right box) door y=0, lid y=1.
+# The state model (identity card, sections 3 and 3e): on the front a column
+# for each box (left, right), the lid square above the door square; white =
+# bright = answer 0, black = dark = answer 1.  The card's labelling of the
+# game: Alice (the left box) lid x=0, door x=1; Bob (the right box) door y=0,
+# lid y=1.
 # --------------------------------------------------------------------------
 DIALOGUE = Dialogue(__file__, macros=P.MACROS)
 FRONT_Q = {"left lid": ("alice", 0), "left door": ("alice", 1),
@@ -129,6 +137,8 @@ def check_transcription():
     second proof): each front mask reads one question pair, and it is kept
     exactly when that pair is won (a xor b = x.y); so "never all four kept" is
     the blackboard's "best 3 of 4", and the buttons are the losses."""
+    P.check_lua()
+    P.check_sites()
     front = P.MASKS["front"]
     assert [mask_question(m) for m in front] == QUESTIONS
     assert [m.rule for m in front] == ["alike", "alike", "alike", "unlike"]
@@ -157,31 +167,58 @@ def check_transcription():
     assert P.faults(P.notecard, "", "front; middle lid white") != []    # a bad square
     assert P.faults(P.notecard, "", "front; left lid grey") != []       # a bad face
     assert P.faults(P.notecard, "sideways", "front; all white") != []   # a bad view
-    assert P.faults(P.notecard, "under", "front; all white") != []      # under what?
+    assert P.crashes(P.notecard, "under", "front; all white")           # under what? (the Lua stops)
     assert P.faults(P.notecard, "under two drawers", "front; all white") != []   # no such mask
     assert P.faults(P.notecard, "masks, button on two lids", "front; all white") != []
     assert P.faults(P.notecard, "masks", "front; left lid white") != []   # the masks read every square
     assert P.faults(P.notecard, "masks", "front; all white") == []
     assert P.faults(P.notecard, "under unlike", "front; all white") == []   # the alias
+    # round 4's refusals on this section's steps
+    assert P.faults(P.notecard, "masks; turn=left lid", "front; right lid white") != []   # nothing to turn
+    assert P.faults(P.notecard, "masks; lay=next mask", "front; all white") != []         # past four
+    assert P.faults(P.notecard, "card; lay=all", "front; all white") != []                # one at a time
+    assert P.faults(P.notecard, "card; expects=mended", "front; all white") != []         # no turn
+    assert P.faults(P.notecard, "card; lay=next mask; turn=left lid", "front; all white") != []   # one step
+    assert P.faults(P.notecard, "masks; turn=left lid; expects=gaps", "front; all white") != []   # the rule
+    assert P.faults(P.notecard, "masks; marks=off", "front; all white") != []             # marks need a step
+
+
+def lay_frames(found):
+    """Strip 1.2's frames: (picture, caption) four times."""
+    (p12, frames), = found[1]
+    return p12, frames
 
 
 def pictures():
     check_transcription()
-    p11, p12, p13, p14 = DIALOGUE.check_layout("First", sizes=[1, 1, 1, 1])
-    for c in (p11, p12, p13, p14):
-        assert c.macro == "notecard"
-        assert words_only(c.caption, forbidden=P.NOT_IN_CAPTIONS), c.caption
-    c11, c12, c13, c14 = (P.picture(c) for c in (p11, p12, p13, p14))
+    found = P.check_section(DIALOGUE, "First", sizes=[1, 1, 2, 1], frames=[1, 4, 2, 1])
+    (p11, [(c11, cap11)]), = found[0]
+    p12, [(f02, cap02), (f03, cap03), (f04, cap04), (f05, cap05)] = lay_frames(found)
+    (p13e, [(f06, cap06)]), (p13, [(f07, cap07)]) = found[2]
+    (p14, [(c14, cap14)]), = found[3]
+    assert [c.macro for c in (p11, p12, p13e, p13, p14)] == \
+        ["notecard", "cardsteps", "notecard", "notecard", "notecard"]
+    assert (cap11, cap02, cap03, cap04, cap05, cap06, cap07, cap14) == \
+        ("the sealed notes", "the first mask", "the second", "the third", "one button",
+         "as Achilles expects", "one counter turned", "turned again")
+    lays = (f02, f03, f04, f05)
     first = DIALOGUE.section("First")
 
-    a1, a2, a3, a4 = P.anchors(DIALOGUE, "First")
-    assert a1.startswith("**Achilles:** *[laying a white counter in each]*")
-    assert a1.endswith("three askings in four, won on the spot.")
-    assert a2 == "**Tortoise:** A button, where a rule is broken. One broken, three kept."
-    assert "He turns one counter, the right-lid square, white to black" in a3
-    assert "there is still exactly one button on the card" in a3
-    assert a4.startswith("**Achilles:** *[turning the left-lid counter to black]*")
-    assert a4.endswith("it walks to the next square along and sits down again.")
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        a1, a2, a3, a4 = DIALOGUE.anchors("First", path)
+        assert a1.startswith("**Achilles:** *[laying a white counter in each]*")
+        assert a1.endswith("three askings in four, won on the spot.")
+        assert a2 == "**Tortoise:** A button, where a rule is broken. One broken, three kept."
+        assert "He turns one counter, the right-lid square, white to black" in a3
+        assert "there is still exactly one button on the card" in a3
+        assert a4.startswith("**Achilles:** *[turning the left-lid counter to black]*")
+        assert a4.endswith("it walks to the next square along and sits down again.")
+    # the directions edited this round (D1, D2 with the Dramatist's amendment), in both files
+    P.check_edits(DIALOGUE, "First", [
+        ("*[The card as it stands: four white counters. She lays the first mask;",
+         "*[She lays the first mask;"),
+        ("*[The card as it was: four white counters, one button on the unlike mask. He turns one counter,",
+         "*[The one turn, followed through. He turns one counter,")])
 
     # P1.1: the front, keyed; a column for each box, the lid above the door; all white
     assert p11.keyed and c11.side == "front" and c11.view == "card"
@@ -192,27 +229,100 @@ def pictures():
     assert "white face up for a bright note, black for a dark one" in first
     # "three askings in four, won on the spot": the all-white card keeps three masks
     assert len(P.buttons("front", c11.counters)) == 1
+    assert not c11.marked and c11.step is None
 
-    # P1.2: the same card, the masks set out below it, keyed; one button, on the unlike mask
-    assert p12.keyed and c12.view == "masks" and p12.args == p11.args
-    assert c12.labels == ("lid", "door", "alike", "alike", "alike", "unlike")
-    assert c12.buttons == ("left door right lid",)
-    assert c12.spots["left door right lid"] == (1, 1)               # the fourth laid
-    assert "stands one on the fourth mask" in first
+    # Block 1.2: the four masks laid one at a time and set out below the card.  Its
+    # before-frame is P1.1 (from=off): the same card, the same counters, untouched.
+    assert P.options(p12)["from"] == "off" and p12.args[0] == p11.args[0]
+    spec = P.card_spec("front", c11.counters)
+    assert [(s.opts, s.state) for s in P.frames_of(p12)] == [
+        ("card; lay=next mask; keyroom=on", "front; all white"),
+        ("one mask; lay=next mask; keyroom=on", spec),
+        ("two masks; lay=next mask; keyroom=on", spec),
+        ("three masks; lay=next mask; keyroom=on", spec)]
+    assert all(f.counters == c11.counters and f.view == "masks" for f in lays)   # nothing turned
+    assert [f.nmasks for f in lays] == [1, 2, 3, 4]
+    # "one asking to a mask ... one at a time": each frame's step lays the next, its ghost on
+    # the card and one arc from the card down to its place, in the order the Tortoise reads
+    names = [m.name for m in P.MASKS["front"]]
+    assert names == ["left lid right door", "two lids", "two doors", "left door right lid"]
+    w, h = P.cardwh("front")
+    for k, f in enumerate(lays):
+        assert f.step == ("lay", "next mask") and f.pins == [] and f.expects is None
+        assert [(g.what, g.name) for g in f.ghosts] == [("mask", names[k])]
+        (lay,) = f.arcs
+        assert lay.kind == "swing" and lay.tag == "lay " + names[k]
+        sx, sy = P.mask_spots("front")[k]
+        assert np.isclose(lay.start[1], P.MCARDY - h / 2 - 0.03)       # from the card's foot
+        assert np.isclose(lay.end[1], sy + h / 2 + 0.03)               # to the spot's head
+        assert np.sign(lay.end[0]) == np.sign(sx)                      # on the spot's side
+        assert f.spots[names[k]] == divmod(k, 2)                       # two by two, in order
+        assert list(f.spots) == names[:k + 1]
     assert "set each mask out below the card as she read it, two by two in the order laid" in first
+    # "below the card": the card's foot above every spot's head
+    assert all(sy + h / 2 < P.MCARDY - h / 2 for _, sy in P.mask_spots("front"))
+    # the words the Tortoise reads, in order: ALIKE, ALIKE, ALIKE, UNLIKE
+    assert [m.rule for m in P.MASKS["front"]] == ["alike", "alike", "alike", "unlike"]
+    assert "the word on it is ALIKE" in first and "its word is UNLIKE" in first
+    # no button until the fourth is down; then one, on the unlike mask, from her pocket:
+    # no mark (F05's only marks are the fourth mask's)
+    assert [f.buttons for f in lays] == [(), (), (), ("left door right lid",)]
+    assert f05.spots["left door right lid"] == (1, 1)                 # the fourth laid
+    assert "stands one on the fourth mask" in first and "From her pocket" in first
+    # keyed: frame 1 only (Q5): the rows and the first mask's word; the other frames keep
+    # the room as vertical phantoms, so the four stand level
+    assert p12.keyed and f02.keyed and not any(f.keyed for f in lays[1:])
+    assert f02.labels == ("lid", "door", "alike") and not f02.phantom
+    assert all(f.phantom and f.showkey for f in lays[1:])
+    assert [f.labels for f in lays[1:]] == [("lid", "door", "alike", "alike"),
+                                            ("lid", "door", "alike", "alike", "alike"),
+                                            ("lid", "door", "alike", "alike", "alike", "unlike")]
+    assert all(n.endswith("{\\vphantom{" + l + "}};") for f in lays[1:]
+               for n, l in zip(f.label_nodes, f.labels))
 
-    # P1.3: one counter turned (the right lid); the button moves to the two-lids mask
-    assert not p13.keyed and c13.view == "masks"
-    assert turned(c12.counters, c13.counters) == ["right lid"] and c13.counters["right lid"] == "black"
-    assert c13.buttons == ("two lids",)
-    v2, v3 = verdicts("front", c12.counters), verdicts("front", c13.counters)
+    # Block 1.3: the turn, Achilles's forecast beside it.  Both start from F05's state
+    # (written {front; all white}: the same counters, the same one button).
+    for c in (p13e, p13):
+        side, cs = P.parse_card(c.args[0])
+        assert side == "front" and cs == f05.counters
+        assert P.buttons(side, cs) == f05.buttons
+        assert P.options(c)["turn"] == "right lid" and P.options(c)["bare"] == "masks"
+    # F06, the prediction: the named wrong rule, `mended`, its words the Lua's own comment's;
+    # the counters as turned, no button: "unlike, mended" -- paler, unkeyed, no marks
+    quotes = P.rule_quotes()
+    assert quotes[0] in first and quotes[2] in first                   # said, and refuted
+    assert first.index(quotes[0]) < first.index(quotes[2])
+    assert P.is_prediction(p13e) and f06.expects == "mended" and f06.pale and not f06.keyed
+    assert not f06.marked and f06.labels == () and f06.step == ("turn", "right lid")
+    assert f06.counters == f07.counters
+    assert f06.buttons == tuple(P.rule_mended("front", f05.counters, ["right lid"])) == ()
+    # F07, the truth: the right lid black; the button leaves the unlike mask and crosses to
+    # the two-lids mask -- one counter, two verdicts, still one button
+    assert not p13.keyed and f07.view == "masks" and f07.expects is None and not f07.pale
+    assert turned(f05.counters, f07.counters) == ["right lid"] and f07.counters["right lid"] == "black"
+    assert f07.buttons == ("two lids",) != f06.buttons
+    v2, v3 = verdicts("front", f05.counters), verdicts("front", f07.counters)
     assert {k for k in v2 if v2[k] != v3[k]} == {"left door right lid", "two lids"}   # two changed
     assert "Now the unlike mask has a white and a black — unlike, mended." in first
     assert "It has gone to the two-lids mask." in first
+    # its marks: the counter's flip in its own window; the button's ghost where it stood; one
+    # arc from there to the mask it stands on now
+    assert f07.step == ("turn", "right lid") and f07.pins == []
+    assert [(g.what, g.name) for g in f07.ghosts] == [("button", "left door right lid")]
+    flip, cross = f07.arcs
+    assert flip.tag == "flip right lid" and cross.tag == "button left door right lid -> two lids"
+    x0, y0 = P.button_at("front", "left door right lid")
+    x1, y1 = P.button_at("front", "two lids")
+    assert np.isclose(np.hypot(cross.start[0] - x0, cross.start[1] - y0), 0.11)
+    assert np.isclose(np.hypot(cross.end[0] - x1, cross.end[1] - y1), 0.12)
+    assert np.allclose(f07.ghosts[0].at, (x0, y0))
+    fx, fy = P.sqpos("front", "right lid")
+    assert abs(flip.start[0] - fx) < 0.13 and abs(flip.start[1] - (fy + P.MCARDY)) < 0.01
 
-    # P1.4: turned again (the left lid); the button walks to the left-lid-right-door mask
-    assert not p14.keyed and c14.view == "masks"
-    assert turned(c13.counters, c14.counters) == ["left lid"] and c14.counters["left lid"] == "black"
+    # P1.4: turned again (the left lid); the button walks to the left-lid-right-door mask.
+    # A repeat of the turn: unmarked, as the card rules; its before-frame is F07.
+    assert not p14.keyed and c14.view == "masks" and not c14.marked and c14.step is None
+    assert turned(f07.counters, c14.counters) == ["left lid"] and c14.counters["left lid"] == "black"
     assert c14.buttons == ("left lid right door",)
     v4 = verdicts("front", c14.counters)
     assert {k for k in v3 if v3[k] != v4[k]} == {"two lids", "left lid right door"}
@@ -221,7 +331,37 @@ def pictures():
     assert set(P.masks_over("front", "left door")) == {"two doors", "left door right lid"}
     assert "two masks at once — the two-doors mask and the unlike mask" in first
     # one button every time: "Count the broken masks, ever. One, or three."
-    assert [len(c.buttons) for c in (c12, c13, c14)] == [1, 1, 1]
+    assert [len(c.buttons) for c in (f05, f07, c14)] == [1, 1, 1]
+
+    # the log the pictures write, line for line as the build writes it
+    rest = "front; left lid white, left door white, right lid white, right door white"
+    turned_rl = "front; left lid white, left door white, right lid black, right door white"
+    assert P.section_dumps(found) == [
+        "notecard: [card] {front; all white} | " + rest,
+        "cardsteps: strip of 4 frames",
+        "notecard: [card; lay=next mask; keyroom=on] {front; all white} | " + rest + " | buttons none",
+        "notecard: + step lay=next mask -> [one mask] {" + rest + "}",
+        "notecard: + ghost mask left lid right door on the card; arc to its place below (1 of 4)",
+        "notecard: [one mask; lay=next mask; keyroom=on] {" + rest + "} | " + rest + " | buttons none",
+        "notecard: + step lay=next mask -> [two masks] {" + rest + "}",
+        "notecard: + ghost mask two lids on the card; arc to its place below (2 of 4)",
+        "notecard: [two masks; lay=next mask; keyroom=on] {" + rest + "} | " + rest + " | buttons none",
+        "notecard: + step lay=next mask -> [three masks] {" + rest + "}",
+        "notecard: + ghost mask two doors on the card; arc to its place below (3 of 4)",
+        "notecard: [three masks; lay=next mask; keyroom=on] {" + rest + "} | " + rest
+        + " | buttons left door right lid",
+        "notecard: + step lay=next mask -> [masks] {" + rest + "}",
+        "notecard: + ghost mask left door right lid on the card; arc to its place below (4 of 4)",
+        "notecard: [masks; turn=right lid; expects=mended] {front; all white} | " + turned_rl + " | buttons none",
+        "notecard: + step turn=right lid -> [masks] {" + turned_rl + "}",
+        "notecard: + expects mended: buttons none (true: two lids)",
+        "notecard: [masks; turn=right lid] {front; all white} | " + turned_rl + " | buttons two lids",
+        "notecard: + step turn=right lid -> [masks] {" + turned_rl + "}",
+        "notecard: + turned right lid white to black",
+        "notecard: + ghost button left door right lid",
+        "notecard: + arc button left door right lid -> two lids",
+        "notecard: [masks] {front; all white, right lid black, left lid black} | front; left lid black, "
+        "left door white, right lid black, right door white | buttons left lid right door"]
 
 
 # --------------------------------------------------------------------------

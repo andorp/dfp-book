@@ -114,26 +114,75 @@ def blackboard():
 # one that was upper there).  The coins' arrival never reads that last fact:
 # the string remembers which went in front, the coin cannot tell.
 # --------------------------------------------------------------------------
-DIALOGUE = Dialogue(__file__, macros=("stringframe", "foldsheet"))
-NOT_IN_CAPTIONS = ("strings", "wires", "wire", "diagram", "diagrams", "drawing", "drawings",
-                   "picture", "pictures", "box", "boxes")
+DIALOGUE = Dialogue(__file__, macros=("stringframe", "foldsheet", "framewalk", "framesteps",
+                                      "foldsteps"))
 S0 = np.array([[1, 1], [0, 0]], dtype=complex)
 CNOT = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]], dtype=complex)
 I4 = np.eye(4, dtype=complex)
+LOWER = [3, 4]                                             # the gut's and the horsehair's rows
+
+
+def faces(v):
+    """The faces a basis column shows, top row first (heads = 0)."""
+    (k,) = np.flatnonzero(np.abs(v) > 0.5)
+    n = int(np.log2(len(v)))
+    return [P.FACE[int(b)] for b in format(int(k), "0%db" % n)]
+
+
+def check_exchange(fr, upper, lower, col):
+    """An exchange frame: the loops of the pair's right ends trade hooks, the upper
+    coming down in front, the lower going up behind; the left-hand ends held."""
+    m = fr.moved
+    assert fr.step == "exchange" and (m["upper"], m["lower"], m["col"]) == (upper, lower, col)
+    assert (col, upper, lower) in fr.crossings()               # the upper goes in front
+    assert fr.drawn_coins == [] and fr.ghost_coins == []       # the coins laid aside
+    (front, a), (behind, b) = fr.exchange_arcs
+    assert front and not behind
+    ya, yb = P.rowy(m["rowup"]), P.rowy(m["rowdn"])
+    assert {m["rowup"], m["rowdn"]} == set(LOWER)
+    assert not P.up(a) and a[0][1] > a[3][1] and P.up(b)        # in front down, behind up
+    assert all(x > P.L for x, y in a) and all(x < P.L for x, y in b)   # at the right-hand hooks
+    assert ya > a[0][1] > a[3][1] > yb and yb < b[0][1] < b[3][1] < ya
+    # the hold rings: on the pair's left-hand hooks, which never move
+    assert sorted((n, r) for n, r, x, y in fr.pins) == [("gut", 3), ("horsehair", 4)]
+    assert all(x == 0 and y == P.rowy(r) for n, r, x, y in fr.pins)
+    assert [(n, r) for n, r, x, y in fr.pins] == [(upper, fr.rows[upper][0]),
+                                                  (lower, fr.rows[lower][0])]
 
 
 def pictures(SWAP):
+    P.check_lua()                     # ch04.lua and ch04.tex as the transcription was proved
     GATES = {"over": X, "heads": S0, "yoke": CNOT, "cross": SWAP}
-    p51, p52, p53 = DIALOGUE.check_layout("Fifth", sizes=[1, 1, 1])
-    for c in (p51, p52, p53):
-        assert c.macro == "stringframe" and not c.keyed
-        assert words_only(c.caption, forbidden=NOT_IN_CAPTIONS), c.caption
-    f1, f2, f3 = (P.picture(c) for c in (p51, p52, p53))
-    for fr in (f1, f2, f3):
-        assert fr.place == ("end", None) and fr.hooked == ("silk", "hemp", "gut", "horsehair")
-        assert fr.yokes() == []
+    # Four moments: the exchange beside the walk through it (5.1), the slide
+    # through as Achilles expects it beside the truth (5.2), the second
+    # exchange as he expects it beside the truth (5.3), the same report (5.4).
+    found = P.check_section(DIALOGUE, "Fifth", sizes=[2, 2, 2, 1], frames=[4, 2, 2, 1])
+    (p51x, [(fx, _)]), (p51, walk) = found[0]
+    (p52e, [(fr_row, _)]), (p52, [(f2, _)]) = found[1]
+    (p53e, [(fr_flat, _)]), (p53, [(fw, _)]) = found[2]
+    (p54, [(f3, _)]), = found[3]
+    for c in (p51x, p51, p52e, p52, p53e, p53, p54):
+        assert not c.keyed
+    (g0, _), (g1, _), (g2, _) = walk
+    frames = (fx, g0, g1, g2, fr_row, f2, fr_flat, fw, f3)
+    for fr in frames:
+        assert fr.hooked == ("silk", "hemp", "gut", "horsehair") and fr.yokes() == []
+        assert fr.cellwords("silk") == fr.cellwords("hemp") == ["-"] * fr.ncol
+    assert [fr.ncol for fr in frames] == [3, 3, 3, 3, 3, 3, 4, 4, 4]
 
-    # P5.1: crossed once, midway, the gut (upper) in front; hooks exchanged, faces kept
+    # Block 5.1, the exchange (l.563): a bare pair in an empty frame crosses
+    # midway, the gut's loop onto the lower hook in front, the horsehair's onto
+    # the upper behind; the strip after it walks a coin on each through it
+    assert P.options(p51x) == {"place": "off", "exchange": "gut and horsehair"}
+    assert p51x.args[0] == "silk; hemp; gut; horsehair"       # a bare frame
+    check_exchange(fx, "gut", "horsehair", 2)
+    assert np.isclose(P.colx(fx.state, 2), P.L / 2)            # midway
+    assert fx.cells == g0.cells                                # the crossing the walk goes through
+    assert np.allclose(P.check_walks(fx, GATES), np.kron(I4, SWAP))
+    assert p51.macro == "framewalk" and P.options(p51) == {"to": "end"}
+    assert [g.place for g in (g0, g1, g2)] == [("start", None), ("past", 2), ("end", None)]
+    # P5.1, crossed once: hooks exchanged, faces kept
+    f1 = g2
     assert f1.ncol == 3 and f1.crossings() == [(2, "gut", "horsehair")]
     assert f1.rows["gut"] == [3, 3, 4, 4] and f1.rows["horsehair"] == [4, 4, 3, 3]
     assert f1.clips() == []
@@ -142,32 +191,154 @@ def pictures(SWAP):
     assert not np.allclose(M1, np.eye(16))
     assert f1.coins() == {"gut": ("heads", 4), "horsehair": ("tails", 3)}
     assert np.allclose(P.column({1: "tails", 2: "heads"}, 2), SWAP @ ket(0, 1))
+    # frame by frame, the model's coins on the lower pair: laid on, past the
+    # crossing, at the right-hand hooks
+    start = ket(0, 1)                                          # gut heads, horsehair tails
+    for g, v in zip((g0, g1, g2), (start, SWAP @ start, SWAP @ start)):
+        assert np.allclose(P.drawn_column(g, rows=LOWER), v)
+    # the step through the crossing: each coin changes its row, not its face --
+    # a ghost on its old row, as it was, and no hop
+    assert sorted(faces(start)) == sorted(faces(SWAP @ start))
+    assert np.allclose(P.drawn_column(g1, rows=LOWER, ghosts=True), start)
+    assert [(n, f, r) for n, f, r, x, y in g1.ghost_coins] == [("gut", "heads", 3),
+                                                               ("horsehair", "tails", 4)]
+    assert g1.hops == [] and g0.ghost_coins == [] and g2.ghost_coins == []
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        a = DIALOGUE.anchors("Fifth", path)[0]
+        assert a.endswith("They have changed hooks, and neither has changed its face.")
+        assert ("the heads coin goes down with the gut to the lower row, the tails coin up with "
+                "the horsehair to the upper") in a
 
-    # P5.2: the clip slid through -- still on the gut, now on the lower row
+    # Block 5.2: the clip slid through -- still on the gut, now on the lower row
+    assert P.options(p52) == {"place": "end", "slide": "gut first to third"}
+    before = P.clean(P.stringframe, "end", p52.args[0])         # the call's state: before it
+    assert before.clips() == [(1, "gut", 3, ("over",))]
     assert f2.crossings() == [(2, "gut", "horsehair")]
     assert f2.clips() == [(3, "gut", 4, ("over",))]
     M2 = P.check_walks(f2, GATES)
     assert np.allclose(M2, np.kron(I4, np.kron(I2, X) @ SWAP))
     assert np.allclose(M2, np.kron(I4, SWAP @ np.kron(X, I2)))     # slid: row changed
     assert f2.coins() == {"gut": ("tails", 4), "horsehair": ("heads", 3)}
+    truth = np.kron(I2, X) @ SWAP @ ket(0, 0)                 # both heads up
+    assert np.allclose(P.drawn_column(f2, rows=LOWER), truth)
     # the clip before the crossing (l.421): the same arrival, face for face
-    before = P.stringframe("end", "silk; hemp; gut heads: over, cross, -; "
-                                  "horsehair heads: -, cross, -")
-    assert before.clips() == [(1, "gut", 3, ("over",))]
     assert np.allclose(P.check_walks(before, GATES), M2)
     assert before.coins() == f2.coins()
     for start in P.starts(f2):
         assert before.walk(3, start) == f2.walk(3, start)
-    # Achilles's guess -- the clip turns the horsehair coin -- is another frame
+    # the marks: the ghost where the clip stood, on the upper row; the arc down
+    # through the crossing to the lower row, to the right
+    (_, _, _, bx, by), = before.clips_drawn
+    (_, _, _, nx, ny), = f2.clips_drawn
+    assert f2.ghost_clip == ("gut", "over", 1, 3, bx, by)
+    assert by == P.rowy(3) and ny == P.rowy(4) and bx < P.colx(f2.state, 2) < nx
+    # the slide's mark follows the clip's own string through the crossing, a little
+    # above it all the way (the horsehair, its partner there, starts below): the
+    # clip went along the gut, not over the horsehair
+    assert f2.move_arc is None and f2.slide_ceiling is None and not f2.lowered
+    side, off, arc = f2.follow_side, f2.follow_off, f2.follow_arc
+    assert (side, off) == (1, P.SLIDEFOLLOWUP)
+    assert np.isclose(arc[0][0], bx + P.SLIDESIDE) and np.isclose(arc[-1][0], nx - P.SLIDESIDE)
+    assert all(p[0] < q[0] for p, q in zip(arc, arc[1:]))       # left to right
+    gut = P.follow_centre(f2.state, f2.rows, "gut")
+    hh = P.follow_centre(f2.state, f2.rows, "horsehair")
+    pts = P.densify(arc)
+    for q in pts:
+        d = P.polyline_dist(q, gut)
+        assert q[1] > P.polyline_y(gut, q[0])                    # on its side, all along
+        gap = d - P.STROKE["gut"] / 2 - P.SWING / 2
+        assert 0.02 <= gap < 0.05                                # clear of the gut's stroke,
+        assert off - 0.003 < d < off + 0.003                     # and close beside it
+    # it meets the horsehair once, inside the crossing's column
+    above = [q[1] > P.polyline_y(hh, q[0]) for q in pts]
+    meets = [i for i in range(1, len(pts)) if above[i] != above[i - 1]]
+    w = min(0.2, 0.46 * P.colstep(f2.state))
+    assert len(meets) == 1 and abs(pts[meets[0]][0] - P.colx(f2.state, 2)) < w
+    # no lift's hump: never higher than its offset above the gut where it starts
+    top = max(y for _, y in arc)
+    assert top <= P.rowy(3) + off + 0.001
+    assert top < by + P.CLIPTOP + 0.03 + 0.75 * 0.07             # below the old slide arc's apex
+    # the macro raises no new fault on this frame; its guard needs a partner, which
+    # every crossing has
+    assert P.faults(P.stringframe, "end;slide=gut first to third",
+                    p52.args[0]) == []
+    # the prediction beside it (l.579): the clip turns the coin of the string
+    # hooked on its row at the left upright -- the horsehair's, which after the crossing
+    # lies on the upper row
+    assert P.options(p52e) == {"place": "end", "expects": "row"} and fr_row.expects == "row"
+    assert p52e.args[0] == P.serialize(f2.state)               # the frame after the slide
+    assert fr_row.cells == f2.cells and fr_row.moved is None   # drawn as it is, no marks
+    assert fr_row.coinframe.cellwords("horsehair") == ["-", "cross", "over"]
+    assert fr_row.coinframe.cellwords("gut") == ["-", "cross", "-"]
+    expected = np.kron(X, I2) @ SWAP @ ket(0, 0)
+    assert np.allclose(P.drawn_column(fr_row, rows=LOWER), expected)
+    assert fr_row.coins() == {"gut": ("heads", 4), "horsehair": ("tails", 3)}
+    assert not np.allclose(expected, truth)                     # refuted
+    assert fr_row.coins() != f2.coins()
+    # Achilles's guess as a frame of its own: the clip moved to the horsehair
     guess = P.stringframe("end", "silk; hemp; gut heads: -, cross, -; "
                                  "horsehair heads: -, cross, over")
     assert guess.clips() == [(3, "horsehair", 3, ("over",))]
-    assert guess.coins() != f2.coins()
+    assert guess.coins() == fr_row.coins() != f2.coins()
     assert not np.allclose(P.check_walks(guess, GATES), M2)
+    # the rule predicts nothing where a clip is on its own row's string
+    assert P.faults(P.stringframe, "end;expects=row", "silk; hemp; gut heads: over, cross, -; "
+                    "horsehair heads: -, cross, -") == [
+        "stringframe: expects=row: every clip is on its own row's string; the rule predicts what "
+        "happens"]
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        assert DIALOGUE.anchors("Fifth", path)[1].endswith(
+            "The clip kept its string; the string changed its place.")
 
-    # P5.3: crossed again the same way round -- wound, each string in front once
-    assert f3.ncol == 4
+    # Block 5.3: the same hand-movement again (l.593) -- this time the horsehair
+    # in front, the left-hand ends held, the right ends home, and the pair wound
+    assert P.options(p53) == {"place": "off", "exchange": "gut and horsehair"}
+    assert p53.args[0] == "silk; hemp; gut: -, cross, -; horsehair: -, cross, -"   # crossed once
+    check_exchange(fw, "horsehair", "gut", 3)
+    assert fw.crossings() == [(2, "gut", "horsehair"), (3, "horsehair", "gut")]
+    assert fw.rows["gut"][-1] == 3 and fw.rows["horsehair"][-1] == 4   # own hooks
+    Mw = P.check_walks(fw, GATES)
+    assert np.allclose(Mw, np.kron(I4, SWAP @ SWAP)) and np.allclose(Mw, np.eye(16))
+    # D9: the two crossings lie close together about the middle
+    x2, x3 = P.colx(fw.state, 2), P.colx(fw.state, 3)
+    assert x2 < P.L / 2 < x3 and np.isclose(x3 - x2, P.colstep(fw.state))
+    # the prediction beside it (l.597, "I said what you said and did what you
+    # did!"): the same movement made again undoes the first, so the pair lies
+    # straight -- the wound frame with its two crossings taken out.  The coins
+    # cannot tell the two apart; the strings can.
+    assert P.options(p53e) == {"place": "off", "expects": "flat"} and fr_flat.expects == "flat"
+    assert p53e.args[0] == P.serialize(fw.state)               # the true frame, as Achilles reads it
+    assert fr_flat.crossings() == [] and fr_flat.clips() == []
+    assert all(c == P.NONE for n in fr_flat.hooked for c in fr_flat.cells[n])
+    straightened = {n: tuple(P.NONE if c.kind == "cross" else c for c in fw.cells[n])
+                    for n in fw.hooked}
+    assert fr_flat.cells == straightened
+    assert fr_flat.cells != fw.cells                           # refuted: in the strings only
+    assert fr_flat.drawn_coins == [] == fw.drawn_coins
+    assert np.allclose(P.check_walks(fr_flat, GATES), Mw)      # the coins report the same
+    assert P.faults(P.stringframe, "off;expects=flat", p53.args[0]) == [
+        "stringframe: expects=flat needs two crossings of one pair one after the other"]
+    D8 = ("*[The lower pair still lies crossed once:",
+          "*[Achilles lifts the two coins off the lower pair's right-hand hooks and lays them "
+          "aside with the others. The lower pair still lies crossed once:")
+    D9 = ("The right ends come home to their own hooks, and still the pair will not lie flat.]*",
+          "The right ends come home to their own hooks, and still the pair will not lie flat. "
+          "The two crossings lie close together about the middle.]*")
+    P.check_edits(DIALOGUE, "Fifth", [D8, D9])
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        at8, blocks = P.where(DIALOGUE, "Fifth", D8[1], path)
+        at9, _ = P.where(DIALOGUE, "Fifth", D9[1], path)
+        assert blocks[1] < at8 <= at9 < blocks[2]               # after the slide, before 5.3
+        para = DIALOGUE.paragraphs("Fifth", path)[at9]
+        assert "this time the horsehair passes in front and the gut behind" in para
+        assert DIALOGUE.anchors("Fifth", path)[2].endswith(
+            "It won't pull out. And I said what you said and did what you did!")
+
+    # P5.4 (the old P5.3): crossed again the same way round -- wound, each string
+    # in front once, the same report as a straight pair
+    assert f3.ncol == 4 and f3.place == ("end", None) and f3.moved is None
     assert f3.crossings() == [(2, "gut", "horsehair"), (3, "horsehair", "gut")]
+    assert f3.cells == fw.cells                                # the wound frame, walked
     assert sorted(front for col, front, behind in f3.crossings()) == ["gut", "horsehair"]
     assert f3.rows["gut"][-1] == 3 and f3.rows["horsehair"][-1] == 4   # own hooks
     M3 = P.check_walks(f3, GATES)
@@ -183,10 +354,100 @@ def pictures(SWAP):
     for start in P.starts(f3):
         assert f3.coins(start) == straight.coins(start)
     assert np.allclose(P.check_walks(straight, GATES), M3)
+    # the macro refuses a walk strip of the slid-through frame: no coin fits
+    # between the crossing and the clip
+    assert any("too crowded to walk" in e for e in
+               P.faults(P.run_call, "framewalk", False, "to=end", (p52.args[0],),
+                        "laid on; past the clip; past the crossing; at the hooks"))
 
-    # the macro's own faults: a crossing needs its partner on the next row
+    # the macro's own faults: a crossing needs its partner on the next row, and
+    # an exchange a pair whose right ends are neighbours
     assert P.faults(P.stringframe, "end", "gut: cross; horsehair") != []
     assert P.faults(P.stringframe, "end", "silk: cross; gut: cross") != []
+    assert P.faults(P.stringframe, "off;exchange=silk and gut", "silk; hemp; gut") == [
+        "stringframe: exchange: the right-hand ends of the silk and the gut are not on "
+        "neighbouring rows"]
+
+    assert P.section_dumps(found) == [
+        "stringframe: off exchange",
+        "stringframe: + cells silk -,-,-",
+        "stringframe: + cells hemp -,-,-",
+        "stringframe: + cells gut -,cross,-",
+        "stringframe: + cells horsehair -,cross,-",
+        "stringframe: + front gut col 2",
+        "stringframe: + exchange gut horsehair col 2",
+        "stringframe: + pin hook gut row 3",
+        "stringframe: + pin hook horsehair row 4",
+        "stringframe: start",
+        "stringframe: + coin gut heads row 3",
+        "stringframe: + coin horsehair tails row 4",
+        "stringframe: + cells silk -,-,-",
+        "stringframe: + cells hemp -,-,-",
+        "stringframe: + cells gut -,cross,-",
+        "stringframe: + cells horsehair -,cross,-",
+        "stringframe: + front gut col 2",
+        "stringframe: past-second",
+        "stringframe: + coin gut heads row 4",
+        "stringframe: + coin horsehair tails row 3",
+        "stringframe: + cells silk -,-,-",
+        "stringframe: + cells hemp -,-,-",
+        "stringframe: + cells gut -,cross,-",
+        "stringframe: + cells horsehair -,cross,-",
+        "stringframe: + front gut col 2",
+        "stringframe: + ghost coin gut heads row 3",
+        "stringframe: + ghost coin horsehair tails row 4",
+        "stringframe: end",
+        "stringframe: + coin gut heads row 4",
+        "stringframe: + coin horsehair tails row 3",
+        "stringframe: + cells silk -,-,-",
+        "stringframe: + cells hemp -,-,-",
+        "stringframe: + cells gut -,cross,-",
+        "stringframe: + cells horsehair -,cross,-",
+        "stringframe: + front gut col 2",
+        "stringframe: end expects row",
+        "stringframe: + coin gut heads row 4",
+        "stringframe: + coin horsehair tails row 3",
+        "stringframe: + cells silk -,-,-",
+        "stringframe: + cells hemp -,-,-",
+        "stringframe: + cells gut -,cross,over",
+        "stringframe: + cells horsehair -,cross,-",
+        "stringframe: + front gut col 2",
+        "stringframe: end slide",
+        "stringframe: + coin gut tails row 4",
+        "stringframe: + coin horsehair heads row 3",
+        "stringframe: + cells silk -,-,-",
+        "stringframe: + cells hemp -,-,-",
+        "stringframe: + cells gut -,cross,over",
+        "stringframe: + cells horsehair -,cross,-",
+        "stringframe: + front gut col 2",
+        "stringframe: + slid gut 1 to 3",
+        "stringframe: + ghost clip gut over col 1 row 3",
+        "stringframe: off expects flat",
+        "stringframe: + cells silk -,-,-,-",
+        "stringframe: + cells hemp -,-,-,-",
+        "stringframe: + cells gut -,-,-,-",
+        "stringframe: + cells horsehair -,-,-,-",
+        "stringframe: off exchange",
+        "stringframe: + cells silk -,-,-,-",
+        "stringframe: + cells hemp -,-,-,-",
+        "stringframe: + cells gut -,cross,cross,-",
+        "stringframe: + cells horsehair -,cross,cross,-",
+        "stringframe: + front gut col 2",
+        "stringframe: + front horsehair col 3",
+        "stringframe: + exchange horsehair gut col 3",
+        "stringframe: + pin hook horsehair row 4",
+        "stringframe: + pin hook gut row 3",
+        "stringframe: end",
+        "stringframe: + coin silk heads row 1",
+        "stringframe: + coin hemp tails row 2",
+        "stringframe: + coin gut heads row 3",
+        "stringframe: + coin horsehair tails row 4",
+        "stringframe: + cells silk -,-,-,-",
+        "stringframe: + cells hemp -,-,-,-",
+        "stringframe: + cells gut -,cross,cross,-",
+        "stringframe: + cells horsehair -,cross,cross,-",
+        "stringframe: + front gut col 2",
+        "stringframe: + front horsehair col 3"]
 
 
 # --------------------------------------------------------------------------

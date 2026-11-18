@@ -89,9 +89,12 @@ def blackboard():
 # The prop pictures.  The dialogue draws the Crab's cords and curtain-rings
 #   \ringcords[view]{tangle}{caption}           (pdf/props/ch08.tex)
 # and the Crab's press, \koekpan[view]{caption}.  The Lua COMPUTES the views:
-# slid, flipped, pushed, pressed, and the ring come clear of the flip-slot.
-# tools/props_ch08.py transcribes the Lua; the calls are read out of this
-# challenge's section of dialog.md, never copied.
+# slid, flipped, pushed, pressed, and the ring come clear of the flip-slot --
+# with (round 4, "Show the process", marks=on) the ring's ghost where it sat, on
+# the far side of the rim, and its way down through the slot.
+# tools/props_ch08.py transcribes the Lua (proved against texlua; P.check_lua
+# holds the Lua and the .tex to the text it was proved on); the calls are read
+# out of this challenge's section of dialog.md and dialog.raw.md, never copied.
 #
 # The state model (identity card, section 3): a green ring is a Z spider, a red
 # ring an X spider; a ring's turn t (twenty-fourths, clockwise from the top as
@@ -142,6 +145,8 @@ def tangle_map(T):
 def check_transcription():
     """The Lua's flipped view and the flip-slot against colour change (a
     structural check, not a second proof)."""
+    P.check_lua()
+    P.check_sites()
     # flipped <-> colour change, every turn, on the two shapes the Second draws: the ring
     # at the end of a cord through the slot (one cord in) and the four-cord ring (two in,
     # two out).  Every leg dressed in a flip is the other colour, the same turn, EXACTLY.
@@ -169,38 +174,104 @@ def check_transcription():
     assert P.faults(P.koekpan, "slot blue") == ["koekpan-view"]
 
 
+def bezier(p0, p1, p2, p3, n=4001):
+    """Points along a cubic Bezier, as TikZ draws "p0 .. controls p1 and p2 .. p3"."""
+    t = np.linspace(0, 1, n)[:, None]
+    p0, p1, p2, p3 = (np.array(p, dtype=float) for p in (p0, p1, p2, p3))
+    return (1 - t) ** 3 * p0 + 3 * (1 - t) ** 2 * t * p1 + 3 * (1 - t) * t ** 2 * p2 + t ** 3 * p3
+
+
+# The slot close-up's rim as ch08.lua's slot_closeup draws it (its numbers held by P.check_lua):
+# the band's upper edge (the far side above it), its lower edge, and the slot, an ellipse at
+# the origin, half-width 0.17.
+RIM_TOP = ((-1.15, 0.02), (-0.4, 0.2), (0.4, 0.2), (1.15, 0.02))
+RIM_BOTTOM = ((-1.15, -0.26), (-0.4, -0.08), (0.4, -0.08), (1.15, -0.26))
+SLOT_HALF = 0.17
+
+
+def check_slot_marks(pan, colour):
+    """The close-up's marks (marks=on): the ring as it was, the colour it was, on the far side
+    of the rim, and its way down through the slot to where it came clear."""
+    other = P.OTHER[colour]
+    assert pan.ring == other and [m.kind for m in pan.marks] == ["ghost", "swing"]
+    ghost, swing = pan.marks
+    assert ghost.ring.c == colour and ghost.ring.t == 0 and ghost.at == P.SLOT_GHOST   # the same turn
+    # the ghost in full, wholly above the rim's upper edge (measured on its drawn disk)
+    th = np.linspace(0, 2 * np.pi, 721)
+    disk = np.c_[ghost.at[0] + P.RO * np.cos(th), ghost.at[1] + P.RO * np.sin(th)]
+    top = bezier(*RIM_TOP)
+    assert min(disk[:, 1] - np.interp(disk[:, 0], top[:, 0], top[:, 1])) > 0
+    # the ring come clear, wholly below the rim's lower edge: the near side
+    ring = np.c_[P.SLOT_RING[0] + P.RO * np.cos(th), P.SLOT_RING[1] + P.RO * np.sin(th)]
+    bot = bezier(*RIM_BOTTOM)
+    assert min(np.interp(ring[:, 0], bot[:, 0], bot[:, 1]) - ring[:, 1]) > 0
+    # the swing: from the ghost, down through the slot (it crosses the rim's line inside the
+    # slot's opening, with room to spare), towards the ring
+    (x0, y0), c1, c2, end = swing.pts
+    arc = bezier((x0, y0), c1, c2, end)
+    assert np.hypot(x0 - ghost.at[0], y0 - ghost.at[1]) < 2 * P.RO          # leaves from the ghost
+    cross = arc[np.argmin(abs(arc[:, 1]))]
+    assert abs(cross[1]) < 1e-3 and SLOT_HALF - abs(cross[0]) > 0
+    assert end[1] < 0 and np.hypot(end[0] - P.SLOT_RING[0], end[1] - P.SLOT_RING[1]) < 2 * P.RO
+    assert all(a[1] >= b[1] for a, b in zip(arc, arc[1:]))                   # always downward
+    assert pan.log[1:] == (f"koekpan: + ghost {colour} ring 0 at {P.pt(*P.SLOT_GHOST)}, the far side of the rim",
+                           f"koekpan: + swing arc from the ghost through the slot to the {other} ring at "
+                           f"{P.pt(*P.SLOT_RING)}")
+
+
 def pictures():
     assert f'"{QUOTE}"' in __doc__                              # quoted byte for byte
     check_transcription()
-    p21, p22, p23, p24 = DIALOGUE.check_layout("Second", sizes=[1, 1, 2])
-    calls = (p21, p22, p23, p24)
+    found = P.check_section(DIALOGUE, "Second", sizes=[1, 1, 2], frames=[1, 1, 2])
+    calls = tuple(c for b in found for c, _ in b)
+    p21, p22, p23, p24 = calls
+    b21, b22, b23, b24 = (fr[0][0] for b in found for _, fr in b)
     assert [c.macro for c in calls] == ["koekpan", "koekpan", "ringcords", "ringcords"]
     for c in calls:
         assert words_only(c.caption, forbidden=P.NOT_IN_CAPTIONS) and P.caption_ok(c), c.caption
     assert [c.keyed for c in calls] == [True, False, False, False]     # the pan keyed once
-    assert [c.opt for c in calls] == ["", "slot green", "", "flipped"]
+    assert [c.opt for c in calls] == ["", "slot green; marks=on", "", "flipped"]
+    assert [P.options(c) for c in calls] == [{"bare": "shut"}, {"bare": "slot green", "marks": "on"},
+                                             {"bare": ""}, {"bare": "flipped"}]
+    assert P.bracket(p21) == "shut"                                      # no bracket: [shut]
     assert p21.args == p22.args == ()                                    # the pan: a caption only
-    b21, b22, b23, b24 = (P.picture(c) for c in calls)
     sec = DIALOGUE.section("Second")
-    a1, a2, a3 = P.anchors(DIALOGUE, "Second")
-    f1, f2, f3 = P.following(DIALOGUE, "Second")
+    a1, a2, a3 = DIALOGUE.anchors("Second")
+    f1, f2, f3 = DIALOGUE.following("Second")
+    # the direction edited this round (N4), in both files
+    P.check_edits(DIALOGUE, "Second", [
+        ("The green ring sits on its loose cord.",
+         "The green ring sits on its loose cord, on the far side of the rim.")])
 
-    # P2.1: the pan shut, its parts named in the speech it follows
+    # P2.1: the pan shut, its parts named in the speech it follows; the press is never
+    # stripped and never marked (it works unseen)
     assert b21.view == "shut" and b21.labels == ("rim", "flip-slot", "handle", "second hooks")
+    assert b21.marks == () and b21.mark_tikz == ()
     assert ("a griddle-like press with a single slot in its rim and, standing beside it, "
             "a little wooden rack with two empty hooks up each post") in a1
     assert "this **flip-slot**" in a1 and "this second set of hooks" in a1
     assert a1.endswith("and leaves the first cords be.")
     assert f1.startswith("*[It is a homely thing")                   # the ambient after the block
+    assert "it's a shy thing" in a1
 
-    # P2.2: the close-up: the cord of a GREEN ring through the slot, the ring clear in RED,
-    # the same cord and the same turn
+    # B2.2: the close-up: the cord of a GREEN ring through the slot, the ring clear in RED,
+    # the same cord and the same turn; marked: the green ring where it sat, its way through
     assert "He takes a loose cord feeding a green ring and passes the cord through the flip-slot." in sec
     assert b22.view == "slot green" and b22.ring == "red" and b22.labels == ()
     assert "is red where it was green" in a2 and "same cord, same turn" in a2
+    assert "on the far side of the rim. He draws the cord through the flip-slot" in a2
+    check_slot_marks(b22, "green")
+    check_slot_marks(P.koekpan("slot red; marks=on"), "red")                 # and the other way
+    # without marks=on the old call draws what it drew (round 3): no mark at all
+    assert P.koekpan("slot green").marks == () and P.koekpan("slot green").ring == "red"
+    assert P.faults(P.koekpan, "shut; marks=on") == ["koekpan-marks"]        # nothing moves, shut
+    # the ghost is the ring BEFORE the slot, the other colour from the ring drawn after
+    assert b22.marks[0].ring.c == P.OTHER[b22.ring]
 
-    # P2.3, P2.4: the four-cord ring, before and after every cord went through
+    # P2.3, P2.4: the four-cord ring, before and after every cord went through (a surprise,
+    # kept as before and after, unmarked)
     assert p23.args == p24.args
+    assert b23.marks == b24.marks == ()
     assert "takes a green ring with four cords" in sec
     assert "The green ring hangs with its four cords." in a3
     assert "The ring's four cords still run where they ran; only green has become red." in a3

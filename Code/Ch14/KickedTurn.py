@@ -15,6 +15,7 @@ Kitaev's Eq. (17)).
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools"))
 
+import re
 from fractions import Fraction
 from math import gcd
 
@@ -219,38 +220,57 @@ def cloth_clearances(p):
 
 
 def pictures():
-    """The Second Challenge's prop pictures (identity card, section 4), read from the
-    dialogue through tools/dfp_props.py and the transcription tools/props_ch14.py.  The
-    ties below hold the transcription against this file's blackboard: a structural
-    check of the pictures, not a second proof."""
+    """The Second Challenge's prop pictures (identity card, sections 4 and 3e), read from the
+    dialogue through tools/dfp_props.py and the transcription tools/props_ch14.py: four blocks,
+    three strips and a single call, eight frames (F06-F13).  The ties below hold the
+    transcription against this file's blackboard: a structural check of the pictures, not a
+    second proof."""
     calls = DIALOGUE.check_layout("Second", sizes=[1, 1, 1, 1])
     assert [(c.macro, c.keyed, c.opt, c.args, c.caption) for c in calls] == [
-        ("tickdial", True, "", ("first round",), "the round as laid"),
-        ("tickdial", False, "", ("first round ticked once",), "the round, ticked"),
-        ("tickcloth", True, "", ("one listener; wheel lit",), "a controlled turn, the wheel lit"),
-        ("tickcloth", False, "push the wheel", ("one listener; wheel lit",), "the turn landed")]
+        ("tickdialsteps", True, "", ("first round", "tick the round"), "the round as laid; the round, ticked"),
+        ("tickcloth", True, "", ("one listener; wheel lit",), "a controlled turn, its wheel lit"),
+        ("tickclothsteps", False, "from=off", ("one listener; wheel lit", "slide off the eighth; push into the ring"),
+         "the ring given its own bob; pushed into the ring"),
+        ("tickclothsteps", False, "after=slide off the eighth, push into the ring; from=off",
+         ("one listener; wheel lit", "hub through the bob; bob into the ring; slide together"),
+         "through the bob; up into the listener's ring; the turn landed")]
     PC.check_captions(DIALOGUE, "Second", calls)
     PC.check_section(DIALOGUE, "Second", calls)
     dial_h = round(PC.DIAL_FTOP - PC.DIAL_FBOT, 2)
     assert dial_h == 2.42                                             # read from the Lua
-    assert [[PC.height(c) for c in b] for b in DIALOGUE.blocks("Second")] == [[dial_h], [dial_h], [1.45], [1.45]]
+    assert [[PC.height(c) for c in b] for b in DIALOGUE.blocks("Second")] == [[dial_h], [1.45], [1.45], [1.45]]
+    frames = [(fc, p) for c in calls for fc, (p, _) in zip(PC.frame_calls(c), PC.pictures(c))]
+    names = ["F%02d" % i for i in range(6, 14)]
+    assert len(frames) == len(names) == 8
+    F = dict(zip(names, [p for _, p in frames]))
+    FC = dict(zip(names, [fc for fc, _ in frames]))
+    for fc, p in frames:                                              # a strip frame IS its single call
+        assert PC.drawn(PC.picture(fc)) == PC.drawn(p) and PC.picture(fc).log == p.log, fc.text
+    part = ("slide off the eighth", "push into the ring", "hub through the bob", "bob into the ring", "slide together")
+    assert [(fc.keyed, fc.opt) for fc in FC.values()] == [
+        (True, ""), (False, "step=tick the round"), (True, "")] + [
+        (False, ("" if k == 0 else ", ".join(part[:k]) + "; ") + "step=" + part[k]) for k in range(5)]
 
-    # the anchors (card section 4), in dialog.md; the raw file's following paragraphs agree
+    # the anchors (card sections 4 and 3e.4), in dialog.md; the raw file's following paragraphs agree
     a1, a2, a3, a4 = DIALOGUE.anchors("Second")
     f1, f2, f3, f4 = DIALOGUE.following("Second")
-    assert "A bead at rest stands at the top of its ring as Achilles sees it" in a1               # D6
-    assert "crossing itself once" in a1                                                           # D6
-    assert f1.startswith("**Tortoise:** Tick it.")
-    assert "He does not touch a bead" in a2
-    assert f2.startswith("**Achilles:** Every ring has gone to a new hour")
-    assert "The picture as it stands" in a3
-    assert f3.startswith("*[First she slides the eighth off the wheel's green ring")
+    assert "He does not touch a bead" in a1                                                       # B04: P2.2's
+    assert f1.startswith("**Achilles:** Every ring has gone to a new hour")
+    assert "The picture as it stands" in a2
+    assert f2.startswith("*[First she slides the eighth off the wheel's green ring")
+    assert a3 == f2                                                                               # B06 follows it
+    t2 = "The new bob comes from her little box of rings and hangs to the ring's left, between the cords."
+    assert t2 in a3                                                                               # T2
+    assert f3.startswith("**Tortoise:** An eighth set aside. Now the hub goes through the bob.")
     assert "the ring back along the cord into the end-ring, the stretch between swallowed" in a4  # D11
     assert "The wheel's end-ring lies just past where its green ring stood" in a4                 # D11
     assert f4.startswith("**Achilles:** So what you're saying is that the wheel gave its quarter to the listener.")
     assert DIALOGUE.following("Second", DIALOGUE.raw) == [f1, f2, f3, f4]
+    assert t2 in DIALOGUE.section("Second", DIALOGUE.raw)
     section = DIALOGUE.section("Second")
+    assert "**Tortoise:** Tick it." in section                    # no longer a block's next (B04 holds P2.1)
     for phrase in (
+            "A bead at rest stands at the top of its ring as Achilles sees it", "crossing itself once",   # D6
             "a loop of pale twine threaded with small rings of plain wood",                         # D5
             "setting her little box of rings and the packet of tubes on the table beside the cloth",  # D7
             "the part of the cloth nearest Achilles",                                               # D7
@@ -267,75 +287,99 @@ def pictures():
     assert "The wheel cord runs from end to end as it did before" not in section                    # D11's old
     assert "set off to one side" not in section                                                     # D9's old
 
-    p21, p22, p23, p24 = (PC.picture(c) for c in calls)
-
-    # P2.1: the round as laid IS |psi_1> (the 1/2 aside, which the beads do not carry): at
+    # F06: the round as laid IS |psi_1> (the 1/2 aside, which the beads do not carry): at
     # the i-th hour of the hand's way the bead stands i quarters back
     N, a, r = 15, 7, 4
     U7 = tick_box(a, N, 4)
     psis, orb = rounds(a, N, 4, r)
+    p21, p22 = F["F06"], F["F07"]
     assert PC.dial_orbit(15) == orb == [1, 7, 4, 13]
-    assert p21.dump == "hours=15 hand=1 rings=1:1:0,7:1:18,4:1:12,13:1:6"
-    assert p21.labels == ("ring", "bead")
+    assert p21.head == "hours=15 hand=1 rings=1:1:0,7:1:18,4:1:12,13:1:6"
+    assert p21.words == ("ring", "bead") and p21.notes == [] and p21.mark_tikz == []
     # the keyed words, as set (measured node boxes, strokes included): "ring" in the sheet's
     # open left margin beside the ring at thirteen, "bead" just below the bead at seven --
     # each inside the sheet and touching nothing drawn
-    # (the node box, padding included, clears everything; the letters by over 0.03 -- the
-    # tightest are "ring" to the sheet's left edge and "bead" to the pencil mark at eight)
     for word in ("ring", "bead"):
-        gaps = PC.dial_word_gaps(p21.shown, word)
+        gaps = PC.dial_word_gaps(p21.view, word)
         assert min(gaps.values()) > 0, (word, gaps)
-        assert min(PC.dial_word_gaps(p21.shown, word, ink=True).values()) > 0.03, word
-    (_, bx, by, banc), = [l for l in p21.shown.labels if l[0] == "bead"]
-    seven = [r_ for r_ in p21.shown.rings if r_[0] == 7][0]
+        assert min(PC.dial_word_gaps(p21.view, word, ink=True).values()) > 0.03, word
+    (_, bx, by, banc), = [l for l in p21.labels if l[0] == "bead"]
+    seven = [r_ for r_ in p21.view.rings if r_[0] == 7][0]
     assert banc == "north east" and (bx, by) == (seven[5] - PC.BEAD_DX, seven[6] - PC.RBR - PC.BEAD_DY)
-    laid = {ring["hour"]: bead_phase(ring["t"]) for ring in p21.state.rings}
+    laid = {ring["hour"]: bead_phase(ring["t"]) for ring in p21.after.rings}
     assert sorted(laid) == sorted(orb)
     v = np.zeros(16, dtype=complex)
     for h, z in laid.items():
         v[h] = z / 2
     assert np.allclose(v, psis[1]) and not np.allclose(v, psis[3])   # a quarter BACK, not on
-    # P2.2: ticked once, every ring carried to the next hour of the hand's way, its bead
+    # F07: ticked once, every ring carried to the next hour of the hand's way, its bead
     # untouched -- and the round is U_7 |psi_1> = i |psi_1>: every hour's bead a quarter on
-    assert p22.dump == "hours=15 hand=1 rings=1:1:6,7:1:0,4:1:18,13:1:12"
-    after = {ring["hour"]: ring["t"] for ring in p22.state.rings}
-    before = {ring["hour"]: ring["t"] for ring in p21.state.rings}
+    assert p22.head == "hours=15 hand=1 rings=1:1:6,7:1:0,4:1:18,13:1:12" and p22.words == ()
+    after = {ring["hour"]: ring["t"] for ring in p22.after.rings}
+    before = {ring["hour"]: ring["t"] for ring in p22.before.rings}
+    assert before == {ring["hour"]: ring["t"] for ring in p21.after.rings}
     assert all(after[h] == (before[h] + 6) % 24 for h in orb)
     w = np.zeros(16, dtype=complex)
     for h, t in after.items():
         w[h] = bead_phase(t) / 2
     assert np.allclose(w, U7 @ psis[1]) and np.allclose(w, 1j * psis[1])
     # each ring carried with its bead: the ring that stood at hour h now stands at 7h mod 15
-    for k, ring in enumerate(p21.state.rings):
-        moved = p22.state.rings[k]
+    for k, ring in enumerate(p22.before.rings):
+        moved = p22.after.rings[k]
         assert moved["hour"] == (7 * ring["hour"]) % 15 and moved["t"] == ring["t"]
+    # F07's marks: one lift arc per ring, from its hour to 7h mod 15, the short way round the
+    # dial; each starts by the ring it lifts and ends by the place it set it down.  The two
+    # long lifts cross each other and the circle: a lift passes over what it is carried
+    # across (card 3e.5), so the twine and circle figures are asserted as logged
+    assert p22.notes[0] == "step tick the round -> " + p22.head and len(p22.notes) == 6
+    assert len(p22.arcs) == 4 and len(p22.mark_tikz) == 4 and p22.ghosts == []
+    for h, arc, note in zip(orb, p22.arcs, p22.notes[1:5]):
+        h7 = (7 * h) % 15
+        k = (h7 - h) % 15
+        sense, way = ("clockwise", k) if k <= 15 - k else ("counter-clockwise", 15 - k)
+        assert note.startswith("lift arc for the ring from %d to %d, round the outside, %s " % (h, h7, sense)), note
+        deg = float(re.search(r"wise (\d+\.\d+) degrees", note).group(1))
+        assert abs(deg - 24 * way) < 12                             # its marks, give or take the rings it clears
+        assert arc.kind == "swing" and not arc.headless
+        near = lambda q: min(orb, key=lambda x: np.hypot(q[0] - PC.hourxy(15, x)[0], q[1] - PC.hourxy(15, x)[1]))
+        assert near(arc.p0) == h and near(arc.p1) == h7
+        g = {k: float(v) for k, v in re.findall(r"(the twine|the circle|its marks|the rings|inside the sheet) by "
+                                                r"(\d+\.\d+)", note)}
+        assert len(g) == 5 and g["the rings"] > 0.02 and g["inside the sheet"] > 0.03, g
+        assert g["the twine"] > 0.1 and g["the circle"] > 0.06 and g["its marks"] > 0.08, g     # as logged
+    assert [("crossing" in n) for n in p22.notes[1:5]] == [True, False, True, False]
+    assert p22.notes[5] == ("clearances (edge to edge): the hand 0.386, the pin 0.918, the rings 0.024, the twine 0.107, "
+                            "the circle 0.068, its marks 0.083, inside the sheet by 0.039")
+    assert PC.drawn(PC.twin(FC["F07"])) == PC.drawn(PC.run_frame("dial", "", "first round ticked once", False))
+    assert PC.twin(FC["F07"]).mark_tikz == []
     # what is drawn: one ring at each of the hand's hours, on its mark, the loop running
     # ring to ring in the hand's order and back, crossing itself once (one-seven over
     # four-thirteen); every bead on its ring's band, at rest at the top
     for p in (p21, p22):
-        loop = p.shown.loops[1]
+        loop = p.view.loops[1]
         assert loop == tuple(PC.hourxy(15, h) for h in orb)
         segs = list(zip(loop, loop[1:] + loop[:1]))
         crossings = [(i, j) for i in range(4) for j in range(i + 2, 4) if not (i == 0 and j == 3)
                      and PC.crosses(segs[i], segs[j])]
         assert crossings == [(0, 2)]                                   # 1-7 crosses 4-13, once
-        for hour, k, t, x, y, bx, by in p.shown.rings:
+        for hour, k, t, x, y, bx, by in p.view.rings:
             assert np.isclose(np.hypot(bx - x, by - y), PC.RRM)
             assert np.isclose((90 - np.degrees(np.arctan2(by - y, bx - x))) % 360, 15 * t)
-    rest = [ring for ring in p21.shown.rings if ring[0] == 1][0]
+    rest = [ring for ring in p21.view.rings if ring[0] == 1][0]
     assert np.isclose(rest[5], rest[3]) and rest[6] > rest[4]          # at rest: at the top
 
-    # P2.3: the controlled turn for a quarter, the wheel lit -- each green ring half the
+    # F08: the controlled turn for a quarter, the wheel lit -- each green ring half the
     # turn (an eighth), the bob half the turn back, the hub bare: the gadget of the
     # sketchbook, green alpha/2, green alpha/2, red hub, green -alpha/2, at alpha = pi/2
+    p23 = F["F08"]
     S3 = p23.scene                                                      # the scene as the Lua builds it
-    assert p23.dump == (
+    assert p23.head == (
         "scene=one wheel=lit listener=green:0 ct=listener-wheel:6 crossed=false | cols=8 rows=2 y=0..1 "
         "near=false folded=false; gaps=0.5; 1:end green 0 @0,0; 2:ring green 3 @2,0; 3:hub red 0 @3,0.5; "
         "4:bob green 21 @4,0.5; 5:end red 12 @0,1; 6:ring green 3 @2,1; tie 2-3 []; tie 3-6 []; pendant 3-4 []; "
         "cord loose-1 [7,0 0,0]; cord loose-5 [7,1 0,1]")
-    assert p23.labels == ("listener", "wheel cord", "hub", "bob", "tie")
-    turn = p23.state["cts"][0]["turn"]
+    assert PC.words(p23) == ("listener", "wheel cord", "hub", "bob", "tie") and p23.notes == []
+    turn = p23.after["cts"][0]["turn"]
     assert np.isclose(bead_phase(turn), 1j)                            # a quarter: alpha = pi/2
     halves = [x["t"] for x in S3["things"] if x["kind"] == "ring"]
     bob = [x["t"] for x in S3["things"] if x["kind"] == "bob"]
@@ -346,33 +390,110 @@ def pictures():
     ring_x = {x["x"] for x in S3["things"] if x["kind"] == "ring"}
     bob_x = [x["x"] for x in S3["things"] if x["kind"] == "bob"]
     assert hub["y"] == 0.5 and hub["x"] > max(ring_x) and bob_x[0] > hub["x"]
-    least = cloth_clearances(p23)
-    assert least > 0.03, least
+    for n in names[2:]:                                                 # no tie or pendant meets a stranger
+        assert cloth_clearances(F[n]) > 0.03, n
 
-    # P2.4: the wheel pushed, lit: the quarter lands on the listener (its end-ring at a
-    # quarter), as CP(pi/2) (|+> (x) |1>) = (|0> + i|1>)/sqrt2 (x) |1> on the blackboard;
-    # with the wheel dark (not pictured, l.455) the listener stays at rest, as on |0>
-    assert p24.dump == (
-        "scene=one wheel=lit listener=green:6 crossed=false | cols=8 rows=2 y=0..1 near=false folded=false; "
-        "gaps=0.5; 1:end green 6 @0,0; 2:end red 12 @2.5,1; cord loose-1 [7,0 0,0]; cord loose-2 [7,1 2.5,1]")
+    # F09-F13: the push, part by part, against the blackboard's CP(pi/2) on |+> (x) |1>
+    # (card 3e.6): each part keeps the sum of the green turns joined to the wheel's ring
+    things = lambda n: {(x["kind"], x["x"], x["y"]): x for x in F[n].scene["things"]}
+    T8, T9, T10, T11, T12, T13 = (things(n) for n in names[2:])
+    # F09: the wheel's eighth slid off on to a bob of its own, hung to the ring's left between
+    # the cords (T2); the ring at rest; nothing else changed
+    assert T9[("ring", 2, 1)]["t"] == 0 and T9[("bob", 1, 0.5)]["t"] == 3
+    assert T9[("ring", 2, 1)]["t"] + T9[("bob", 1, 0.5)]["t"] == T8[("ring", 2, 1)]["t"]   # an eighth, moved
+    (new,) = [k for k in T9 if k not in T8]
+    cords_y = sorted(k[2] for k in T8 if k[0] == "end")
+    assert new[0] == "bob" and new[1] < 2 and cords_y[0] < new[2] < cords_y[1]   # the ring's left, between the cords
+    assert {k: (v["c"], v["t"]) for k, v in T9.items() if k != ("bob", 1, 0.5)} == \
+        {k: (v["c"], v["t"]) for k, v in T8.items() if k != ("ring", 2, 1)} | {("ring", 2, 1): ("green", 0)}
+    # F10: the lit wheel (red, a half) pushed into its ring: the hub gets the half, the
+    # ring and its own bob go (the two eighths, an eighth and an eighth back, cancel); the
+    # wheel's end-ring lies just past where its ring stood
+    assert T10[("hub", 3, 0.5)]["t"] == T8[("end", 0, 1)]["t"] == 12
+    assert ("ring", 2, 1) not in T10 and ("bob", 1, 0.5) not in T10 and T10[("end", 2.5, 1)]["c"] == "red"
+    assert np.isclose(bead_phase(3) * bead_phase(-3), 1)
+    # F11: the hub (a half, red) through the bob: the bob's turn reversed, 21 -> 3
+    assert T11[("bob", 4, 0.5)]["t"] == (-T10[("bob", 4, 0.5)]["t"]) % 24 == 3 and ("hub", 3, 0.5) not in T11
+    # F12: the bob up into the listener's ring: 3 + 3 = 6
+    assert T12[("ring", 2, 0)]["t"] == T11[("ring", 2, 0)]["t"] + T11[("bob", 4, 0.5)]["t"] == 6
+    # F13: slid together: the listener's end-ring at a quarter, as on the blackboard
+    lst = F["F13"].after["cords"]["listener"]
+    assert (lst["c"], lst["t"]) == ("green", 6) and "green:6.0" not in F["F13"].head
     plus = (ket(0) + ket(1)) / np.sqrt(2)
     for scene, wheel in (("one listener; wheel lit", 1), ("one listener; wheel dark", 0)):
         M = PC.cloth_state("push the wheel", scene)
         out = CP(np.pi / 2) @ np.kron(plus, ket(wheel))
         listener = out.reshape(2, 2)[:, wheel]
         assert np.isclose(listener[1] / listener[0], bead_phase(M["cords"]["listener"]["t"]))
+        if wheel:
+            assert np.isclose(listener[1] / listener[0], bead_phase(lst["t"]))   # the parts land the same
+    # F13 with marks=off is round 3's P2.4: the single push, byte for byte (L5)
+    p24 = PC.run_frame("cloth", "push the wheel", "one listener; wheel lit", False)
     assert not PC.TEX_ERRORS
-    # the fixed parts, P2.3 -> P2.4: the listener's end-ring keeps its place; the wheel's
+    assert PC.drawn(PC.twin(FC["F13"])) == PC.drawn(p24) and F["F13"].head == p24.head
+    # the cloth's wrong rule, gave its quarter (l.651: said AFTER B07, a misreading, not a
+    # prediction): kept in the Lua, unused in the dialogue (card 3e.7, Q-E), tested here -- the
+    # push as it is, the listener at its quarter, but the wheel's end-ring left at rest, where
+    # the true wheel stays lit ("It gave nothing away; it's lit as it was.")
+    gq = PC.run_frame("cloth", "step=push the wheel; expects=gave its quarter", "one listener; wheel lit", False)
+    assert not PC.TEX_ERRORS and gq.mark_tikz == [] and gq.arcs == []
+    assert gq.wrong["cords"]["listener"] == gq.after["cords"]["listener"] == lst
+    assert (gq.wrong["cords"]["wheel"]["t"], gq.after["cords"]["wheel"]["t"]) == (0, 12)
+    rule = PC.rule_comment("THE CLOTH'S STEP, ITS MARKS AND ITS WRONG RULE")
+    for q in ("So what you're saying is that the\n--            wheel gave its quarter to the listener.",
+              "It gave nothing away; it's lit as it was.", "UNUSED IN THE DIALOGUE"):
+        assert q in rule, q
+    for q in ("**Achilles:** So what you're saying is that the wheel gave its quarter to the listener.",
+              "It gave nothing away; it's lit as it was."):
+        assert q in section, q
+    whole_text = DIALOGUE.read(DIALOGUE.dialog) + DIALOGUE.read(DIALOGUE.raw)
+    assert "expects=gave its quarter" not in whole_text
+    # the fixed parts, F08 -> F13: the listener's end-ring keeps its place; the wheel's
     # runs to just past the last ring it went into (x + 0.5), its cord's drawn start with
     # it (the swallowed length); the turn's rings, hub, bob and ties are gone; nothing added
+    S4 = F["F13"].scene
     ends3 = {x["y"]: x for x in S3["things"] if x["kind"] == "end"}
-    S4 = p24.scene
     ends4 = {x["y"]: x for x in S4["things"] if x["kind"] == "end"}
     assert ends3[0]["x"] == ends4[0]["x"] == 0
     assert ends4[1]["x"] == max(ring_x) + 0.5 == 2.5
     assert [d["pts"] for d in S3["cords"] if d["kind"] == "cord"] == [[[0, 0], [7, 0]], [[0, 1], [7, 1]]]
     assert [d["pts"] for d in S4["cords"]] == [[[0, 0], [7, 0]], [[2.5, 1], [7, 1]]]
     assert len(S4["things"]) == 2
+
+    # the parts' marks (card 3e.6, the readings): every ghost's place and its named end, every
+    # arc's ends and side, every logged gap, every "no marks" / "no arc" line
+    for n in names[3:]:
+        assert F[n].notes[0] == "step " + PC.options(FC[n])["step"] + " -> " + F[n].head
+    assert F["F09"].notes[1:] == ["no marks: slide off the eighth shows what it changed (the ring at rest, its own bob)"]
+    assert F["F09"].mark_tikz == [] and F["F09"].arcs == []
+    ghosts = {n: [(g[0], g[1]) for g in F[n].ghosts] for n in names[3:]}
+    assert ghosts == {"F09": [],
+        "F10": [("the wheel's end-ring", (0, 1)), ("the wheel's green ring", (2, 1)), ("the wheel ring's own bob", (1, 0.5))],
+        "F11": [("the hub", (3, 0.5))], "F12": [("the bob", (4, 0.5))], "F13": [("the listener's green ring", (2, 0))]}
+    for n in names[3:]:                                                 # each ghost where its part stood before
+        for what, (gx, gy) in ghosts[n]:
+            assert any((k[1], k[2]) == (gx, gy) for k in things(names[names.index(n) - 1])), (n, what)
+            assert not any((k[1], k[2]) == (gx, gy) for k in things(n)), (n, what)     # and stands there no more
+    assert "no arc up the tie into the hub: the hub's bead, at a half, shows what it got" in F["F10"].notes
+    assert ("no slide arc the hub into the bob: 0.133 cm from end to end, under the 0.200 a head and its gap need; "
+            "the ghost beside the ring it went into shows it") in F["F11"].notes and F["F11"].arcs == []
+    sides = {"F10": "above the row", "F12": None, "F13": "beneath the row"}
+    for n, side in sides.items():
+        (arc,) = F[n].arcs
+        assert arc.kind == "slide" and not arc.headless
+        (c,) = F[n].clearances
+        assert c["what"].startswith("slide arc") and (side is None or side in c["what"])
+        assert c["linen"] > 0.01 and c["cord"] > 0.02 and c["cord centre"] > c["cord"] and c["ring"] > 0.02, (n, c)
+        assert c["ghost"] > 0.01, (n, c)
+    # each arc runs the way its part went: F10 the wheel's end-ring rightwards into the ring,
+    # F12 the bob up and left into the listener's ring, F13 the listener's ring leftwards home
+    (a10,), (a12,), (a13,) = F["F10"].arcs, F["F12"].arcs, F["F13"].arcs
+    assert a10.p1[0] > a10.p0[0] and a10.p0[1] == a10.p1[1]
+    assert a12.p1[0] < a12.p0[0] and a12.p1[1] > a12.p0[1]
+    assert a13.p1[0] < a13.p0[0] and a13.p0[1] == a13.p1[1]
+    for n in names[3:]:
+        assert PC.drawn(PC.twin(FC[n])) == PC.drawn(F[n]) and PC.twin(FC[n]).mark_tikz == []
+    assert not PC.TEX_ERRORS
 
 
 # --- the sketchbook ---------------------------------------------------------------------

@@ -18,64 +18,87 @@ own bead. Every bead reading Achilles speaks in the scene is asserted — in
 both senses of the clock, so that nothing depends on which way the Crab's
 collars happen to be cut.
 
-The dialogue also *draws* the ball, in small strips of pictures made with the
-`\crabball{glass}{steel}{caption}` macro of `pdf/props/ch03.tex` — twenty pictures
-in all: four, four, three, four and five. Each file reads the pictures out of
-its own challenge's section of `dialog.md` (from its `## … Challenge` heading
-to the next heading), never copying them, and checks each one against the
-position it computes for that moment: the glass bead, the steel bead, the
-brass needle midway between them, glass and steel at right angles, and the
-number of pictures, so that a picture edited, dropped or added is caught. The
-pictures use the room's frame — $x$ towards the dresser, $y$ up, $z$ towards
-the company — and the files their own; the change of frame is written out,
-checked on all six named directions, and checked to be a turn rather than a
-reflection, without which every "with the clock" would quietly become
-"against".
+The dialogue also *draws* the ball, with three macros of `pdf/props/ch03.tex`:
+`\crabball[opts]{glass}{steel}{caption}`, a picture of the ball;
+`\crabplay[opts]{glass}{steel}{score}{caption; caption; …}`, a *step strip*
+with one frame per arrow played (`by=click`: one per click); and
+`\scorestrip[view]{score}{caption}`, the Tortoise's strip of tracing paper.
+`pdf/props/ch03.lua` *computes* what each shows: with `play=` the ball after a
+score is played from the state given (as drawn, or with `view=`/`then=` as the
+strip lies turned); the motion marks of one step (a ghost of each bead that
+moves, where it stood; its swing arc; a ring round the bead of the needle held
+fast); with `expects=` the state a *named wrong rule* predicts, drawn pale; the
+strip as it now lies. `tools/props_ch03.py` is a transcription of that Lua, all
+but the drawing, faults included, so what is asserted is what the page prints.
+
+Each file reads its section's calls out of `dialog.md` with the shared reader
+`tools/dfp_props.py` (from its `## … Challenge` heading to the next), never
+copying them, so a picture edited, dropped or added is caught; the reader also
+checks that the section's pictures appear identically in `dialog.raw.md`, that
+captions are words only, and that no row holds more than four pictures (a step
+strip counts its frames). Then each file checks every picture against **its own
+model** of the ball, not against the transcription: every picture's state; every
+frame of a step strip, in order, against the model after that many steps; each
+frame's ghosts against the model's state one step earlier and its ring against
+the bead of the needle held, which the model shows has not stirred; each
+prediction frame against the file's own small model of Achilles's rule *and*
+against the true ball beside it, which it must not equal. The pictures use the
+room's frame — $x$ towards the dresser, $y$ up, $z$ towards the company — and
+the files their own; the change of frame is written out, checked on all six
+named directions, and checked to be a turn rather than a reflection, without
+which every "with the clock" would quietly become "against". And every file
+checks, on a hundred random scores, that the transcription's twirl about the
+needle as it lies is the model's.
 
 ```python
-assert np.isclose(np.linalg.det(ROOM), 1)                 # a turn, not a reflection
-assert len(pictures) == len(moments)
-assert np.allclose(glass, ROOM @ R @ HOME["glass"])
-assert np.allclose(steel, ROOM @ R @ HOME["steel"])
+assert np.isclose(np.linalg.det(ROOM), 1)                    # a turn, not a reflection
+for k, f in enumerate(frames, 1):                            # frame k = k steps played
+    before, after = play(clicks[:k - 1]), play(clicks[:k])
+    assert drawn_at(f.ball.start, before) and drawn_at(f.ball.after, after)
+    marked(f.ball, before, clicks[k - 1][0], after)          # ghosts, and the ring
+assert drawn_at(expected.after, play(any_order(score)))      # the rule he named ...
+assert not drawn_at(expected.after, play(score))             # ... is not what happened
 ```
 
-The dialogue draws the Tortoise's strip of tracing paper too, with
-`\scorestrip[view]{score}{caption}`: the score is the strip *as drawn*
-(`glass+1` is glass, one click, with the clock; `|` a gummed join), and the
-view — drawn, page, round, flip — is how it now lies; `pdf/props/ch03.lua` draws
-what is then seen. Thirteen strips: four, four, two, none and three. Each file
-parses its section's strips with a line-for-line transcription of
-`parse_score` / `view_score` from `pdf/props/ch03.lua`, so what is asserted is what the
-page prints, and checks that the arrows each strip shows are exactly the
-twirls the scene then plays: the Tortoise's page is glass, one click, against,
-and brings the ball home; Achilles's strip round on the table is steel two,
-glass two (the trap); in the Second, round and flip each lead to their own
-wrong ball picture and only the page to home; in the Third the page curls
-every arrow the other way yet plays to the same turn; in the Fifth the gummed
-strip is, piece for piece, the strips drawn in the First, Second and Third
-sections, and its page — pieces reversed, each paged — brings the evening's
-score home. The ball pictures of those moments are now computed *from* the
-parsed strips. The Fourth asserts that its section has no strip at all, and
-`NoMirror.py` that the whole dialogue has thirteen, all inside challenge
-sections.
-
-Every strip file also checks what the views mean on generic strips, seeded
-and random: the page after the strip is always the identity turn (in both
-senses of the clock, with the seams carried along); round and flip leave the
-ball astray more often than not; a half-turn is the same turn either way
-round, which is why `pdf/props/ch03.lua` may curl a two-click arrow the other way.
+The strips' scores are the strip *as drawn* (`glass+1` is glass, one click,
+with the clock; `|` a gummed join) and the view — drawn, page, round, flip — is
+how it now lies. Thirteen strips: four, four, two, none and three, unchanged.
+Each file checks that the arrows each strip shows are exactly the twirls the
+scene then plays. `Mirror.py` and `Backwards.py` also check what the views mean
+on generic strips, seeded and random: the page after the strip is always the
+identity turn (in both senses of the clock, with the seams carried along); round
+and flip leave the ball astray more often than not; a half-turn is the same turn
+either way round, which is why the Lua may curl a two-click arrow the other way.
 Strips of half-turns only are the trap of the First Challenge: round always
-brings them home, and flip does too while the needles are glass and steel,
-but not once the brass needle joins them — the Sandwich's lesson.
+brings them home, and flip does too while the needles are glass and steel, but
+not once the brass needle joins them — the Sandwich's lesson.
 
 ```python
 for s in (+1, -1):
-    assert at_home(play(drawn_ + arrows(view_score(items, "page")), s))
-assert fails["round"] > 100 and fails["flip"] > 100      # astray more often than not
-assert np.allclose(play([(n, 2, +1)]), play([(n, 2, -1)]))  # half-turn: no sense
-bg = parse_score("brass+2,glass+2")
-assert not at_home(play(bg + view_score(bg, "flip")))       # brass: order matters
+    assert at_home(play(drawn_ + paged, s))
+assert fails["round"] > 100 and fails["flip"] > 100          # astray more often than not
+assert np.allclose(play([(n, 2, +1)]), play([(n, 2, -1)]))   # half-turn: no sense
 ```
+
+`NoMirror.py` checks the dialogue as a whole: thirty-three pictures, every one
+inside a challenge's section and none raising a fault; four, four, three, one
+and four *moments* (blocks) in the five challenges; thirteen strips; four step
+strips; two prediction frames, `anyend` and `anyorder`; and the room key on the
+first picture of the ball only.
+
+**Pins.** `props_ch03.check_lua()` (run when the module is imported, unless `DFP_REPIN` is set
+to re-pin, and again at the head of every file's `strip()`) holds `pdf/props/ch03.lua` and
+`ch03.tex` to the text the transcription was proved against with texlua: `LUA_PINS` hashes the
+Lua's 35 top-level chunks (comments left out, white space closed up outside string literals),
+`TEX_PINS` the `.tex`'s 31 colours, styles and macros, and `COMMENT_PINS` the Lua's two comments
+that quote the dialogue — the header's "With the clock" and the wrong rules Achilles reasons
+by — word for word, each with the phrases it quotes, every one still spoken in `dialog.md` (a
+spaced ` -- ` in a Lua comment stands for the dialogue's em dash). A drawing-only or style-only
+edit then fails all five files, naming the chunk, until the transcription is proved again and
+re-pinned (`print(P.lua_pins())` with `DFP_REPIN=1`; the module's docstring has the line); a
+plain comment edit passes. The transcription's arithmetic follows the Lua's step for step
+(integers where the Lua has integers, its order of sums), so what it computes agrees with the
+Lua's to the last digit and the sign of a zero.
 
 Two notes on the machinery. PyZX draws this with the spiders you meet in
 Chapter 8; nothing here needs them, but the library speaks nothing else.
@@ -128,6 +151,16 @@ score — is asserted exactly as he finds it, and the file records why it is a
 trap by showing that a *single* glass click sends the steel bead to the
 dresser when it is played against the clock.
 
+Its pictures: the keyed home, then the first twirl with its marks — the ring
+on the glass bead, which the file shows has not stirred, and the steel and brass
+beads ghosted where they stood; the direction just before it names each mark in
+words, and the file finds those phrases. Then Achilles's two-click score as a
+step strip, one frame a click: the file checks the four frames against the
+model after one, two, three and four clicks, reads "round by the stove" twice
+out of the direction and finds the steel bead at the stove in the first frame
+and the glass bead there in the third, and checks that the last frame is also
+where the other order lands — the trap, drawn once, where it arises.
+
 ---
 
 ## 2. `Backwards.py` — The Score Read Backwards
@@ -164,6 +197,22 @@ the strip flipped top over bottom does not. The Crab backs the wrong clicks
 out last-first instead of replaying from home; the file asserts that this
 lands in the same place as playing the score from home, which is why the
 scene works.
+
+Its pictures: the score played one arrow a frame (the walk out) — the second
+ring sits on the steel bead at the stove, "held where it now lies", which the
+file finds in the direction; under the three strips, the prediction beside the
+two true balls. The prediction is the `anyend` rule, home, and the file checks
+it three ways: it is what the transcription's rule gives; it is what the
+file's own rule gives (any backwards reading does what the page does) for the
+strip read round *and*, on a copy of the call, for the strip read top over
+bottom; and it is neither of the balls beside it. Last, the page played as a
+step strip (the walk back), which must start where the walk out ended, and
+whose rings sit, bead for bead, where the walk out's sat — in the other order.
+
+```python
+assert walk_back.args[:2] == (P.name(start.g), P.name(start.s))   # where it left off
+assert drawn_at(P.picture(as_flipped).after, play(any_end(score, top_over_bottom)))
+```
 
 ---
 
@@ -205,6 +254,23 @@ assert not np.isclose(value(st1 + B + wrong + st1.adjoint()), 1)
 Finally, the reason a closed picture with $X$ in it is a real number is given
 as a picture and not as a computation: the picture is its own mirror image.
 With $S$ in the middle it is not, and the number is not real.
+
+On the ball, after the surprise, four frames on one line: Achilles's
+prediction (`anyorder` — the brass clicks add to a whole turn and vanish, the
+glass half-turn is left: glass up, steel away, which the file also reads out of
+his own speech) beside the sandwich as a three-frame step strip, which ends
+glass down, steel at the company — exactly the other thing. Each frame's arc
+side is checked: the place each moving bead reaches one click into the
+half-turn lies clearly (by more than half a unit) on the side the direction
+names — glass by the dresser and steel by the stove for each brass turn, steel
+by the dresser for the glass turn — the sides read out of the directions, not
+written into the file. The one steel half-turn from home is the same state,
+bead for bead, and carries no marks because `marks=off` says so (the file
+checks that without it there would be marks).
+
+```python
+assert mid @ P.vec(side) > 0.5                               # clearly that side
+```
 
 ---
 
@@ -281,6 +347,9 @@ assert reading(R2, "glass") == "up"
 assert at_home(R3)
 ```
 
+The four frames are read with the shared reader, which takes a bare `%` line
+end as the break between two pictures; each has no options and no marks.
+
 ---
 
 ## 5. `NoMirror.py` — What Has No Mirror
@@ -324,3 +393,9 @@ beads took in the Second Challenge; steel level away; brass level, away and
 towards the dresser — then turns the whole strip over and checks that what he
 reads off the back is, click for click, the score that brings the ball home.
 Turned round on the table, or flipped top over bottom, the strip does not.
+
+The pictures of the Fifth are computed from the scores Achilles plays: the
+"one place" (one arrow, its marks turned off — the catch travels no path),
+"another place", the catch's home (hand-given, from either), and the evening's
+score and its page, whose `play=` is checked to be the gummed strip drawn just
+before. The blank strip is no turn, and a step strip of nothing is a fault.

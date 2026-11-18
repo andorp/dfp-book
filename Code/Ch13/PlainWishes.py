@@ -291,13 +291,18 @@ def blackboard():
 
 
 def pictures():
-    """The First Challenge's prop pictures (identity card, section 4), read from the
-    dialogue through tools/dfp_props.py and the transcription tools/props_ch13.py.  The
-    ties below hold the transcription against this file's blackboard: a structural
-    check of the pictures, not a second proof."""
-    calls = DIALOGUE.check_layout("First", sizes=[1, 1, 1, 1])
+    """The First Challenge's prop pictures (identity card, sections 4 and 3e), read from the
+    dialogue through tools/dfp_props.py and the transcription tools/props_ch13.py: six blocks,
+    six calls, eight frames (F01-F08).  The ties below hold the transcription against this
+    file's blackboard: a structural check of the pictures, not a second proof."""
+    calls = DIALOGUE.check_layout("First", sizes=[1, 2, 1, 1, 1, 1])
     assert [(c.macro, c.keyed, c.opt, c.args, c.caption) for c in calls] == [
         ("wishcasket", True, "", ("",), "knobs down, collars upright"),
+        ("wishslip", True, "folded", ("first and fifth; disc black",), "the black face up"),
+        ("wishslip", False, "folded; step=wish every place; expects=every mark", ("first and fifth; disc black",),
+         "as Achilles expects"),
+        ("wishslipsteps", False, "folded; from=off", ("first and fifth; disc black", "turn at the first; turn at the fifth"),
+         "over to gilt; and over again to black"),
         ("wishslip", True, "", ("first and fifth",), "his slip, unfolded"),
         ("wishslip", False, "", ("second and sixth / first, third, fourth and sixth",),
          "hers, and the new slip beside it"),
@@ -306,37 +311,69 @@ def pictures():
     PC.check_section(DIALOGUE, "First", calls)
     casket_h, slip_h = round(PC.FTOP - PC.FBOT, 2), round(PC.SLIP_FTOP - PC.SLIP_FBOT, 2)
     assert (casket_h, slip_h) == (2.82, 0.66)                         # read from the Lua
-    assert [[PC.height(c) for c in b] for b in DIALOGUE.blocks("First")] == [[casket_h], [slip_h], [slip_h], [2.74]]
+    assert [[PC.height(c) for c in b] for b in DIALOGUE.blocks("First")] == [
+        [casket_h], [slip_h, slip_h], [slip_h], [slip_h], [slip_h], [2.74]]
+    frames = [(c, fc, p, cap) for c in calls for fc, (p, cap) in zip(PC.frame_calls(c), PC.pictures(c))]
+    assert len(frames) == 8
+    F = dict(zip(["F%02d" % i for i in range(1, 9)], [p for _, _, p, _ in frames]))
+    for c, fc, p, cap in frames:                                     # a strip frame IS its single call
+        assert PC.drawn(PC.picture(fc)) == PC.drawn(p) and PC.picture(fc).log == p.log, fc.text
 
-    # the anchors (card section 4): the paragraph before each block, and the one after,
-    # in dialog.md; the raw file's following paragraphs are the same
-    a1, a2, a3, a4 = DIALOGUE.anchors("First")
-    f1, f2, f3, f4 = DIALOGUE.following("First")
+    # the anchors (card sections 4 and 3e.4): the paragraph before each block, and the one
+    # after, in dialog.md; the raw file's following paragraphs are the same
+    a1, a2, a3, a4, a5, a6 = DIALOGUE.anchors("First")
+    f1, f2, f3, f4, f5, f6 = DIALOGUE.following("First")
     assert "a small brass nib on its rim" in a1                                           # D2
     assert f1.startswith("**Achilles:** *[standing, and bending to the lid]*")
-    assert "the first square inked, and the fifth" in a2
-    assert f2.startswith("**Tortoise:** Could you do it with fewer?")
-    assert "the second square inked, and the sixth" in a3
-    assert "where it lies, to the left of the new one" in a3                              # D4
-    assert f3.startswith("**Achilles:** *[sitting back]* What does one wish buy?")
-    assert "the marks have become ties" in a4 and "running from left to right as he sees it" in a4
-    assert "beneath the cords between, joined to none of them" in a4                      # D6
-    assert f4.startswith("**Tortoise:** That is all a box of marks is.")
-    assert DIALOGUE.following("First", DIALOGUE.raw) == [f1, f2, f3, f4]
+    assert "Choose, then." in a2 and "*[She hands him the disc, black up.]*" in a2          # B1.2a
+    assert f2.startswith("*[Every place lit. Achilles runs his thumb")
+    assert "over to gilt, and then over again to black" in a3                              # B1.2
+    assert f3.startswith("**Achilles:** Black. As if I'd made no marks at all.")
+    assert "the first square inked, and the fifth" in a4
+    assert f4.startswith("**Tortoise:** Could you do it with fewer?")
+    assert "the second square inked, and the sixth" in a5
+    assert "where it lies, to the left of the new one" in a5                              # D4
+    assert f5.startswith("**Achilles:** *[sitting back]* What does one wish buy?")
+    assert "the marks have become ties" in a6 and "running from left to right as he sees it" in a6
+    assert "beneath the cords between, joined to none of them" in a6                      # D6
+    assert f6.startswith("**Tortoise:** That is all a box of marks is.")
+    assert DIALOGUE.following("First", DIALOGUE.raw) == [f1, f2, f3, f4, f5, f6]
     section = DIALOGUE.section("First")
     assert "a faded paper band, its seal, pasted across the front edge of its lid" in section   # D1
     assert "a small oval of enamel set in the lid's top" in section                              # D1
     assert "to the right of her folded one, as Achilles sees them" in section                    # D3
     assert "her two slips off the cloth" in section                                              # D5
     assert "runs down across the cords between" not in section                                   # D6's old words
+    # the keyed words named before their pictures (card 3e.6): slip, disc
+    assert section.index("slip") < section.index(calls[1].text) and section.index("disc") < section.index(calls[1].text)
 
-    p11, p12, p13, p14 = (PC.picture(c) for c in calls)
+    # the wrong rule `every mark` and every spoken reaction to it, in order (card 3e.1): the
+    # prediction, "Choose, then." with the pale frame after it, the look (the two turns, drawn
+    # by B1.2), the naming and the recanting, the Tortoise's agreement
+    paras = DIALOGUE.paragraphs("First")
+    at = lambda text: [i for i, q in enumerate(paras) if text in q]
+    (said,), (choose,), (b12a,), (look,), (b12,), (black,), (one,) = (
+        at("with more places lit, it has more to say."), at("**Tortoise:** Choose, then."), at(calls[1].text),
+        at("over to gilt, and then over again to black"), at(calls[3].text),
+        at("**Achilles:** Black. As if I'd made no marks at all."),
+        at("**Tortoise:** One face, one answer, however many places you light."))
+    assert said < choose < b12a < look < b12 < black < one and [choose, look, black, one] == [said + 1, said + 3,
+                                                                                             said + 5, said + 6]
+    assert "black up, exactly as she handed it to him" in paras[look]
+    assert "Every mark turns it over, and a disc turned twice is back where it started." in paras[black]
+    assert "whether the count came out odd or even" in paras[black]
+    assert PC.comment_quotes("THE DISC'S STEP AND ITS WRONG RULE")             # its comment pinned (check_lua)
+    rule = PC.rule_comment("THE DISC'S STEP AND ITS WRONG RULE")
+    for q in ("Light every place at once, and the disc will have to account for every\n--                mark I made",
+              "Black. As if I'd made no\n--                marks at all.", "(an even count of inked squares lit, more than none)"):
+        assert q in rule, q
 
-    # P1.1: the convention, every knob down and every collar upright, sealed
-    assert p11.dump == ("knobs=ddddddd kcollars=uuuuuuu wcollars=uuuuuuu granted=false windows=------- "
+    # F01 (P1.1): the convention, every knob down and every collar upright, sealed
+    p11 = F["F01"]
+    assert p11.head == ("knobs=ddddddd kcollars=uuuuuuu wcollars=uuuuuuu granted=false windows=------- "
                         "seal=whole lid=down")
-    assert p11.labels == ("knob", "collar", "flag knob", "lid", "seal")
-    v = p11.shown
+    assert p11.words == ("knob", "collar", "flag knob", "lid", "seal")
+    v = p11.view
     assert v.view == "knobs" and v.lid == "down" and v.plate is not None and len(v.seal) == 1   # one band, whole
     assert [k for k, *_ in v.knobs] == list(range(1, PC.NROW + 1)) and not any(lit for *_, lit in v.knobs)
     assert not any(cw for *_, cw in v.collars)                        # every nib at the top
@@ -359,6 +396,7 @@ def pictures():
                 if 1 <= j <= PC.NROW:
                     least = min(least, OF.gap(nib, OF.collar(xc, PC.ROWY[j - 1], False)["ring"]))
     assert least > 0.004, least
+    PC.TEX_ERRORS.clear()
     for view in ("", "windows"):
         for state in ("", "granted"):
             w = PC.casket_view(PC.casket_state(view, state))
@@ -367,26 +405,107 @@ def pictures():
     assert len(PC.casket_view(PC.casket_state("", "granted")).seal) == 2       # granted: parted
     assert not PC.TEX_ERRORS
 
-    # P1.2: his slip, the first and the fifth inked -- and the unit wishes read it: U_f
+    # F02-F05: the disc, his slip folded under his hand (Q-A).  The disc rule is the
+    # blackboard's: handed y, the wish x, it comes back y xor a.x with a = 100010 (P1.2's slip)
+    slip = (1, 0, 0, 0, 1, 0)
+    face = {"black": 0, "gilt": 1}
+    name = {0: "black", 1: "gilt"}
+    every = (1, 1, 1, 1, 1, 1)
+    assert F["F02"].head == "slip1=folded:[first fifth] disc=black" and F["F02"].words == ("slip", "disc")
+    assert F["F02"].arcs == [] and F["F02"].notes == []
+    # F03, the prediction: the folded slip pale, the disc at full strength GILT -- the
+    # `every mark` reading (turned iff any inked square is lit) -- while its step line logs the
+    # true face, black: y xor a.x = 0 xor (1 + 1 mod 2) = 0
+    p03 = F["F03"]
+    assert p03.head == "slip1=folded:[first fifth] disc=gilt" and p03.words == () and p03.arcs == []
+    assert p03.notes == ["expects every mark (the slip paler, the disc at full strength)",
+                         "step wish every place -> turned 2 time(s) -> slip1=folded:[first fifth] disc=black (no marks)"]
+    assert p03.own[0] == "\\begin{scope}[transparency group, opacity=0.500]" and p03.own[1] == "\\end{scope}"
+    lit_inked = [i for i in range(6) if slip[i] and every[i]]
+    assert name[int(any(lit_inked))] == p03.wrong.disc == "gilt"            # the wrong rule's face
+    assert name[0 ^ dot(slip, every)] == p03.after.disc == "black"           # the true one
+    U_slip = U(linear(slip), 6)
+    out = U_slip @ np.eye(128)[index(every + (0,))]
+    assert name[int(np.argmax(np.abs(out))) % 2] == "black"                  # the oracle agrees
+    # it differs only where the count of inked squares lit is even and more than none: the
+    # Lua refuses the prediction on an odd count (it would agree) and with no step=wish
+    PC.TEX_ERRORS.clear()
+    PC.run_frame("slip", "folded; step=wish first and second; expects=every mark", "first and fifth; disc black", False)
+    assert [s for s, _ in PC.TEX_ERRORS] == ["slip-rule-agrees"]
+    PC.TEX_ERRORS.clear()
+    for x in strings(6):
+        if not any(x):
+            continue
+        places = ", ".join(PC.ORDNAME[i] for i in range(6) if x[i])
+        for y in (0, 1):
+            PC.TEX_ERRORS.clear()
+            R = PC.run_frame("slip", "folded; step=wish " + places + "; expects=every mark",
+                             "first and fifth; disc " + name[y], False)
+            wrong = y ^ int(any(slip[i] and x[i] for i in range(6)))
+            true = y ^ dot(slip, x)
+            if wrong == true:
+                assert [s for s, _ in PC.TEX_ERRORS] == ["slip-rule-agrees"]
+            else:
+                assert not PC.TEX_ERRORS and face[R.wrong.disc] == wrong and face[R.after.disc] == true
+                assert sum(slip[i] and x[i] for i in range(6)) % 2 == 0          # an even count, more than none
+    PC.TEX_ERRORS.clear()
+    # F04, F05 (the strip B1.2, from=off): one turn at each inked square, one swing arc each,
+    # over the disc, left to right -- the same arc for the same verb; the faces gilt, then black
+    assert [F[n].head for n in ("F04", "F05")] == ["slip1=folded:[first fifth] disc=gilt",
+                                                    "slip1=folded:[first fifth] disc=black"]
+    assert [F[n].before.disc for n in ("F04", "F05")] == ["black", "gilt"]       # each from the frame before
+    # the strip's frames as TeX runs them (the texlua comparison checked the strip's printed
+    # frames byte for byte): one turn at each inked square, in the slip's order (l.487: his
+    # thumb runs along the slip), each from the face the turn before left
+    assert [(fc.keyed, fc.opt, fc.args) for c, fc, p, cap in frames[3:5]] == [
+        (False, "folded; step=turn at the first", ("first and fifth; disc black",)),
+        (False, "folded; step=turn at the fifth", ("first and fifth; disc gilt",))]
+    assert PC.split(calls[3].args[1], ";") == ["turn at the " + PC.ORDNAME[i] for i in range(6) if slip[i]]
+    arc = ("swing", (0.89, -0.11), (1.21, -0.11))
+    for n in ("F04", "F05"):
+        p = F[n]
+        assert PC.arc_ends(p) == [arc] and p.ghosts == [] and p.words == ()
+        assert p.notes[1] == ("swing arc, turn 1, over the disc, left to right, (0.890,-0.110) -> (1.210,-0.110): "
+                              "inside the frame by 0.029 (centre line 0.040); clear of the disc's rim by 0.033 "
+                              "(centre line 0.044) and of its shadow by 0.042 (edge to edge)")
+        a = p.arcs[0]
+        assert a.p1[0] > a.p0[0] and a.c1[1] > a.p0[1] and a.c2[1] > a.p1[1]    # left to right, bowed up: over
+        assert all(q[1] > p.view.disc[1] for q in (a.p0, a.p1))                   # above the disc's centre
+        assert PC.mark_clearance(p) > 0.01                                          # inside its frame
+        c = p.clearances[0]
+        assert c["rim"] > 0.02 and c["shadow"] > 0.02                             # off the disc and its shadow
+        off = PC.twin(next(fc for _, fc, q, _ in frames if q is p))
+        assert PC.drawn(off) == PC.drawn(p) and off.mark_tikz == [] and off.arcs == []
+    # the telling part of the prediction, the disc's face, is over the legibility floor
+    # (card 3e.5: the disc 0.279-0.313 cm across at 300 dpi; drawn 0.26 cm)
+    assert 2 * PC.DISCR > 0.15
+    # the disc is turned only at an inked square: no turn at the second (the Lua refuses it)
+    PC.TEX_ERRORS.clear()
+    PC.run_frame("slip", "folded; step=turn at the second", "first and fifth; disc black", False)
+    assert [s for s, _ in PC.TEX_ERRORS] == ["slip-step-bare"]
+    PC.TEX_ERRORS.clear()
+    # the two turns ARE the wish of every place: black, as handed
+    assert F["F05"].after.disc == p03.after.disc == "black"
+
+    # F06 (P1.2): his slip, the first and the fifth inked -- and the unit wishes read it: U_f
     # with a = 100010, b = 0, on the wish for each knob alone, returns the flag a_i
-    assert p12.dump == "slip1=open:[first fifth] disc=none" and p12.labels == ("slip", "inked")
-    slip = tuple(int(k in p12.state.slips[0]["inked"]) for k in range(1, 7))
-    assert slip == (1, 0, 0, 0, 1, 0)
-    Uf = U(linear(slip), 6)
+    p12 = F["F06"]
+    assert p12.head == "slip1=open:[first fifth] disc=none" and p12.words == ("slip", "inked")
+    assert tuple(int(k in p12.after.slips[0]["inked"]) for k in range(1, 7)) == slip
     units = [tuple(int(j == i) for j in range(6)) for i in range(6)]
-    flags = [int(np.argmax(np.abs(Uf @ np.eye(128)[index(u + (0,))]))) % 2 for u in units]
+    flags = [int(np.argmax(np.abs(U_slip @ np.eye(128)[index(u + (0,))]))) % 2 for u in units]
     assert flags == list(slip)                                         # lit at the first and fifth only
-    sv = p12.shown.slips[0]
+    sv = p12.view.slips[0]
     assert len(sv["inked"]) == 2 and len(sv["squares"]) == 6
 
-    # P1.3: both slips open, hers on the left as Achilles sees them; both answer his four
+    # F07 (P1.3): both slips open, hers on the left as Achilles sees them; both answer his four
     # wishes alike (odd, even, odd, even), and the disc rule is y xor a.x for both
-    assert p13.dump == "slip1=open:[second sixth] slip2=open:[first third fourth sixth] disc=none"
-    hers, other = (tuple(int(k in s["inked"]) for k in range(1, 7)) for s in p13.state.slips)
+    p13 = F["F07"]
+    assert p13.head == "slip1=open:[second sixth] slip2=open:[first third fourth sixth] disc=none"
+    hers, other = (tuple(int(k in s["inked"]) for k in range(1, 7)) for s in p13.after.slips)
     assert (hers, other) == ((0, 1, 0, 0, 0, 1), (1, 0, 1, 1, 0, 1))
     wishes = [(1, 1, 0, 0, 0, 0), (0, 0, 1, 1, 0, 0), (0, 0, 0, 0, 1, 1), (1, 0, 1, 0, 1, 0)]
     assert [dot(hers, q) for q in wishes] == [dot(other, q) for q in wishes] == [1, 0, 1, 0]
-    face = {"black": 0, "gilt": 1}
     for marks in (hers, other):
         ink = " and ".join(PC.ORDNAME[i] for i in range(6) if marks[i])
         for x in strings(6):
@@ -397,7 +516,10 @@ def pictures():
             for y, handed in ((0, "black"), (1, "gilt")):
                 L = PC.slip_state("", ink + "; handed " + handed + ", wish " + places)
                 assert not PC.TEX_ERRORS and face[L.disc] == y ^ dot(marks, x)
-    left, right = p13.shown.slips
+                # and the step=wish of a frame turns the disc the same way
+                R = PC.run_frame("slip", "step=wish " + places, ink + "; disc " + handed, False)
+                assert not PC.TEX_ERRORS and face[R.after.disc] == y ^ dot(marks, x)
+    left, right = p13.view.slips
     assert left["x2"] < right["x1"]                                    # hers on the left
     stroke = 0.3 * PC.PT / 2
     assert right["x1"] - left["x2"] - 2 * stroke > 0.04                # the slips do not touch
@@ -405,26 +527,27 @@ def pictures():
     assert PC.SLIP_FRAME[1] - right["shadow"][2] > 0.02                  # his shadow inside the frame
     assert left["x1"] - PC.SLIP_FRAME[0] > 0.02                          # her paper too
 
-    # P1.4: the slip's web -- a tie exactly at each inked square of P1.2's slip, which is
+    # F08 (P1.4): the slip's web -- a tie exactly at each inked square of P1.2's slip, which is
     # the a of this file's web(a): its green dots sit on exactly the marked rods
-    assert p14.dump == (
+    p14 = F["F08"]
+    assert p14.head == (
         "scene=web marks=[first fifth] first=loose+green0@2tied second=loose third=loose fourth=loose "
         "fifth=loose+green0@4tied sixth=loose flag=loose[red0@2 red0@4] threaded=false pushed=false far=false | "
         "cols=8 rows=7 y=0..6 near=false folded=false; gaps=5.5; 1:ring green 0 @2,0; 2:ring green 0 @4,4; "
         "3:ring red 0 @2,6; 4:ring red 0 @4,6; tie 1-3 []; tie 2-4 []; cord loose-loose [0,0 6.2,0]; "
         "cord loose-loose [0,1 6.2,1]; cord loose-loose [0,2 6.2,2]; cord loose-loose [0,3 6.2,3]; "
         "cord loose-loose [0,4 6.2,4]; cord loose-loose [0,5 6.2,5]; cord loose-loose [0,6 7,6]")
-    assert p14.labels == ("cord", "ring", "tie", "flag cord")
-    things = p14.cloth["things"]
-    tied_rows = sorted(things[d["a"] - 1]["y"] for d in p14.cloth["cords"] if d["kind"] == "tie")
-    assert [r + 1 for r in tied_rows] == p12.state.slips[0]["inked"]
+    assert p14.words == ("cord", "ring", "tie", "flag cord")
+    things = p14.canon["things"]
+    tied_rows = sorted(things[d["a"] - 1]["y"] for d in p14.canon["cords"] if d["kind"] == "tie")
+    assert [r + 1 for r in tied_rows] == p12.after.slips[0]["inked"]
     g = web(slip)
     greens = [v for v in g.vertices() if g.type(v) == VT.Z]
     assert sorted(g.qubit(v) for v in greens) == tied_rows            # on the marked rods ...
     assert all(sum(g.type(u) == VT.X and g.qubit(u) == 6 for u in g.neighbors(v)) == 1 for v in greens)
                                                                        # ... each tied to its own red
-    assert all(things[d["b"] - 1]["y"] == PC.FLAGROW for d in p14.cloth["cords"] if d["kind"] == "tie")
-    flag = [d for d in p14.cloth["cords"] if d["kind"] == "cord" and d["pts"][0][1] == PC.FLAGROW][0]
+    assert all(things[d["b"] - 1]["y"] == PC.FLAGROW for d in p14.canon["cords"] if d["kind"] == "tie")
+    flag = [d for d in p14.canon["cords"] if d["kind"] == "cord" and d["pts"][0][1] == PC.FLAGROW][0]
     assert flag["pts"][-1][0] > PC.WEND                                # the flag cord the longer
     # the ties run down beneath the cords between, joined to none (a tie is the kit's
     # under-cord length, tied only to its two rings), and no tie comes near any other ring

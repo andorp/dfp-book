@@ -10,10 +10,10 @@ wire -- one start is not enough to tell a tag from no tag.
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools"))
 
-import re
-
 import numpy as np
 from dfp import I2, Picture, matrix_of, same_picture, verdict
+from dfp_props import Dialogue
+import props_ch01 as P
 
 X = np.array([[0, 1], [1, 0]], dtype=complex)      # NOT
 S0 = np.array([[1, 1], [0, 0]], dtype=complex)     # SET-0
@@ -59,186 +59,29 @@ def blackboard():
 
 # --------------------------------------------------------------------------
 # The pictures.  The dialogue draws the Tortoise's string with
-# \tagstring[place]{start}{tags}{caption} (pdf/props/ch01.tex; the rules are in
-# pdf/props/ch01.lua).  start is the end tag as tied; tags are hung left to
-# right, "over" for "turn it over" and "heads" for "heads up, whatever it was",
-# a "+" joining two tags slid together; place is how far the traveller has got.
-# The macro COMPUTES what the traveller looks like there; the dialogue never
-# writes a turned result.  parse_start, parse_tags, travel and tagstring below
-# are a line-for-line transcription of ch01.lua, so what is asserted here is
-# what the printed page shows.  The calls are read out of this challenge's
-# section of dialog.md, never copied, so an edit to the dialogue that breaks a
-# picture breaks here.
+# \tagstring[place;opts]{start}{tags}{caption} and a step strip of one walk
+# along it with \tagwalk[opts]{start}{tags}{caption; caption; ...} (pdf/props/ch01.tex;
+# the rules are in pdf/props/ch01.lua).  Here the traveller is the strip: the
+# macro COMPUTES which end of it is at the string and so heads' share, the ghost
+# of the step just made, and with expects=idle the strip Achilles expects,
+# drawn pale.  tools/props_ch01.py transcribes the Lua, all but the drawing; the
+# calls are read out of this challenge's section of dialog.md
+# (tools/dfp_props.py), never copied.  Every frame is checked against the model
+# below.
 # --------------------------------------------------------------------------
-DIALOG = pathlib.Path(__file__).resolve().parents[2] / "dialog.md"
-RAW = DIALOG.with_name("dialog.raw.md")
+DIALOGUE = Dialogue(__file__, macros=("tagstring", "tagwalk", "arrowsquare"))
 ORDINALS = ("First", "Second", "Third", "Fourth", "Fifth")
-# the regexes of identity.md, section 3 "Props and their pictures"
-TAGSTRING = r"\\tagstring(\*?)(?:\[([^\]]*)\])?\{([^}]*)\}\{([^}]*)\}\{([^}]*)\}"
-ARROWSQUARE = r"\\arrowsquare(\*?)(?:\[([^\]]*)\])?\{([^}]*)\}\{([^}]*)\}"
-MARKUP = {"tagstring", "arrowsquare", "quad", "qquad", "begin", "end", "textup"}
-
-
-def read(path):
-    """The file, its planning comments left out (they are notes, not pictures)."""
-    return re.sub(r"<!--.*?-->", "", path.read_text(encoding="utf-8"), flags=re.S)
-
-
-def section(path, ordinal):
-    """The '## <ordinal> Challenge' section, up to the next heading."""
-    text = read(path)
-    heads = list(re.finditer(r"^## " + ordinal + r" Challenge\b.*$", text, re.M))
-    assert len(heads) == 1, (path.name, ordinal)
-    rest = text[heads[0].end():]
-    after = re.search(r"^## ", rest, re.M)
-    return rest[:after.start()] if after else rest
-
-
-def picture(call):
-    """One call, parsed: a dict naming the macro and its arguments."""
-    m = re.fullmatch(TAGSTRING, call)
-    if m:
-        star, place, start, tags, caption = m.groups()
-        return dict(macro="tagstring", keyed=star == "*", place=place or "", start=start,
-                    tags=tags, caption=caption)
-    m = re.fullmatch(ARROWSQUARE, call)
-    assert m, call                                   # nothing malformed
-    star, view, matches, caption = m.groups()
-    return dict(macro="arrowsquare", keyed=star == "*", view=view or "", matches=matches,
-                caption=caption)
-
-
-def blocks(path, ordinal):
-    """The picture blocks of a section, in order, each the list of its calls."""
-    text = section(path, ordinal)
-    found = []
-    for para in re.split(r"\n[ \t]*\n", text):
-        if "\\tagstring" not in para and "\\arrowsquare" not in para:
-            continue
-        # a raw centre block that is a paragraph of its own, one line of calls
-        # joined by \quad or \qquad -- so never inside a *[...]* direction
-        m = re.fullmatch(r"\\begin\{center\}\n([^\n]*)\n\\end\{center\}", para.strip())
-        assert m, para
-        found.append([c.strip() for c in re.split(r"\\q?quad", m.group(1))])
-    calls = [c for b in found for c in b]
-    assert text.count("\\tagstring") + text.count("\\arrowsquare") == len(calls)
-    return found
-
-
-def words_only(caption):
-    """Words, commas and apostrophes: no digit, brace, symbol or lone letter,
-    and never a count of strings."""
-    return (re.fullmatch(r"[A-Za-z']+(?:,? [A-Za-z']+)*", caption) is not None
-            and all(len(w) > 1 or w == "a" for w in re.findall(r"[A-Za-z']+", caption))
-            and not re.search(r"\bstrings\b", caption))
-
-
-def check_layout(ordinal, sizes):
-    """The section's blocks: their sizes, markup and captions, and the very same
-    calls in dialog.raw.md.  Returns the parsed pictures, in order."""
-    found = blocks(DIALOG, ordinal)
-    assert [len(b) for b in found] == sizes, (ordinal, [len(b) for b in found])
-    assert blocks(RAW, ordinal) == found, ordinal       # identical in the raw dialogue
-    assert set(re.findall(r"\\([A-Za-z]+)", section(DIALOG, ordinal))) <= MARKUP
-    pics = [picture(c) for b in found for c in b]
-    for b in found:
-        assert len(b) <= 4
-        squares = [picture(c)["macro"] == "tagstring" and picture(c)["start"].strip() == "square"
-                   for c in b]
-        assert all(squares) or not any(squares), b      # a square-tied string keeps to its own line
-    for p in pics:
-        assert words_only(p["caption"]), p["caption"]
-        assert p.get("place", "").strip() != "off"      # [off] is not used
-    return pics
-
-
-def check_whole_dialogue():
-    """The five challenge sections, in order, and every picture of the dialogue
-    in one of them."""
-    text = read(DIALOG)
-    assert tuple(re.findall(r"^## (\w+) Challenge\b", text, re.M)) == ORDINALS
-    total = len(re.findall(TAGSTRING, text)) + len(re.findall(ARROWSQUARE, text))
-    assert text.count("\\tagstring") + text.count("\\arrowsquare") == total
-    assert total == sum(len(c) for o in ORDINALS for c in blocks(DIALOG, o))
-
-
-# --- ch01.lua, transcribed ---------------------------------------------------
-WORDNUM = {"zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6}
-POS = {"start": 0, "first": 1, "second": 2, "third": 3, "fourth": 4}
-
-
-def parse_start(spec):
-    spec = re.sub(r"\s", "", spec)
-    if spec in ("heads", "tails"):
-        return dict(kind="coin", face=spec)
-    if spec in ("none", ""):
-        return dict(kind="none")
-    if spec == "square":
-        return dict(kind="square", turned=False)
-    m = re.fullmatch(r"strip-(\w+)", spec)
-    if m:
-        k = m.group(1)
-        n = WORDNUM.get(k, int(k) if k.isdigit() else None)
-        if n is not None and 0 <= n <= 6:
-            return dict(kind="strip", dark=n, turned=False)
-    raise AssertionError("tagstring: unknown start " + spec)
-
-
-def parse_tags(spec):
-    """Groups of touching tags, and the tags one by one, left to right."""
-    groups, flat = [], []
-    for g in re.sub(r"\s", "", spec).split(","):
-        grp = []
-        for t in g.split("+"):
-            if t == "":
-                continue
-            assert t in ("over", "heads"), "tagstring: unknown tag " + t
-            grp.append(t)
-            flat.append(t)
-        if grp:
-            groups.append(grp)
-    return groups, flat
-
-
-def travel(st, tags, n):
-    """The traveller after the first n tags."""
-    s = dict(st)
-    for t in tags[:n]:
-        if s["kind"] == "coin":
-            if t == "over":
-                s["face"] = "tails" if s["face"] == "heads" else "heads"
-            else:
-                s["face"] = "heads"
-        elif s["kind"] in ("strip", "square"):
-            assert t == "over", "a 'heads up, whatever it was' tag cannot be done to a " + s["kind"]
-            s["turned"] = not s["turned"]
-    return s
-
-
-def tagstring(place, startspec, tagspec):
-    """props.ch01_tagstring, all but the drawing: its error checks, how many
-    tags the traveller has passed, and the traveller there."""
-    where = re.sub(r"\s", "", place) or "start"
-    assert where in POS or where in ("end", "off"), "tagstring: unknown place " + where
-    st = parse_start(startspec)
-    groups, tags = parse_tags(tagspec)
-    n = len(tags)
-    passed = n if where == "end" else POS.get(where, 0)
-    assert passed <= n, "tagstring: the traveller cannot be past tag %d of %d" % (passed, n)
-    travel(st, tags, n)                    # every tag is checked, wherever the traveller is
-    s = travel(st, tags, passed)
-    walked = where == "end" or passed > 0
-    if st["kind"] == "square" and where != "off":
-        assert not walked, "tagstring: the square is only drawn tied on at the start"
-    return dict(start=st, groups=groups, tags=tags, where=where, passed=passed, now=s)
-
+QUOTE = __doc__.split('"')[1]
+PLACES = ("start", "first", "second", "third", "fourth")
 
 # --- the strip, in the chapter's state model ---------------------------------
-# strip-k, tied on by its dark end, is the division (k/6, (6-k)/6), heads'
-# share first: from the knot out to the change of shade.  "turn it over" is
-# NOT, the matrix blackboard() uses; on the strip it is the turn end for end,
-# heads' share h becoming six minus h.
-PLACES = ("start", "first", "second", "third", "fourth")
+# strip-k is a strip of six panels shaded k from one end, tied on by that dark
+# end: the division (k/6, (6-k)/6), heads' share first -- from the knot out to the
+# change of shade.  "turn it over" is NOT, the matrix blackboard() uses; on the
+# strip it is the turn end for end: the other end is held to the string, and
+# heads' share h becomes six minus h.  So the strip as a thing is two facts --
+# how many panels are shaded, and which end is held -- and its division is
+# what they make together.
 
 
 def strip_start(dark):
@@ -253,14 +96,10 @@ def carry(v, tags):
     return v
 
 
-def strip_panels(dark, turned):
-    """ch01.lua: the six panels from the knot end, True = shaded."""
-    return [(7 - i if turned else i) <= dark for i in range(1, 7)]
-
-
-def share(now):
-    """ch01.lua: heads' share, as the keyed picture labels it."""
-    return 6 - now["dark"] if now["turned"] else now["dark"]
+def held_end(tags):
+    """Which end of the strip is held to the string after these tags: each turn
+    end for end brings the other end to the knot."""
+    return "white" if len(tags) % 2 else "dark"
 
 
 def share_by_eye(panels):
@@ -272,75 +111,173 @@ def share_by_eye(panels):
     return k
 
 
+def check_strip(pic, marks):
+    """A strip picture against the model: heads' share drawn is six times the
+    model's heads entry after the tags passed, and the end at the string is the
+    model's; with marks the ghost is the strip one tag earlier, there exactly when
+    that tag moved the strip -- and every turn end for end moves it, even when
+    the division reads the same."""
+    assert pic.start["kind"] == "strip" and pic.expects is None
+    dark, tags = pic.start["dark"], list(pic.tags)
+    v = carry(strip_start(dark), tags[:pic.passed])
+    end = held_end(tags[:pic.passed])
+    assert np.isclose(6 * v[0], P.heads_share(pic.shown)), pic.dump
+    assert np.isclose(v.sum(), 1)                            # one strip, one length
+    assert pic.shown["turned"] == (end == "white"), pic.dump
+    panels = P.strip_panels(dark, pic.shown["turned"])
+    assert sum(panels) == dark                               # turning shades nothing
+    if 0 < dark < 6:
+        assert share_by_eye(panels) == P.heads_share(pic.shown)   # as drawn
+    assert pic.marks == marks, pic.dump
+    if marks:
+        before = tags[:pic.passed - 1]
+        assert held_end(before) != end and pic.ghost is not None, pic.dump
+        assert pic.ghost["turned"] == (held_end(before) == "white"), pic.dump
+        assert np.isclose(6 * carry(strip_start(dark), before)[0], P.heads_share(pic.ghost))
+    else:
+        assert pic.ghost is None, pic.dump
+    return v, end
+
+
 def check_strip_rule():
-    """The macro's strip against the model: every strip from none to six
-    shaded panels, up to four turn-over tags, every place it can have got to."""
-    for w, k in WORDNUM.items():                        # strip-five is strip-5
-        assert parse_start("strip-" + w) == parse_start("strip-%d" % k)
+    """The macro's strip against the model: every strip from none to six shaded
+    panels, up to four turn-over tags, every place, with and without marks; every
+    step strip of such a walk; and the rule `idle` against this file's model of
+    what Achilles says ("for a coin nobody has seen, this tag does nothing")."""
+    for w, k in P.WORDNUM.items():                        # strip-five is strip-5
+        assert P.parse_start("strip-" + w) == P.parse_start("strip-%d" % k)
     for dark in range(7):
         for n in range(5):
             tags = ["over"] * n
+            spec = ",".join(tags)
             for place in PLACES[:n + 1] + ("end",):
-                t = tagstring(place, "strip-%d" % dark, ",".join(tags))
-                v = carry(strip_start(dark), tags[:t["passed"]])
-                assert np.isclose(6 * v[0], share(t["now"]))       # macro = model
-                assert np.isclose(v.sum(), 1)                        # one strip, one length
-                panels = strip_panels(dark, t["now"]["turned"])
-                assert sum(panels) == dark                           # turning shades nothing
-                if 0 < dark < 6:
-                    assert share_by_eye(panels) == share(t["now"])  # as drawn
+                check_strip(P.tagstring(place, "strip-%d" % dark, spec), False)
+                if place in PLACES[1:]:
+                    check_strip(P.tagstring(place + ";marks=on", "strip-%d" % dark, spec), True)
+                opt = place + ";expects=idle"
+                assert P.faults(P.tagstring, opt, "strip-%d" % dark, spec) == []
+                guess = P.tagstring(opt, "strip-%d" % dark, spec)
+                assert guess.expects == "idle" and not guess.marks and guess.ghost is None
+                assert guess.shown == {"kind": "strip", "dark": dark, "turned": False}  # as tied
+                assert np.isclose(6 * (I2 @ strip_start(dark))[0], P.heads_share(guess.shown))
+                truth = P.tagstring(place, "strip-%d" % dark, spec)
+                assert (guess.shown == truth.shown) == (truth.passed % 2 == 0)
+            if n:
+                captions = "; ".join(["a"] * (n + 1))
+                frames = P.tagwalk("strip-%d" % dark, spec, "", captions)
+                assert P.faults(P.tagwalk, "strip-%d" % dark, spec, "", captions) == []
+                assert [f.picture.passed for f in frames] == list(range(n + 1))
+                for i, f in enumerate(frames):
+                    check_strip(f.picture, i > 0)
+                # a strip walk is never keyed: key the strip alone first
+                assert P.faults(P.tagwalk, "strip-%d" % dark, spec, "", captions, True)
+    # the rule is for a strip; the strip takes no "heads up" tag; a keyed
+    # strip takes its labels from the strip drawn
+    assert P.faults(P.tagstring, "first;expects=idle", "heads", "over")
+    assert P.faults(P.tagstring, "first", "strip-five", "heads")
+    for dark in range(7):
+        pic = P.tagstring("start", "strip-%d" % dark, "", True)
+        assert pic.labels == tuple(l for l, there in (("heads' share", dark > 0),
+                                                     ("tails' share", dark < 6)) if there)
 
 
 def pictures():
-    check_whole_dialogue()
+    P.check_lua()                                  # the Lua and .tex the transcription was proved on
     check_strip_rule()
+    P.check_dialogue(DIALOGUE, ORDINALS)
+    assert QUOTE in DIALOGUE.section("Fourth")
     assert np.allclose(strip_start(3), FAIR) and np.allclose(strip_start(5), FIVE_ONE)
 
-    # P4.1, the keyed strip picture: Achilles's tossed coin tied on, the string
-    # still bare.  P4.2: carried to the tag and turned there.  P4.3: the
-    # Tortoise's strip, one tag on the string.  P4.4: carried and turned.
-    # P4.5: tied on again, the pair lifted off.  Each row: shaded panels as tied,
-    # the tags' groups, where the strip is, keyed?, heads' share in sixths as
-    # identity.md section 3b reads it, and whether the white end is at the string.
-    one = [["over"]]
-    scene = [(3, [], "start", True, 3, False),
-             (3, one, "first", False, 3, True),
-             (5, one, "start", False, 5, False),
-             (5, one, "first", False, 1, True),
-             (5, [], "start", False, 5, False)]
-    pics = check_layout("Fourth", [1, 1, 1, 1, 1])
-    assert len(pics) == len(scene)
-    strips = []
-    for p, (dark, groups, place, keyed, reading, white) in zip(pics, scene):
-        assert p["macro"] == "tagstring" and p["keyed"] == keyed, p
-        t = tagstring(p["place"], p["start"], p["tags"])
-        assert t["start"] == dict(kind="strip", dark=dark, turned=False), p   # as tied
-        assert t["groups"] == groups and t["where"] == place, p
-        if keyed:
-            assert len(t["tags"]) <= 1, p               # a keyed strip carries one tag at most
-        v = carry(strip_start(dark), t["tags"][:t["passed"]])                 # the model
-        assert np.isclose(6 * v[0], share(t["now"])) and share(t["now"]) == reading, p
-        panels = strip_panels(dark, t["now"]["turned"])
-        assert (not panels[0]) == white, p              # which end is at the string
-        strips.append((v, panels))
-    (tossed, _), (tossed_turned, _), (die, _), (die_turned, turned_panels), (home, _) = strips
+    # Four moments.  Block 4.1, the keyed strip picture: Achilles's tossed coin
+    # tied on, the string still bare.  Block 4.2: carried to the tag and turned
+    # there, marked (its start is block 4.1, a few speeches up).  Block 4.3: the
+    # prediction, pale -- "this tag does nothing" -- beside the step strip of the
+    # Tortoise's strip: tied on, then turned at the tag.  Block 4.4: tied on
+    # again, the pair lifted off.
+    found = P.check_section(DIALOGUE, "Fourth", sizes=[1, 1, 2, 1], frames=[1, 1, 3, 1])
+    (c_keyed,), _, (c_idle, c_walk), _ = DIALOGUE.blocks("Fourth")
+    assert c_keyed.macro == "tagstring" and c_keyed.keyed
+    assert c_idle.macro == "tagstring" and c_walk.macro == "tagwalk" and not c_walk.keyed
+    (_, [(tossed_pic, _)]), = found[0]
+    (_, [(turned_pic, _)]), = found[1]
+    (_, [(idle, caption)]), (_, walk) = found[2]
+    (_, [(home_pic, _)]), = found[3]
+    (die_pic, _), (die_turned_pic, _) = walk
+    assert caption == "as Achilles expects"
 
-    # the trap: half-and-half turned end for end reads as it did ...
-    assert np.allclose(tossed_turned, tossed)
-    # ... and five-and-one does not: "It moved!"
-    assert not np.allclose(die_turned, die)
-    assert np.allclose(die_turned, X @ FIVE_ONE)
+    # every strip as tied: by its dark end
+    for pic in (tossed_pic, turned_pic, idle, die_pic, die_turned_pic, home_pic):
+        assert pic.start["kind"] == "strip" and not pic.start["turned"]
+    assert tossed_pic.start["dark"] == turned_pic.start["dark"] == 3
+    assert idle.start["dark"] == die_pic.start["dark"] == home_pic.start["dark"] == 5
+
+    tossed, _ = check_strip(tossed_pic, False)
+    assert tossed_pic.tags == () and tossed_pic.where == "start"
+    assert tossed_pic.labels == ("heads' share", "tails' share")   # the key
+    tossed_turned, end = check_strip(turned_pic, True)
+    assert turned_pic.where == "first" and turned_pic.tags == ("over",) and end == "white"
+    # the trap: half-and-half turned end for end reads as it did -- and yet the
+    # ghost is drawn, because the strip did move: its other end is at the string
+    assert np.allclose(tossed_turned, tossed) and np.allclose(X @ FAIR, FAIR)
+    assert turned_pic.ghost == {"kind": "strip", "dark": 3, "turned": False}
+
+    die, end0 = check_strip(die_pic, False)
+    die_turned, end1 = check_strip(die_turned_pic, True)
+    assert [p.where for p, _ in walk] == ["start", "first"] and (end0, end1) == ("dark", "white")
+    assert die_turned_pic.ghost == die_pic.shown                 # the ghost is the strip as tied
+    # "It moved!": five-and-one does not read as it did
+    assert not np.allclose(die_turned, die) and np.allclose(die_turned, X @ FIVE_ONE)
     # the shading only marks the place: dark does not mean heads
+    turned_panels = P.strip_panels(5, die_turned_pic.shown["turned"])
     assert sum(turned_panels) == 5 and not np.isclose(6 * die_turned[0], 5)
+    # the prediction: the named rule, his reasoning ("this tag does nothing": the
+    # bare wire), at the place of the true frame beside it -- and not that frame
+    assert idle.expects == "idle" and not idle.marks and idle.ghost is None
+    assert idle.where == die_turned_pic.where and idle.passed == die_turned_pic.passed == 1
+    assert idle.tags == die_turned_pic.tags == ("over",)
+    assert np.isclose(6 * (I2 @ FIVE_ONE)[0], P.heads_share(idle.shown)) and not idle.shown["turned"]
+    assert idle.shown != die_turned_pic.shown
+    assert not np.allclose(I2 @ FIVE_ONE, X @ FIVE_ONE)
+
+    home, _ = check_strip(home_pic, False)
+    assert home_pic.tags == () and home_pic.where == "start"
     # the pair lifted off, and the strip is as it began: the round trip
     assert np.allclose(home, die) and np.allclose(carry(die, ["over", "over"]), die)
+    assert [p.dump for b in found for _, fr in b for p, _ in fr] == [
+        "tagstring: start strip-3-dark -> strip-3-dark",
+        "tagstring: first strip-3-dark -> strip-3-white ghost strip-3-dark",
+        "tagstring: first strip-5-dark -> strip-5-dark expects idle",
+        "tagstring: start strip-5-dark -> strip-5-dark",
+        "tagstring: first strip-5-dark -> strip-1-white ghost strip-5-dark",
+        "tagstring: start strip-5-dark -> strip-5-dark"]
+    # a keyed strip picture carries one tag at most
+    for o in ORDINALS:
+        for b in DIALOGUE.blocks(o):
+            for c in b:
+                if c.keyed and P.kind(c) == "strip":
+                    assert c.macro == "tagstring" and len(P.picture(c).tags) <= 1, c.text
 
-    # the keyed rule: of all the dialogue's strip pictures, the first -- this
-    # challenge's first -- is keyed, and no other
-    strips_all = [m for m in re.finditer(TAGSTRING, read(DIALOG))
-                  if parse_start(m.group(3))["kind"] == "strip"]
-    assert strips_all[0].group(0) == blocks(DIALOG, "Fourth")[0][0]
-    assert [m.group(1) == "*" for m in strips_all] == [True] + [False] * (len(strips_all) - 1)
+    # where they stand
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        paras = DIALOGUE.paragraphs("Fourth", path)
+        a_keyed, a_turned, a_walk, a_home = DIALOGUE.anchors("Fourth", path)
+        assert a_keyed.endswith("A tossed coin.")
+        # block 4.2's ghost and hop: carried along the string as far as the tag;
+        # which end is held moved, the change of shade did not
+        assert ("What has moved is which end is held to the string; what has not moved "
+                "is the change of shade") in a_turned
+        carried = [i for i, q in enumerate(paras)
+                   if "carrying it along the string as far as the tag" in q]
+        assert len(carried) == 1 and carried[0] < paras.index(a_turned)
+        # block 4.3: the Tortoise's strip tied on and walked; the frame that once
+        # stood after "That's your die." is folded into its start frame
+        assert ("He unties the strip, carries it along to the tag, turns it end for end, "
+                "and holds its white end to the string.") in a_walk
+        assert "The strip is the same length it was." in a_walk
+        assert a_walk.endswith("And it is all one sheet of paper.")
+        assert not any("That's your die." in a for a in (a_keyed, a_turned, a_walk, a_home))
+        assert a_home.endswith("as she first tied it.]*")
+        assert "}%\n\\tagwalk{strip-five}" in P.block_texts(DIALOGUE, "Fourth", path)[2]
 
 
 def fair_coin():

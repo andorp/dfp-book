@@ -17,6 +17,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "tools"))
 
 import re
 from functools import reduce
+import itertools
 from itertools import combinations, product
 
 import numpy as np
@@ -29,6 +30,7 @@ from dfp_props import Dialogue
 import props_ch13 as PC
 
 DIALOGUE = Dialogue(__file__, macros=PC.MACROS)
+REPO = pathlib.Path(__file__).resolve().parents[3]
 
 H = np.array([[1, 1], [1, -1]], dtype=complex) / np.sqrt(2)
 X = np.array([[0, 1], [1, 0]], dtype=complex)
@@ -286,16 +288,33 @@ def blackboard():
     pictures()
 
 
+F30_MARKS = [
+    "ghost the upper answer-cord's end-ring in dotted outline at (-0.770,-1.474) (grid 0,3): slid along into the "
+    "ring at column 3",
+    "ghost the red ring for the first place in dotted outline at (-0.330,-1.474) (grid 2,3): slid along into the "
+    "ring at column 3, its tie with it",
+    "slide arc the upper answer-cord's rings along into one, above the row, (-0.750,-1.353) -> (-0.196,-1.353): "
+    "on the linen (clear of its edges and its near hem or fold) by 0.233 (centre line 0.244); clear of every cord "
+    "and tie by 0.031 (centre line 0.065), of every ring by 0.071 (centre line 0.148), of the ghosts it leaves by "
+    "0.043 (edge to edge)",
+    "ghost the lower answer-cord's end-ring in dotted outline at (-0.770,-1.870) (grid 0,4): slid along into the "
+    "ring at column 4",
+    "slide arc the lower answer-cord's rings along into one, above the row, (-0.750,-1.749) -> (0.024,-1.749): on "
+    "the linen (clear of its edges and its near hem or fold) by 0.211 (centre line 0.222); clear of every cord and "
+    "tie by 0.052 (centre line 0.086), of every ring by 0.071 (centre line 0.148), of the ghosts it leaves by 0.046 "
+    "(edge to edge)"]
+
+
 def pictures():
-    """The Fourth Challenge's prop pictures (identity card, section 4), and the rules on the
-    dialogue's fifteen pictures as a whole, read through tools/dfp_props.py and the
-    transcription tools/props_ch13.py.  The ties below hold the transcription against this
-    file's blackboard: a structural check of the pictures, not a second proof."""
+    """The Fourth Challenge's prop pictures (identity card, sections 4 and 3e), and the rules on
+    the dialogue's twenty calls and thirty frames as a whole, read through tools/dfp_props.py
+    and the transcription tools/props_ch13.py.  The ties below hold the transcription against
+    this file's blackboard: a structural check of the pictures, not a second proof."""
     calls = DIALOGUE.check_layout("Fourth", sizes=[1, 1, 1])
     assert [(c.macro, c.keyed, c.opt, c.args, c.caption) for c in calls] == [
         ("wishcloth", True, "", ("pairs box",), "laid out, nothing folded yet"),
         ("wishcloth", True, "fold", ("pairs box",), "the near edge folded over"),
-        ("wishcloth", False, "fold, slide together", ("pairs box",), "run together above the fold")]
+        ("wishcloth", False, "fold; step=slide together", ("pairs box",), "run together above the folded edge")]
     PC.check_captions(DIALOGUE, "Fourth", calls)
     PC.check_section(DIALOGUE, "Fourth", calls)
     assert [[PC.height(c) for c in b] for b in DIALOGUE.blocks("Fourth")] == [[2.56]] * 3
@@ -315,47 +334,20 @@ def pictures():
     assert ("She clears the web from the cloth, the rings into her little box of rings and the string "
             "into her work-bag.") in DIALOGUE.section("Fourth")                                      # D22
 
-    # the whole dialogue: fifteen pictures, all inside the four challenges, none after P4.3;
-    # each in its place; the keyed form exactly on the first picture of each kind
-    assert DIALOGUE.check_whole(PC.ORDER) == 15
-    text = DIALOGUE.read(DIALOGUE.dialog)
-    assert not DIALOGUE.call_re.search(text[text.index(calls[-1].text) + len(calls[-1].text):])
-    everything = []
-    for o in PC.ORDER:
-        for b in DIALOGUE.blocks(o):
-            for c in b:
-                assert PC.place_ok(o, c), (o, c.text)
-                everything.append(c)
-    DIALOGUE.keyed_first(PC.ORDER, kind=PC.keyed_kind)
-    keyed = [i for i, c in enumerate(everything) if c.keyed]
-    names = ["P1.1", "P1.2", "P1.3", "P1.4", "P2.1", "P2.2", "P2.3", "P2.4",
-             "P3.1", "P3.2", "P3.3", "P3.4", "P4.1", "P4.2", "P4.3"]
-    assert [names[i] for i in keyed] == ["P1.1", "P1.2", "P1.4", "P2.1", "P3.3", "P3.4", "P4.1", "P4.2"]
-    # no call with the l.570 gamble setting; no call raises a fault
-    for c in everything:
-        PC.picture(c)
-        assert not (c.macro == "wishcasket" and "flag knob's collar upright" in PC.norm(c.args[0]))
-    # the minuet and the Genie after the revision, on both files (section 1c's one-liner)
-    for path in (DIALOGUE.dialog, DIALOGUE.raw):
-        t = DIALOGUE.read(path)
-        ok, trio, granted, refrain = PC.form_check(t)
-        assert ok and trio == "Third Challenge" and granted == 1 and refrain, path
-        assert t.count("Let Bob draw") == 0
-        spoken = re.findall(r"^\*\*([^*]+):\*\*(.*)$", t, re.M)
-        referred = [who for who, line in spoken if re.sub(r"\*\[.*?\]\*", "", line).strip().startswith("Referred.")]
-        assert referred == ["Genie"] * 3, referred
+    whole()
+    check_faults()
 
     p41, p42, p43 = (PC.picture(c) for c in calls)
-    S1, S2, S3 = (p.cloth for p in (p41, p42, p43))
-    # P4.1: the pairs box -- its ties ARE f(x) = (x1 xor x2, x3): the upper answer-cord tied to
-    # the first two places, the lower to the third; Simon's promise holds for s = 110
-    assert p41.dump == (
+    S1, S2, S3 = (p.canon for p in (p41, p42, p43))
+    # F28 (P4.1): the pairs box -- its ties ARE f(x) = (x1 xor x2, x3): the upper answer-cord
+    # tied to the first two places, the lower to the third; Simon's promise holds for s = 110
+    assert p41.head == (
         "scene=pairs folded=false slid=false | cols=8 rows=5 y=0..4 near=true folded=false; gaps=2.5; "
         "1:end red 0 @0,0; 2:ring green 0 @2,0; 3:end red 0 @0,1; 4:ring green 0 @3,1; 5:end red 0 @0,2; "
         "6:ring green 0 @4,2; 7:end red 0 @0,3; 8:ring red 0 @2,3; 9:ring red 0 @3,3; 10:end red 0 @0,4; "
         "11:ring red 0 @4,4; tie 2-8 []; tie 4-9 []; tie 6-11 []; cord fold-10 [5,4 0,4]; cord fold-7 [6,3 0,3]; "
         "cord loose-1 [6.2,0 0,0]; cord loose-3 [6.2,1 0,1]; cord loose-5 [6.2,2 0,2]")
-    assert p41.labels == ("answer-cords",)
+    assert p41.words == ("answer-cords",)
 
     def box(S):
         """The answer each answer-cord gives: which wish places tie down to it."""
@@ -370,10 +362,10 @@ def pictures():
     assert [f(x) for x in strings(3)] == [(x[0] ^ x[1], x[2]) for x in strings(3)]
     assert promise_holds(f, S_PAIRS) and not promise_holds(f, (0, 1, 1))
 
-    # P4.2: the fold -- nothing moves but the near edge; the fold band covers both
-    # answer-cords' ends and no ring
-    assert p42.dump == p41.dump.replace("folded=false", "folded=true")
-    assert p42.labels == ("fold",)
+    # F29 (P4.2): the fold -- nothing moves but the near edge; the fold band covers both
+    # answer-cords' ends and no ring.  No mark: the near edge's ghost would cut the cords
+    assert p42.head == p41.head.replace("folded=false", "folded=true")
+    assert p42.words == ("fold",) and p42.mark_tikz == [] and "step" not in PC.options(calls[1])
     assert S2["things"] == S1["things"] and S2["cords"] == S1["cords"]
     for p in (p42, p43):
         lo, hi = PC.fold_band(p)
@@ -382,11 +374,11 @@ def pictures():
         assert len(ends) == 2 and all(lo < y < hi for _, y in ends)
         assert all(Y - rr > hi for *_, Y, rr in rings)
 
-    # P4.3: run together above the fold -- on the upper answer-cord one ring at the second
+    # F30 (P4.3): run together above the fold -- on the upper answer-cord one ring at the second
     # place's column holding the first two places' ties, on the lower one at its column
     # holding the third's; no ring added.  One round, the answer wires discarded, gives the
     # clues 000, 001, 110, 111, a quarter each, every one with z.s = 0
-    assert p43.dump == (
+    assert p43.head == (
         "scene=pairs folded=true slid=true | cols=8 rows=5 y=0..4 near=true folded=true; gaps=2.5; "
         "1:end red 0 @0,0; 2:ring green 0 @2,0; 3:end red 0 @0,1; 4:ring green 0 @3,1; 5:end red 0 @0,2; "
         "6:ring green 0 @4,2; 7:ring red 0 @3,3; 8:ring red 0 @4,4; tie 2-7 []; tie 4-7 []; tie 6-8 []; "
@@ -400,12 +392,48 @@ def pictures():
     probs = {z: rho[index(z), index(z)].real for z in strings(3) if rho[index(z), index(z)].real > 1e-12}
     assert sorted(probs) == [(0, 0, 0), (0, 0, 1), (1, 1, 0), (1, 1, 1)]
     assert np.allclose(list(probs.values()), 0.25) and all(dot(z, S_PAIRS) == 0 for z in probs)
+    # its marks (card 3e.2): a ghost at the upper answer-cord's end-ring and at the first
+    # place's ring, one at the lower's end-ring; one arc above each answer-cord, each from its
+    # end-ring's ghost along to the ring it ran into; every logged gap
+    assert p43.notes == ["step slide together -> " + p43.head] + F30_MARKS
+    assert [grid for _, grid, _ in PC.ghost_places(p43)] == [(0, 3), (2, 3), (0, 4)]
+    S, so = PC.cloth_scene(p43.drawn)
+    G = PC.ClothGeom(S, so)
+    for arc, (row, to) in zip(p43.arcs, ((3, 3), (4, 4))):
+        assert abs(arc.p0[0] - G.X(0)) < G.RO and arc.p1[0] > arc.p0[0] and abs(arc.p1[0] - G.X(to)) < 1.5 * G.RO
+        assert np.isclose(arc.p0[1], G.Y(row) + G.D) and arc.c1[1] > arc.p0[1]      # above the row, bowed up
+    assert PC.mark_clearance(p43) > 0.01                                          # inside the linen, off the fold
+    edge, centre = PC.cord_clearance(p43)
+    # the least of the chapter: the upper arc against the first place's slanted tie, where it
+    # comes into the ring the arc ends at -- 0.031 cm edge to edge, 0.065 on centre lines
+    assert edge > 0.02 and round(edge, 3) == 0.031 and round(centre, 3) == 0.065
+    # re-measured on the kit's strokes as cloth.lua emits them: the Lua's CORDHALF is at least a
+    # cord's (and a tie's) drawn half-width, and the arcs clear every body AND its soft shadow
+    # (2.3 pt wide, shifted right and down) by more than 0.02 cm too
+    KIT = (REPO / "pdf/props/cloth.lua").read_text(encoding="utf-8")
+    assert "return lw(1.75 * k), lw(1.3 * k)" in KIT and "local k = (kind == \"cord\") and 1 or 0.85" in KIT
+    assert ('E("\\\\draw[black, opacity=0.16, line width=" .. lw(2.3) .. ", line join=round" .. rc .. ", shift={(" ..\n'
+            '    f(0.012 * G.s) .. "," .. f(-0.016 * G.s) .. ")}] " .. path .. ";")') in KIT
+    sc = PC.CLOTHP / 0.30
+    assert PC.CORDHALF >= 1.75 * 1.0 / 2 * PC.PT * sc > 1.75 * 0.85 / 2 * PC.PT * sc
+    rings, cords = PC.cloth_drawn(p43)
+    for c in p43.clearances:
+        for kind, a, b, pts, _ in cords:
+            body = 1.75 * (1.0 if kind == "cord" else 0.85) / 2 * PC.PT * sc
+            shade = [(x + 0.012 * sc, y - 0.016 * sc) for x, y in pts]
+            for q in c["extent"]:
+                assert min(PC.seg_dist(q, pts[i], pts[i + 1]) for i in range(len(pts) - 1)) - body - PC.MARKHALF > 0.02
+                assert min(PC.seg_dist(q, shade[i], shade[i + 1]) for i in range(len(shade) - 1)) \
+                    - 2.3 / 2 * PC.PT * sc - PC.MARKHALF > 0.02
+    off = PC.twin(calls[2])
+    assert PC.drawn(off) == PC.drawn(p43) and off.mark_tikz == [] and off.ghosts == []
+    assert PC.drawn(off) == PC.drawn(PC.run_frame("cloth", "fold, slide together", "pairs box", False))   # round 3's P4.3
 
     # the clearances, on drawn extents: the answer-cords turn down at columns 5 (the lower)
     # and 6 (the upper) and cross nothing; each turn-down is clear of the other's rings
     for p in (p41, p42, p43):
         rings, cords = PC.cloth_drawn(p)
-        row = lambda i: p.cloth["things"][i - 1]["y"]
+        row = lambda i: p.canon["things"][i - 1]["y"]
         turns = {}                                  # answer row -> (its turn-down, reach)
         for kind, a, b, pts, reach in cords:
             if "fold" in (a, b):
@@ -425,6 +453,243 @@ def pictures():
                 if row(i) != own:
                     assert PC.point_to_polyline((X, Y), q) - rr - r > 0.05    # clear of the other's rings
     assert not PC.TEX_ERRORS
+
+
+def whole():
+    """The dialogue's pictures as a whole (card 3e.6): twenty calls and thirty frames, all inside
+    the four challenges, none after F30; each frame in its place; the keyed rule over true
+    frames; the marks; the log; the minuet and the Genie."""
+    D = DIALOGUE
+    assert D.check_whole(PC.ORDER) == 20                                # calls (a strip is one call)
+    text = D.read(D.dialog)
+    calls = [(o, c) for o in PC.ORDER for b in D.blocks(o) for c in b]
+    assert not D.call_re.search(text[:text.index("## First Challenge")])
+    last = calls[-1][1]
+    assert not D.call_re.search(text[text.index(last.text) + len(last.text):])
+    assert [len(D.blocks(o)) for o in PC.ORDER] == [6, 4, 5, 3]          # 18 blocks
+    frames = [(o, c, fc, p) for o, c in calls for fc, (p, _) in zip(PC.frame_calls(c), PC.pictures(c))]
+    names = ["F%02d" % i for i in range(1, 31)]
+    assert len(frames) == len(names) == 30 and sum(PC.is_strip(c) for _, c in calls) == 5
+    assert [n for n, (o, c, fc, p) in zip(names, frames) if PC.is_prediction(fc)] == ["F03", "F25"]
+    # the keyed rule over true frames only (a prediction is never keyed), the strips' frames
+    # judged in turn: the starred strip K3 keys its first frame, and its later frames are keyed
+    # "new", naming only the part their step brought (F10: the tube; F11's step brings none)
+    D.keyed_first(PC.ORDER, kind=PC.keyed_kind, select=PC.judged)
+    keyed = [n for n, (o, c, fc, p) in zip(names, frames) if fc.keyed is True]
+    assert keyed == ["F01", "F02", "F06", "F08", "F09", "F24", "F27", "F28", "F29"]
+    new = [n for n, (o, c, fc, p) in zip(names, frames) if fc.keyed == "new"]
+    assert new == ["F10", "F11"]
+    seen = set()
+    for n, (o, c, fc, p) in zip(names, frames):
+        if fc.keyed == "new":
+            assert PC.is_strip(c) and c.keyed is True and c.macro == "wishclothsteps", n
+            assert p.words == ((PC.NEWPART[PC.options(fc)["step"]],) if PC.options(fc)["step"] in PC.NEWPART else ()), n
+        if PC.judged(fc):
+            assert bool(p.words) == (PC.keyed_kind(fc) not in seen), n     # a family's first frame names it
+            seen.add(PC.keyed_kind(fc))
+        else:
+            assert p.words == () and fc.keyed is False, n
+        assert PC.place_ok(o, fc), (o, fc.text)                          # the places, globally
+    assert [n for n, (o, c, fc, p) in zip(names, frames) if p.words and fc.keyed == "new"] == ["F10"]
+    assert not any("keyed new" in l for _, _, _, p in frames for l in p.log)   # the word drawn, no log line
+    # no call with the l.570 gamble setting; no call raises a fault
+    for o, c in calls:
+        PC.picture(c)
+        assert not (c.macro == "wishcasket" and "flag knob's collar upright" in PC.norm(c.args[0]))
+    # the log, as the Lua writes it: 82 frame lines and 5 strip lines (card 3e.2)
+    log = [l for _, c in calls for l in PC.describe(c)]
+    strip_lines = [l for l in log if re.match(r"\w+steps: strip of \d frames$", l)]
+    assert len(log) == 87 and len(strip_lines) == 5
+    # the marks, over every frame: a frame with no step draws none; a step draws its marks
+    # unless the Lua says it has none to draw (a casket step, the tubes); marks=off leaves the
+    # same frame unmarked; a prediction draws no mark, only its pale group
+    marked = []
+    for n, (o, c, fc, p) in zip(names, frames):
+        if "step" not in PC.options(fc) or PC.is_prediction(fc):
+            assert p.mark_tikz == [] and p.arcs == [] and p.ghosts == [], n
+        else:
+            off = PC.twin(fc)
+            assert PC.drawn(off) == PC.drawn(p) and off.mark_tikz == [], n
+        if p.mark_tikz:
+            marked.append(n)
+            assert PC.mark_clearance(p) > 0.01, n                       # inside its linen or frame
+            if p.macro == "wishcloth":
+                assert PC.cord_clearance(p)[0] > 0.02, n                 # every arc off every cord and tie
+    assert marked == ["F04", "F05", "F12", "F13", "F14", "F15", "F17", "F18", "F19", "F30"]
+    assert min(PC.cord_clearance(p)[0] for n, (_, _, _, p) in zip(names, frames)
+               if n in marked and p.macro == "wishcloth") == PC.cord_clearance(frames[-1][3])[0]   # F30's the least
+    # the minuet and the Genie after the revision, on both files (section 1c's one-liner)
+    for path in (D.dialog, D.raw):
+        t = D.read(path)
+        ok, trio, granted, refrain = PC.form_check(t)
+        assert ok and trio == "Third Challenge" and granted == 1 and refrain, path
+        assert t.count("Let Bob draw") == 0
+        spoken = re.findall(r"^\*\*([^*]+):\*\*(.*)$", t, re.M)
+        referred = [who for who, line in spoken if re.sub(r"\*\[.*?\]\*", "", line).strip().startswith("Referred.")]
+        assert referred == ["Genie"] * 3, referred
+
+
+# the fault cases: every one of the Lua's 90 sites raised by its own call (card 3e.6), each
+# (site, frame kind, keyed, bracket, state[, the sites it raises, in order]), or for a strip
+# (site, "steps", keyed, kind, state, options, steps, captions[, ...])
+W0 = "marks first and fifth; wish-knobs dark; flag dark"
+WL = "marks first and fifth; wish-knobs crosswise dark; flag crosswise lit"
+SL = "first and fifth; disc black"
+CK = "collars crosswise; flag knob lit"
+FAULT_CASES = [
+    # the brackets (oerr)
+    ("opt-unknown", "cloth", False, "colour=red", W0),
+    ("opt-twice", "cloth", False, "step=tubes out; step=tubes out", W0),
+    ("opt-bare-two", "cloth", False, "tubes out; push the flag; marks=off", W0),
+    ("opt-onoff", "cloth", False, "step=tubes out; marks=maybe", W0),
+    ("marks-no-step", "cloth", False, "marks=on", W0),
+    ("expects-keyed", "cloth", True, "step=push the flag; expects=gave nothing", WL),
+    ("expects-marked", "cloth", False, "step=push the flag; expects=gave nothing; marks=on", WL),
+    # the casket (kerr; oerr)
+    ("casket-stop", "casket", False, "", "collars askew"),
+    ("casket-knob", "casket", False, "", "knobs sideways"),
+    ("casket-locked", "casket", False, "", "granted; knobs lit"),
+    ("casket-twice", "casket", False, "", "granted; granted"),
+    ("casket-lid-early", "casket", False, "", "lid lifted"),
+    ("casket-ordinal", "casket", False, "", "wish-knobs ninth lit"),
+    ("casket-ordinal-twice", "casket", False, "", "wish-knobs first and first lit"),
+    ("casket-wishknobs", "casket", False, "", "wish-knobs sideways"),
+    ("casket-clause", "casket", False, "", "paint it red"),
+    ("casket-gamble", "casket", False, "", "flag knob's collar crosswise; granted"),
+    ("casket-rule-step", "casket", False, "windows; step=flag knob lit; expects=my marks", "collars crosswise"),
+    ("casket-rule-view", "casket", False, "knobs; step=granted; expects=my marks", CK),
+    # (the clauses set the six wish rows alike, so a setting with no one reading under his marks
+    # has none under the casket's own either: the passage's gamble comes first)
+    ("casket-rule-gamble", "casket", False, "windows; step=granted; expects=my marks",
+     "collars crosswise; flag knob's collar upright; flag knob lit", ("casket-gamble", "casket-rule-gamble")),
+    ("casket-rule-unknown", "casket", False, "windows; step=granted; expects=his marks", CK),
+    ("casket-rule-nostep", "casket", False, "windows; expects=my marks", CK + "; granted"),
+    ("casket-inside-shut", "casket", False, "inside", ""),
+    ("casket-view", "casket", False, "sideways", ""),
+    # the slip (serr; oerr)
+    ("slip-view", "slip", False, "sideways", "first"),
+    ("slip-count", "slip", False, "", "first / second / third"),
+    ("slip-ordinal", "slip", False, "", "ninth"),
+    ("slip-twice", "slip", False, "", "first and first"),
+    ("slip-disc-two", "slip", False, "", "first / second; disc gilt"),
+    ("slip-face", "slip", False, "", "first; disc silver"),
+    ("slip-handed-face", "slip", False, "", "first; handed red, wish first"),
+    ("slip-wish", "slip", False, "", "first; handed gilt, wish ninth"),
+    ("slip-wish-twice", "slip", False, "", "first; handed gilt, wish first and first"),
+    ("slip-clause", "slip", False, "", "first; spin it"),
+    ("slip-step-nodisc", "slip", False, "step=turn at the first", "first and fifth"),
+    ("slip-step-wish", "slip", False, "step=wish ninth", SL),
+    ("slip-step-wish-twice", "slip", False, "step=wish first, first", SL),
+    ("slip-step-turn", "slip", False, "step=turn at the ninth", SL),
+    ("slip-step-bare", "slip", False, "step=turn at the second", SL),
+    ("slip-step-unknown", "slip", False, "step=flip it", SL),
+    ("slip-rule-wish", "slip", False, "step=turn at the first; expects=every mark", SL),
+    ("slip-rule-agrees", "slip", False, "step=wish first and third; expects=every mark", SL),
+    ("slip-rule-unknown", "slip", False, "step=wish every place; expects=some mark", SL),
+    ("slip-rule-nostep", "slip", False, "expects=every mark", SL),
+    # the cloth (cerr; oerr)
+    ("cloth-knob", "cloth", False, "", "marks first; wish-knobs purple; flag purple"),
+    ("cloth-ordinal", "cloth", False, "", "marks ninth"),
+    ("cloth-marks-twice", "cloth", False, "", "marks first and first"),
+    ("cloth-scene", "cloth", False, "", "colour blue"),
+    ("cloth-marks-many", "cloth", False, "", "marks first, third and fifth"),
+    ("cloth-ends-mixed", "cloth", False, "", "marks first; wish-knobs dark"),
+    ("out-loose", "cloth", False, "tubes out", "marks first"),
+    ("out-threaded", "cloth", False, "thread the tubes, tubes out", W0),
+    ("clip-loose", "cloth", False, "clip the tubes on", "marks first and fifth"),
+    ("clip-twice", "cloth", False, "clip the tubes on, clip the tubes on", W0),
+    ("clip-threaded", "cloth", False, "thread the tubes, clip the tubes on", W0),
+    ("clip-pushed", "cloth", False, "tubes out, push the flag, clip the tubes on", W0),
+    ("clip-then-out", "cloth", False, "clip the tubes on, push the flag", W0),
+    ("next-loose", "cloth", False, "push into the next ring", "marks first and fifth"),
+    ("next-threaded", "cloth", False, "thread the tubes, push into the next ring", W0),
+    ("next-none", "cloth", False, "tubes out, push the flag, push into the next ring", W0),
+    ("next-colour", "cloth", False, "push into the next ring", W0),
+    ("thread-loose", "cloth", False, "thread the tubes", "marks first"),
+    ("thread-twice", "cloth", False, "thread the tubes, thread the tubes", W0),
+    ("thread-pushed", "cloth", False, "tubes out, push the flag, thread the tubes", W0),
+    ("in-early", "cloth", False, "slide the tubes in", W0),
+    ("push-loose", "cloth", False, "push the flag", "marks first"),
+    ("push-threaded", "cloth", False, "thread the tubes, push the flag", W0),
+    ("push-partial", "cloth", False, "tubes out, push into the next ring, push the flag", W0),
+    ("push-twice", "cloth", False, "tubes out, push the flag, push the flag", W0),
+    ("push-colour", "cloth", False, "push the flag", W0),
+    ("far-early", "cloth", False, "on to the far end", W0),
+    ("far-twice", "cloth", False, "tubes out, push the flag, on to the far end, on to the far end", W0),
+    ("far-partial", "cloth", False, "tubes out, push into the next ring, on to the far end", W0),
+    # (a ring of the other colour from its end-ring cannot slide, and then nothing slides: the
+    # wish-cords' rings and their end-rings share their colours, so the second fault follows)
+    ("together-colour", "cloth", False, "push the flag, slide together",
+     "marks first; wish-knobs dark; flag crosswise dark", ("together-colour", "together-none")),
+    ("together-none", "cloth", False, "slide together", W0),
+    ("cloth-op", "cloth", False, "spin", W0),
+    ("fold-twice", "cloth", False, "fold, fold", "pairs box"),
+    ("pairs-together-twice", "cloth", False, "slide together, slide together", "pairs box"),
+    ("pairs-op", "cloth", False, "spin", "pairs box"),
+    ("cloth-rule-push", "cloth", False, "step=thread the tubes; expects=gave nothing", W0),
+    ("cloth-rule-rest", "cloth", False, "tubes out; step=push the flag; expects=gave nothing", W0),
+    ("cloth-rule-nochange", "cloth", False, "step=push the flag; expects=gave nothing",
+     "no marks; wish-knobs crosswise dark; flag crosswise lit"),
+    ("cloth-step-commas", "cloth", False, "step=tubes out, push the flag", W0),
+    ("cloth-rule-unknown", "cloth", False, "step=push the flag; expects=gave all", WL),
+    ("cloth-rule-nostep", "cloth", False, "push the flag; expects=gave nothing", WL),
+    # the strips (oerr, the strip's own faults: its frames not run)
+    ("strip-bare", "steps", False, "cloth", W0, "tubes out; from=off", "push the flag", "a"),
+    ("strip-none", "steps", False, "casket", "", "", " ; ", "a"),
+    ("strip-commas", "steps", False, "cloth", W0, "", "tubes out, push the flag", "a; b"),
+    ("strip-long", "steps", False, "cloth", W0, "after=tubes out",
+     "push into the next ring; slide together; push into the next ring; slide together", "a;b;c;d;e"),
+    ("strip-captions", "steps", False, "slip", SL, "", "turn at the first", "a"),
+]
+
+
+def check_faults():
+    """Every fault site raised by its own call, alone (or with the one it entails), with a
+    message of its own; the 90 sites are the Lua's, all of them; the ';' bracket is order-free
+    for all three macros and their strips, each order run."""
+    seen = {}
+    for case in FAULT_CASES:
+        site = case[0]
+        if case[1] == "steps":
+            _, _, keyed, kind, state, opt, stepspec, caps = case[:8]
+            want = case[8] if len(case) > 8 else (site,)
+            fn, args = PC.steps, (kind, keyed, state, opt, stepspec, caps)
+        else:
+            _, kind, keyed, br, state = case[:5]
+            want = case[5] if len(case) > 5 else (site,)
+            fn, args = PC.run_frame, (kind, br, state, keyed)
+        assert tuple(dict.fromkeys(PC.faults(fn, *args))) == tuple(want), site
+        msgs = {m for s, m in zip(PC.faults(fn, *args), PC.messages(fn, *args)) if s == site}
+        assert len(msgs) == 1 and not (msgs & set(seen)), site           # one message, its own
+        seen[msgs.pop()] = site
+    assert sorted(c[0] for c in FAULT_CASES) == sorted(PC.ERROR_SITES) and len(FAULT_CASES) == len(PC.ERROR_SITES) == 90
+    PC.check_sites()                                                     # 12 + 10 + 35 + 33, four tex.error calls
+    PC.check_lua()                                                       # every chunk as transcribed, pinned
+    # the bracket is order-free: every order of a frame's items draws the same frame
+    for kind, state, items in (
+            ("casket", "collars crosswise; flag knob lit", ["windows", "step=granted", "marks=off"]),
+            ("casket", "collars crosswise; flag knob lit", ["windows", "step=granted", "expects=my marks"]),
+            ("slip", "first and fifth; disc black", ["folded", "step=turn at the first", "marks=on"]),
+            ("slip", "first and fifth; disc black", ["folded", "step=wish every place", "expects=every mark"]),
+            ("cloth", W0, ["tubes out", "step=push into the next ring", "marks=on"]),
+            ("cloth", WL, ["push into the next ring", "step=push into the next ring", "expects=gave nothing"])):
+        outs = set()
+        for order in itertools.permutations(items):
+            br = "; ".join(order)
+            assert PC.faults(PC.run_frame, kind, br, state, False) == [], br
+            p = PC.run_frame(kind, br, state, False)
+            outs.add(repr((PC.drawn(p), p.mark_tikz, p.notes, p.words)))
+        assert len(outs) == 1, (kind, items)
+    for kind, state, items, stepspec, caps in (
+            ("slip", "first and fifth; disc black", ["folded", "from=off", "marks=off"],
+             "turn at the first; turn at the fifth", "a; b"),
+            ("casket", "collars crosswise", ["windows", "from=on"], "flag knob lit; granted", "a; b; c"),
+            ("cloth", W0, ["after=tubes out", "from=off", "marks=on"], "push into the next ring; slide together", "a; b")):
+        outs = set()
+        for order in itertools.permutations(items):
+            assert PC.faults(PC.steps, kind, False, state, "; ".join(order), stepspec, caps) == [], order
+            outs.add(PC.steps(kind, False, state, "; ".join(order), stepspec, caps).printed)
+        assert len(outs) == 1, (kind, items)
 
 
 # --- pictures (hand-built doubled diagrams; pyzx 0.10.6 refuses ground vertices) ---------

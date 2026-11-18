@@ -289,22 +289,177 @@ THIRD_DUMPS = (
 )
 
 
+FRAME_DUMPS = (                                        # the log's dump, frame by frame (card 3e.6, item 6)
+    'mend=0,0,0 tell=0,2,0 clip=none glass=cloudy',
+    'mend=0,0,0 tell=0,2,0 clip=none glass=cloudy',
+    'fresh,pairs | cols=8 rows=3 y=0..2 near=false folded=false; 1:ring green 0 @3,1; tube @5,0 a0; tube @6,0 a0; '
+    'tube @1,1 a0; tube @2,1 a0; tube @5,1 a0; tube @6,1 a0; tube @5,2 a0; tube @6,2 a0; cord loose-1 [7.3,0 4,0 '
+    '3,1]; cord loose-1 [-0.3,1 3,1]; cord loose-1 [7.3,1 3,1]; cord loose-1 [7.3,2 4,2 3,1]',
+    'fresh,pairs,through | cols=8 rows=3 y=0..2 near=false folded=false; 1:ring red 0 @3,1; tube @6,0 a0; tube '
+    '@1,1 a0; tube @6,1 a0; tube @6,2 a0; cord loose-1 [7.3,0 4,0 3,1]; cord loose-1 [-0.3,1 3,1]; cord loose-1 '
+    '[7.3,1 3,1]; cord loose-1 [7.3,2 4,2 3,1]',
+    'nine | cols=9 rows=9 y=0..8 near=false folded=false; 1:ring green 0 @5,1; 2:ring green 0 @1,4; 3:ring green '
+    '0 @5,4; 4:ring green 0 @5,7; tube @4,1 a0; tube @4,4 a0; tube @4,7 a0; cord 1-2 [5,1 3,1 1,4]; cord 2-3 [1,4 '
+    '5,4]; cord 2-4 [1,4 3,7 5,7]; cord loose-1 [8.3,0 6,0 5,1]; cord loose-1 [8.3,1 5,1]; cord loose-1 [8.3,2 '
+    '6,2 5,1]; cord loose-2 [-0.3,4 1,4]; cord loose-3 [8.3,3 6,3 5,4]; cord loose-3 [8.3,4 5,4]; cord loose-3 '
+    '[8.3,5 6,5 5,4]; cord loose-4 [8.3,6 6,6 5,7]; cord loose-4 [8.3,7 5,7]; cord loose-4 [8.3,8 6,8 5,7]',
+)
+
+
+# an arc ends beside its ring: a hop HOPR from its centre, a route ROUTER, the third strand's 0.16 (its end
+# set back past the parting ring's ties); every one within NEAR
+NEAR = 0.17
+GRID = re.compile(r"no ghost of the (\w+) (\w+) \(grid ([-\d.]+),([-\d.]+)\): (.+)")
+
+
+def check_cloth_marks(R, scene_of, opts, who, extra=()):
+    """A cloth step's marks, on the drawn extent (card 3e.6): every piece of the state before that
+    left its place has a ghost there, the size of a ring, or the log says why it has none; every
+    ghost stands on such a piece (or on one of `extra`, a place that is no piece of the cloth's
+    table); every arc runs from beside a piece of the state before to beside a piece of the step's
+    state (or to one of this step's ghosts: a ring slid into one that goes with it), another place, bowed at least the Lua's floor and clear of the net by its clearance;
+    pieces gone and no arc drawn: the log says why."""
+    S0, S1 = scene_of(R.before), scene_of(R.after)
+    g = PC.G(S1, opts, who)
+    at = lambda S: {(t["x"], t["y"]): (t["kind"], t["c"]) for t in S["things"]}
+    old, new = at(S0), at(S1)
+    gone = {p for p in old if p not in new}
+    hidden = {p for p in old if p in new and new[p] != old[p]}
+    said = {(float(x), float(y)): why for c, kw, x, y, why in (m.groups() for m in map(GRID.fullmatch, R.notes) if m)}
+    for p in hidden:
+        assert said.get(p) == "the piece lying on its place now hides it", p
+    ghosted = set()
+    for q in R.ghosts:
+        assert np.isclose(q[2], g.RO), q.what
+        here = [p for p in gone if np.allclose(q[:2], g.XY(p), atol=1e-3)]
+        assert here or any(np.allclose(q[:2], e, atol=1e-3) for e in extra), q.what
+        ghosted |= set(here)
+    assert gone - ghosted <= set(said), (gone, ghosted, said)          # a piece gone: ghosted, or why not
+    assert not (ghosted & set(said)), ghosted & set(said)
+    near = lambda pt, places: min(((np.hypot(pt[0] - c[0], pt[1] - c[1]), c) for c in places), key=lambda u: u[0])
+    for a in R.arcs:
+        assert a.kind == "slide" and a.sag >= PC.MINSAG - 1e-9 and a.fit[0] >= PC.MINCLEAR - 1e-9, (a.what, a.sag, a.fit)
+        d0, c0 = near(a.frm, [g.XY(p) for p in old] + list(extra))
+        d1, c1 = near(a.to, [g.XY(p) for p in new] + [tuple(q[:2]) for q in R.ghosts])   # or this step's ghost: both gone
+        assert d0 < NEAR and d1 < NEAR and c0 != c1, (a.what, d0, d1)
+    if gone and not R.arcs:
+        assert any(n.startswith("no arc") for n in R.notes), R.step
+    assert len(R.mark_tikz) >= len(R.arcs) + len(R.ghosts)
+
+
+FR, NG = "a fresh parting ring", "nothing gets past the bells"
+
+
 def pictures():
-    """The Third Challenge's prop pictures (identity card, section 4), read from the dialogue
-    through tools/dfp_props.py and the transcription tools/props_ch18.py, and held against this
-    file's storm_line, encoder and shor_encoder (graph_of: a structural reading of each cloth
-    dump, not a proof)."""
-    calls = DIALOGUE.check_layout("Third", sizes=[1, 1, 1])
+    """The Third Challenge's prop pictures (identity card, sections 4 and 3e), read from the
+    dialogue through tools/dfp_props.py and the transcription tools/props_ch18.py, and held against
+    this file's storm_line, encoder and shor_encoder (graph_of: a structural reading of each cloth
+    dump, not a proof).  Round 4 draws Achilles's prediction pale beside the true line ("nothing
+    gets past the bells": the glass clear), the pairs of tubes put on before the ring is drawn
+    through them, and the near tubes' slides into the ring."""
+    calls = DIALOGUE.check_layout("Third", sizes=[2, 1, 1])
     assert [(c.macro, c.keyed, c.opt, c.args, c.caption) for c in calls] == [
+        ("stormline", False, "middle tell ring at a half, glass cloudy; expects=" + NG, (), "as Achilles expects"),
         ("stormline", False, "middle tell ring at a half, glass cloudy", (), "Turned in passing"),
-        ("tubecloth", True, "pairs put on, drawn through", ("a fresh parting ring",), "Come out red"),
+        ("tubeclothsteps", True, "after=pairs put on", (FR, "drawn through"), "A fresh ring, with tubes; Come out red"),
         ("tubecloth", False, "", ("nine strands",), "Spread out again")]
     PC.check_captions(DIALOGUE, "Third", calls)
     PC.check_section(DIALOGUE, "Third", calls)
-    PC.check_anchors(DIALOGUE, "Third", ["P3.1", "P3.2", "P3.3"])
-    pics = [PC.picture(c) for c in calls]
-    p31, p32, p33 = pics
-    assert tuple(p.dump for p in pics) == THIRD_DUMPS
+    assert PC.check_anchors(DIALOGUE, "Third", PC.BLOCKS["Third"]) == (2, 3)    # next-starts, phrases before
+    frames = [PC.frame_chain(c) for c in calls]
+    assert [len(f) for f in frames] == [1, 1, 2, 1]                        # card 3e.6: 3 blocks, 5 frames
+    assert tuple(R.head for f in frames for R in f) == FRAME_DUMPS          # the log's dump, frame by frame
+    assert all(R.head == R.dump for f in frames for R in f if R.wrong is None)
+    (pale,), (p31,), tub, (p33,) = frames
+    p32 = tub[-1]
+    pics = [p31, p32, p33]
+    assert tuple(p.dump for p in pics) == THIRD_DUMPS                     # round 3's pictures, as last frames
+    assert pale.frame == p31.frame                                        # one height in P3.1's block
+
+    # the pale frame (card 3e.6, item 7): Achilles's rule, "nothing gets past the bells", applied by
+    # this file to the line as it stands -- a turn either rings a bell, and is mended, or spoils
+    # nothing; so with both bells silent and nothing mended the glass at the sender's mark reads
+    # clear.  The line's value says otherwise: with the middle tell ring at a half it is Z, and a
+    # message a quarter round comes out a quarter back -- cloudy.  The rule is wrong exactly there.
+    L0 = pale.before
+    assert L0 == p31.state and pale.step is None and not pale.marked and not pale.keyed
+    k = L0.tell.index(2)                                                  # the tell ring at a half: a Z there
+    quarter = MARKS["a quarter round"]
+    (bells,) = [s_ for s_ in product((0, 1), repeat=2)                    # the bells' answer, from the model
+                if np.isclose(np.linalg.norm(P(s_) @ on(k, Z) @ ENC @ quarter), 1)]
+    assert bells == (0, 0)                                                # neither rings
+    rule = "clear" if bells == (0, 0) and L0.mend == [0, 0, 0] else None
+    assert pale.wrong.glass == rule == "clear" and pale.drawn.glass == "clear"
+    assert (pale.wrong.mend, pale.wrong.tell, pale.wrong.clip) == (L0.mend, L0.tell, L0.clip)   # the same line
+    assert pale.dump == PC.stormline("middle tell ring at a half, glass clear").dump != p31.dump
+    tell_ = tuple(q // 2 for q in L0.tell)
+    value = matrix_of(storm_line((0, 0, 0), bells, (0, 0, 0), tell_))
+    assert np.isclose(abs(np.vdot(quarter, value @ quarter)) ** 2, 0)     # the true reading: cloudy
+    assert np.isclose(abs(np.vdot(MARKS["a quarter back"], value @ quarter)) ** 2, 1)
+    assert p31.state.glass == "cloudy" != pale.drawn.glass
+    # where the rule is right (every tell ring at rest: the line the bare wire) the glass does read
+    # clear; there the Lua has nothing to refute and refuses the prediction
+    rest = matrix_of(storm_line((0, 0, 0), (0, 0), (0, 0, 0)))
+    assert np.isclose(abs(np.vdot(quarter, rest @ quarter)) ** 2, 1)
+    assert PC.faults(PC.run_frame, "line", "glass clear; expects=" + NG, "", False) == ["line-expects-clear"]
+    assert PC.faults(PC.run_frame, "line", "middle tell ring at a half; expects=" + NG, "", False) == ["line-expects-unlifted"]
+    PC.TEX_ERRORS.clear()
+    # drawn: the line under a white veil, the kitchen glass over it at full strength, clear (its
+    # cloud not drawn); legible, the glass 0.21 cm across
+    assert pale.own[0] == "\\fill[white, opacity=%.3f] (-1.250,%.3f) rectangle (1.250,%.3f);" % (PC.PALE, PC.SFBOT, PC.SFTOP)
+    body = [l for l in pale.own if l.startswith("\\shade[left color=propcheighteenglasslight")]
+    (m,) = [re.search(r"\((-?[\d.]+),(-?[\d.]+)\) rectangle \((-?[\d.]+),(-?[\d.]+)\)", l) for l in body]
+    assert float(m.group(3)) - float(m.group(1)) >= 0.15
+    assert not any("cloud" in l for l in pale.own) and pale.arcs == pale.ghosts == pale.mark_tikz == []
+    # L9: the predicted glass reads plainly clear -- over the glass body, a white middle, two walls
+    # seen edge-on, a base, a glint, and the outline drawn again last; all inside the body, in the
+    # pale frame only
+    rect = lambda l: tuple(map(float, re.search(r"\((-?[\d.]+),(-?[\d.]+)\) rectangle \((-?[\d.]+),(-?[\d.]+)\)", l).groups()))
+    gx0, gy0, gx1, gy1 = map(float, m.groups())
+    after = pale.own[pale.own.index(body[0]) + 1:]
+    inside = lambda r: gx0 - 1e-9 <= r[0] < r[2] <= gx1 + 1e-9 and gy0 - 1e-9 <= r[1] < r[3] <= gy1 + 1e-9
+    (middle,) = [l for l in after if l.startswith("\\fill[white, rounded corners")]
+    walls = [rect(l) for l in after if l.startswith("\\fill[propcheighteenglassedge, opacity=0.38]")]
+    assert inside(rect(middle)) and len(walls) == 2 and all(map(inside, walls))
+    assert walls[0][0] < (gx0 + gx1) / 2 < walls[1][0]                      # one wall on each side
+    assert sum(1 for l in after if l.startswith("\\fill[propcheighteenglassedge, opacity=0.42]") and "ellipse" in l) == 1
+    (glint,) = [l for l in after if l.startswith("\\draw[propcheighteenglassedge, line width=0.25pt]")]
+    gl = [tuple(map(float, q)) for q in re.findall(r"\((-?[\d.]+),(-?[\d.]+)\)", glint)]
+    assert len(gl) == 2 and gl[0][0] == gl[1][0] and all(gx0 < q[0] < gx1 and gy0 < q[1] < gy1 for q in gl)
+    assert after[-1].startswith("\\draw[propcheighteenglassedge, rounded corners") and rect(after[-1]) == (gx0, gy0, gx1, gy1)
+    assert after.index(middle) < after.index(glint) < len(after) - 1
+    plain = PC.run_frame("line", "middle tell ring at a half, glass clear", "", False)
+    assert not any(l.startswith("\\fill[white, rounded corners") for l in plain.own)
+    # the wrong rule's comment in the Lua, word for word as the card copies it (section 3e.1), and
+    # every phrase it quotes in both dialogue files (planning comments left out)
+    heading = PC.RULE_COMMENTS[1]
+    assert heading == 'round 4: "nothing gets past the bells" AND ITS WRONG RULE.'
+    card = (pathlib.Path(DIALOGUE.dialog).parent / "identity.md").read_text(encoding="utf-8")
+    assert ("```\n" + PC.rule_comment(heading).rstrip("\n") + "\n```") in card
+    quotes = PC.comment_quotes(heading)
+    assert quotes[0] == NG and PC.norm(NG.replace(" the ", " ")) in PC.LEXPECTS and len(quotes) == 7
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        text = DIALOGUE.read(path)
+        for q in quotes[1:]:
+            assert q in text, (path, q)
+    assert "with the bells silent and nothing mended the message comes through as sent" in PC.comment_prose(heading)
+
+    # P3.2, the pairs on and the ring drawn through (item 7): the before-frame, the fresh ring with
+    # its pairs, has the fresh ring's value (two tubes in a row are no tube); the frame after it,
+    # round 3's, the ring the other colour; the near tubes slid into the ring
+    assert tub[0].keyed is True and tub[0].step is None and not tub[0].marked
+    assert tub[0].dump == PC.tubecloth("pairs put on", FR).dump
+    assert tub[1].step == "drawn through" and tub[1].marked and tub[1].before == tub[0].drawn
+    near = lambda R: set(PC.parse_dump(R.dump)[1])
+    gu = PC.G(PC.tube_scene(tub[1].after), PC.TUBEOPTS, PC.UWHO)
+    check_cloth_marks(tub[1], PC.tube_scene, PC.TUBEOPTS, PC.UWHO,   # each arc from a near tube's place
+                      [gu.XY(t) for t in sorted(near(tub[0]) - near(tub[1]))])
+    assert [a.what for a in tub[1].arcs] == ["slide arc for the near tube on the %s, into the ring" % w
+                                               for w in ("lead in", "first strand", "middle strand", "third strand")]
+    assert tub[1].ghosts == [] and "no ghost of a tube (its dotted outline would read as a box)" in tub[1].notes
+    assert near(tub[1]) < near(tub[0]) and len(near(tub[0]) - near(tub[1])) == 4   # the far tubes stay
+    assert [n[3:] for n in PC.parse_dump(tub[0].dump)[0].values()] == [n[3:] for n in PC.parse_dump(p32.dump)[0].values()]
+
     # one frame per start (the nine strands are taller), and one storm-line frame
     for start, pic in (("a fresh parting ring", p32), ("nine strands", p33)):
         assert {PC.tubecloth(s, start).frame for s in ("", "pairs put on", "pairs put on, drawn through")
@@ -337,7 +492,7 @@ def pictures():
     assert [k for k, (a, b) in enumerate(zip(va.beads, vb.beads)) if a != b] == [5, 10]
     assert va.spans == vb.spans and va.knots == vb.knots and va.bells == vb.bells
     assert va.clip == vb.clip == () and (va.glass, vb.glass) == ("clear", "cloudy")
-    assert p31.labels == ()
+    assert p31.labels == () == pale.labels
 
     # P3.2: the fresh parting ring, with its pairs, and drawn through: all three EQUAL, exactly
     # (C3); the last a red ring at rest with a tube on its lead and on each strand
@@ -358,9 +513,11 @@ def pictures():
     # a ring drawn through only some of its tubes is not the same ring
     half = PC.graph_of(p32.dump.replace(" tube @1,1 a0;", ""))
     assert not same_picture(half, green)
-    # the keyed word tube is the cloth kit's own placement (its no-room fault is the check);
-    # the Lua sets no word of its own here
-    assert p32.labels == ("tube",) and PC.own_words(p32) == () and PC.check_keyed_words(p32) == {}
+    # the keyed word tube is the cloth kit's own placement (its no-room fault is the check), on the
+    # frame round 4 keys, the pairs on; the Lua sets no word of its own here
+    t0 = tub[0].picture
+    assert t0.labels == ("tube",) and PC.own_words(t0) == () and PC.check_keyed_words(t0) == {}
+    assert p32.labels == () and PC.own_words(p32.picture) == ()
 
     # P3.3: the nine strands are Shor's encoder, exactly: one input, nine outputs, thirteen
     # cords; no bells yet (they are laid in the next direction, unpictured)

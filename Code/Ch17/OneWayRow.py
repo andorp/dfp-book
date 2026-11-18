@@ -162,6 +162,47 @@ def blackboard():
     pictures(rule, none)
 
 
+# every frame's dump, in the dialogue's order (the log's, card 3e.6 item 6: r17/build/def/dumps_md.txt)
+FRAME_DUMPS = (
+    # Third block 1 frame 1: The tin as set
+    'first=1:down second=0:down last=7:down',
+    # Third block 1 frame 2: Left lid off, lit
+    'first=1:lit second=0:down last=7:down',
+    # Third block 1 frame 3: Centre lid up, dark
+    'first=1:lit second=0:dark last=7:down',
+    # Third block 1 frame 4: Every lid lifted
+    'first=1:lit second=0:dark last=7:lit',
+    # Third block 2 frame 1: Pointer turned past rest
+    'first=1:dark second=0:lit last=1:down',
+    # Third block 3 frame 1: Pointer swung round
+    'first=1:lit second=0:down last=3:down',
+    # Third block 3 frame 2: Centre lid up, lit
+    'first=1:lit second=0:lit last=3:down',
+    # Third block 3 frame 3: Pointer back past rest
+    'first=1:lit second=0:lit last=5:down',
+    # Third block 3 frame 4: Tin read by the rules
+    'first=1:lit second=0:lit last=5:dark',
+    # Third block 4 frame 1: Ends waiting
+    'ends=5,0,3 | cols=5 rows=2 y=0..1 near=false folded=false; 1:ring green 0 @0,0; 2:ring green 0 @2,0; 3:ring '
+    'green 0 @4,0; 4:end green 15 @0,1; 5:end green 0 @2,1; 6:end green 9 @4,1; tie 1-2 tubes1 []; tie 2-3 tubes1'
+    ' []; cord 1-4 [0,0 0,1]; cord 2-5 [2,0 2,1]; cord 3-6 [4,0 4,1]',
+    # Third block 5 frame 1: A turn sent off the left end
+    'ends=1,0,3 halves=tie1:near:green | cols=5 rows=2 y=0..1 near=false folded=false; 1:ring green 0 @0,0; '
+    '2:ring green 0 @2,0; 3:ring green 0 @4,0; 4:end green 3 @0,1; 5:end green 0 @2,1; 6:end green 9 @4,1; tie '
+    '1-2 tubes1 []; tie 2-3 tubes1 []; cord 1-4 [0,0 0,1]; cord 2-5 [2,0 2,1]; cord 3-6 [4,0 4,1]',
+    # Third block 5 frame 2: Red past the tube
+    'ends=1,0,3 halves=tie1:far:red | cols=5 rows=2 y=0..1 near=false folded=false; 1:ring green 0 @0,0; 2:ring '
+    'green 0 @2,0; 3:ring green 0 @4,0; 4:end green 3 @0,1; 5:end green 0 @2,1; 6:end green 9 @4,1; tie 1-2 '
+    'tubes1 []; tie 2-3 tubes1 []; cord 1-4 [0,0 0,1]; cord 2-5 [2,0 2,1]; cord 3-6 [4,0 4,1]',
+    # Third block 5 frame 3: Out by the middle
+    'ends=1,0,3 halves=loose2:red,tie2:near:red | cols=5 rows=2 y=0..1 near=false folded=false; 1:ring green 0 '
+    '@0,0; 2:ring green 0 @2,0; 3:ring green 0 @4,0; 4:end green 3 @0,1; 5:end green 0 @2,1; 6:end green 9 @4,1; '
+    'tie 1-2 tubes1 []; tie 2-3 tubes1 []; cord 1-4 [0,0 0,1]; cord 2-5 [2,0 2,1]; cord 3-6 [4,0 4,1]',
+    # Third block 5 frame 4: Like a tin read dark
+    'ends=1,0,7 | cols=5 rows=2 y=0..1 near=false folded=false; 1:ring green 0 @0,0; 2:ring green 0 @2,0; 3:ring '
+    'green 0 @4,0; 4:end green 3 @0,1; 5:end green 0 @2,1; 6:end green 21 @4,1; tie 1-2 tubes1 []; tie 2-3 tubes1'
+    ' []; cord 1-4 [0,0 0,1]; cord 2-5 [2,0 2,1]; cord 3-6 [4,0 4,1]',
+)
 THIRD_DUMPS = (
     "first=1:lit second=0:dark last=7:lit",
     "first=1:lit second=0:lit last=5:dark",
@@ -189,25 +230,102 @@ def rule_steps(s1, s2):
     return steps
 
 
+def reading_chance(T, k):
+    """The chance of lid k's reading (k = 0, 1, 2) given the readings before it, from the row's
+    state and the dials as they stand in tin state T (a dial of s eighths an end turned s pi/4,
+    a lit reading a half further): P(first k + 1 readings) / P(first k)."""
+    t = [np.pi / 4 * L["s"] for L in T.lids]
+    r = [int(L["r"] == "lit") for L in T.lids]
+
+    def p(n):
+        tot = 0
+        for rest in product((0, 1), repeat=3 - n):
+            rr = r[:n] + list(rest)
+            tot += abs(k3(*(end(t[i] + rr[i] * np.pi) for i in range(3))) @ ROW) ** 2
+        return tot
+    return p(k + 1) / p(k)
+
+
+def row_graph(R):
+    """A tin-row frame as a PyZX graph, the halves on their way included (graph_of reads the dump's
+    rings, ends and ties, and leaves the halves out): a half on a tie by its near ring a green half
+    between the ring and the tie's tube, by its far ring a red half past the tube, on a loose cord a
+    red half on the cord."""
+    t = [Fraction(v[2], 12) for v in PC.parse_dump(R.dump)[0].values() if v[0] == "end"]
+    g, rings, ends = closed_row(t)
+    for h in PC.tinrow_halves(R.drawn):
+        k = h["k"] - 1
+        if h["on"] == "loose":
+            g.remove_edge(g.edge(rings[k], ends[k]))
+            v = g.add_vertex(VT.X if h["c"] == "red" else VT.Z, 0.5, 2 * k, phase=Fraction(1))
+            g.add_edge((rings[k], v))
+            g.add_edge((v, ends[k]))
+            continue
+        g.remove_edge(g.edge(rings[k], rings[k + 1]))
+        v = g.add_vertex(VT.X if h["c"] == "red" else VT.Z, 0, 2 * k + 1, phase=Fraction(1))
+        if h["at"] == "near":
+            g.add_edge((rings[k], v))
+            g.add_edge((v, rings[k + 1]), ET.HADAMARD)
+        else:
+            g.add_edge((rings[k], v), ET.HADAMARD)
+            g.add_edge((v, rings[k + 1]))
+    assert g.num_edges() == 5 + sum(1 for _ in PC.tinrow_halves(R.drawn))
+    return g
+
+
+def bead_ghost_ok(q, before_dump, g):
+    """A bead's ghost stands on the bead as it was: on the ring (or end) nearest it in the frame
+    before, at the bead's radius round that ring's centre, at the ring's turn then (in
+    twenty-fourths; an eighth is three)."""
+    nodes = [v for v in PC.parse_dump(before_dump)[0].values()]
+    d, (kind, col, t, x, y) = min(((np.hypot(g.XY((v[3], v[4]))[0] - q[0], g.XY((v[3], v[4]))[1] - q[1]), v) for v in nodes),
+                                  key=lambda u: u[0])
+    cx, cy = g.XY((x, y))
+    a = np.radians(90 - 45 * t / 3)
+    return d < g.RO and np.hypot(q[0] - cx - g.RM * np.cos(a), q[1] - cy - g.RM * np.sin(a)) < 1e-3
+
+
+def gap(p, c):
+    """From a point to a circle's edge (x, y, r)."""
+    return np.hypot(p[0] - c[0], p[1] - c[1]) - c[2]
+
+
 def pictures(rule, none):
-    """The Third Challenge's prop pictures (identity card, section 4), read from the dialogue
-    through tools/dfp_props.py and the transcription tools/props_ch17.py, and held against
-    this file's blackboard (`rule`, `none`: the four branches with and without the Crab's
-    rules) and pictures (graph_of: a structural reading of each cloth dump, not a proof)."""
-    calls = DIALOGUE.check_layout("Third", sizes=[1, 1, 1, 1])
+    """The Third Challenge's prop pictures (identity card, sections 4 and 3e), read from the
+    dialogue through tools/dfp_props.py and the transcription tools/props_ch17.py, and held against
+    this file's blackboard (`rule`, `none`: the four branches with and without the Crab's rules) and
+    pictures (graph_of: a structural reading of each cloth dump, not a proof).  Round 4 reads the
+    tins lid by lid and turns the dials as the rules say; and sends the half on step by step, every
+    frame the same value as the row before it."""
+    calls = DIALOGUE.check_layout("Third", sizes=[1, 1, 1, 1, 1])
     assert [(c.macro, c.keyed, c.opt, c.args, c.caption) for c in calls] == [
-        ("onewaytin", True, "first lit, second dark, last lit", (), "Every lid lifted"),
-        ("onewaytin", False, "first lit, second dial the other way, a half on the last dial, second lit, "
-                             "last dial the other way, last dark", (), "Read by the rules"),
+        ("onewaytinsteps", True, "", ("first lit; second dark; last lit",),
+         "The tin as set; Left lid off, lit; Centre lid up, dark; Every lid lifted"),
+        ("onewaytin", False, "first dark, second lit; step=last dial the other way", (), "Pointer turned past rest"),
+        ("onewaytinsteps", False, "after=first lit, second dial the other way; from=off",
+         ("a half on the last dial; second lit; last dial the other way; last dark",),
+         "Pointer swung round; Centre lid up, lit; Pointer back past rest; Tin read by the rules"),
         ("tincloth", True, "", ("lit, dark, lit",), "Ends waiting"),
-        ("tincloth", False, "first half sent on", ("lit, dark, lit",), "Like a tin read dark")]
+        ("tinclothsteps", False, "from=off",
+         ("lit, dark, lit", "the first half off its end; through the tube; out on every other cord; on to the ends"),
+         "A turn sent off the left end; Red past the tube; Out by the middle; Like a tin read dark")]
     PC.check_captions(DIALOGUE, "Third", calls)
     PC.check_section(DIALOGUE, "Third", calls)
-    PC.check_anchors(DIALOGUE, "Third", ["P3.1", "P3.2", "P3.3", "P3.4"])
-    pics = [PC.picture(c) for c in calls]
-    p31, p32, p33, p34 = pics
+    assert PC.check_anchors(DIALOGUE, "Third") == (8, 12)                 # P3.1, B3.1a, P3.2, P3.4
+    frames = [PC.frame_chain(c) for c in calls]
+    assert [len(f) for f in frames] == [4, 1, 4, 1, 4]                    # card 3e.6: 5 blocks, 14 frames
+    assert tuple(R.head for f in frames for R in f) == FRAME_DUMPS
+    b31, (b31a,), b32, (p33,), b34 = frames
+    p31, p32, p34 = b31[-1], b32[-1], b34[-1]
+    pics = [p31, p32, p33, p34]
+    # every strip's last frame is round 3's picture of its block (round 3's assertions carry over)
+    assert p31.dump == PC.onewaytin("first lit, second dark, last lit", False).dump
+    r3 = ", ".join(rule_steps(1, 1) + ["last dark"])                     # round 3's P3.2 bracket
+    assert PC.tin_state(p32.drawn_bracket) == PC.tin_state(r3) and p32.dump == PC.onewaytin(r3, False).dump
+    assert p34.dump == PC.tincloth("first half sent on", "lit, dark, lit", False).dump
     assert tuple(p.dump for p in pics) == THIRD_DUMPS
     assert [p.frame for p in pics] == [1.56, 1.56, 1.0, 1.0]
+    assert {R.frame for f in frames[:3] for R in f} == {1.56} and {R.frame for R in b34} == {1.0}
 
     # the tins: a dial setting of k eighths is an end turned k pi/4, clockwise from the top
     # (the pointer's tip there); a reading lit is the end turned a half further
@@ -230,7 +348,6 @@ def pictures(rule, none):
     assert (s1, s2) == (1, 1) and reads(p32)[2] == 0
     assert same_angle(setting(p32)[2], rule[(1, 1)][2]) and same_angle(setting(p32)[2], 5 * np.pi / 4)
     assert np.isclose(rule[(1, 1)][1], 0)
-    assert calls[1].opt == ", ".join(rule_steps(1, 1) + ["last dark"])
     # the mix-ups: the same tin read without the rule leaves the last dial at the preset (and
     # its last reading a coin toss); a dial turned after its lid is lifted is refused
     plain = PC.tin_state("first lit, second lit")
@@ -243,8 +360,84 @@ def pictures(rule, none):
     PC.TEX_ERRORS.clear()
     # and every branch of the rules, read through the transcription, ends dark, surely
     for (b1, b2), (p, lit, t3) in rule.items():
-        T = PC.tin_state(", ".join(rule_steps(b1, b2)))
-        assert same_angle(np.pi / 4 * T.lids[2]["s"], t3) and np.isclose(lit, 0)
+        T_ = PC.tin_state(", ".join(rule_steps(b1, b2)))
+        assert same_angle(np.pi / 4 * T_.lids[2]["s"], t3) and np.isclose(lit, 0)
+
+    # B3.1, Tin 1 lid by lid (card 3e.6, item 7): the tin as set (the preset dials, every lid down),
+    # then each lid lifted in order, its reading's chance from the row as the dials stand: the first
+    # two a coin each, the last (no rule turned) lit surely
+    assert [R.step for R in b31] == [None, "first lit", "second dark", "last lit"]
+    assert b31[0].drawn.lids == PC.tin_state("").lids and not b31[0].marked and b31[0].keyed
+    assert [[L["up"] for L in R.drawn.lids] for R in b31] == [[False] * 3, [True, False, False], [True, True, False], [True] * 3]
+    assert [np.round(reading_chance(R.drawn, k), 12) for k, R in enumerate(b31[1:])] == [0.5, 0.5, 1.0]
+    assert np.isclose(reading_chance(b31[2].drawn, 1), none[(1, 0)][0] / 0.5)            # P(1, 0) / P(first lit)
+    # B3.1a, Tin 2 (first dark, second lit): its last dial turned the other way, back through rest
+    # and on -- from seven eighths to one, the rule's setting for (0, 1); its last lid then dark surely
+    assert b31a.step == "last dial other way" and b31a.before.lids[2]["s"] == 7 and b31a.after.lids[2]["s"] == 1
+    assert same_angle(np.pi / 4 * b31a.after.lids[2]["s"], rule[(0, 1)][2])
+    assert not same_angle(np.pi / 4 * b31a.before.lids[2]["s"], rule[(0, 1)][2])        # the preset: not it
+    dark = PC.tin_state("first dark, second lit, last dial the other way, last dark")
+    assert np.isclose(reading_chance(dark, 2), 1)
+    assert np.isclose(reading_chance(PC.tin_state("first dark, second lit, last dark"), 2), 0.5)   # unturned: a coin
+    # B3.2, Tin 3 by the rules (first lit: the second dial the other way, at rest still, and a half on
+    # the last; second lit: the last dial the other way): frame by frame the dials the rule names,
+    # the second lid a coin, the last dark surely
+    assert [R.step for R in b32] == ["a half on last dial", "second lit", "last dial other way", "last dark"]
+    assert b32[0].before == PC.tin_state("first lit, second dial the other way")
+    assert [R.drawn.lids[2]["s"] for R in b32] == [3, 3, 5, 5]
+    assert np.isclose(reading_chance(b32[1].drawn, 1), 0.5) and np.isclose(reading_chance(b32[3].drawn, 2), 1)
+    assert same_angle(np.pi / 4 * b32[2].drawn.lids[2]["s"], rule[(1, 1)][2])
+    assert not same_angle(np.pi / 4 * b32[0].drawn.lids[2]["s"], rule[(1, 1)][2])        # half-way: not yet
+
+    # their marks: a lid lifted, a lift arc beside it, passing over the tin's near edge, bowed at
+    # least the floor (no ghost: its open hollow lies where it lay); a dial turned, the pointer's ghost
+    # where it stood and a turn arc round inside the lid the way it went (the other way through rest),
+    # clear of the knob, the dots and the pointers on the drawn extent
+    hw = 0.6 * 2.54 / 72.27 / 2                                           # the swing mark's half width (0.6pt)
+    knobr = 0.05 + 0.25 * 2.54 / 72.27 / 2                                # the knob as drawn, its 0.25pt edge included
+    assert '" circle (0.05);")' in PC.LUA.read_text(encoding="utf-8")     # (ch17.lua's lid: the brass knob)
+    turns = []
+    for R in b31[1:] + [b31a] + b32:
+        assert R.marked and not R.keyed and len(R.arcs) == 1, R.step
+        (a,) = R.arcs
+        assert a.kind == "swing", R.step                              # (MINSAG is the slide arcs' floor)
+        k = next(i for i in range(3) if R.before.lids[i] != R.after.lids[i])
+        cx = PC.LIDX[k]
+        if R.after.lids[k]["up"]:                                         # a lid lifted
+            assert R.ghosts == [] and a.what == "lift arc for the " + PC.LIDS[k] + " lid"
+            assert np.isclose(a.frm[0], a.to[0]) and a.frm[1] > a.to[1] and np.isclose(a.sag, 0.064, atol=5e-4)
+            assert min(p[0] for p in a.body) > cx                         # bowed to the right of the lid
+            for y in (0, PC.LY):                                          # clear of the lid where it lay and laid
+                assert min(np.hypot(p[0] - cx, p[1] - y) for p in a.pts) - PC.LR - hw > 0.03
+            continue
+        (q,) = R.ghosts
+        # a turn arc is a piece of the circle of radius TURNR round the knob: curved by its circle
+        assert all(np.isclose(np.hypot(p[0] - cx, p[1]), PC.TURNR, atol=2e-3) for p in a.body), R.step
+        _, d, s0, s1, a0, a1 = a.turn
+        assert (s0, s1) == (R.before.lids[k]["s"], R.after.lids[k]["s"]) and q.pointer[0] == s0
+        assert q.pointer[1] == PC.pointer_poly(cx, 0, s0)                 # the ghost where the pointer stood
+        assert (s0 + d) % 8 == s1 and np.sign(a1 - a0) == -np.sign(d)     # clockwise for d > 0
+        if R.step.endswith("other way"):
+            assert s1 == (-s0) % 8 and abs(d) == (2 * s0 if s0 <= 4 else 2 * (8 - s0))      # back through rest
+            rest = (a0 - 90) % 360 if d > 0 else (90 - a0) % 360       # how far round it meets the top
+            assert rest < abs(a1 - a0)                                    # the arc sweeps across rest (the top)
+        else:
+            assert d == 4
+        knob = min(np.hypot(p[0] - cx, p[1]) for p in a.body) - knobr - hw
+        dots = min(gap(p, (cx + PC.DOTR * np.cos(np.radians(90 - 45 * j)), PC.DOTR * np.sin(np.radians(90 - 45 * j)), PC.DOTS))
+                   for p in a.body for j in range(8)) - hw
+        poly = lambda p, P: min(PC.seg_dist(p, P[i], P[(i + 1) % len(P)]) for i in range(len(P)))
+        ptr = min(poly(p, PC.pointer_poly(cx, 0, s1)) for p in a.body) - hw
+        ghost = min(poly(p, q.pointer[1]) for p in a.body) - hw
+        head = a.pts[len(a.body):]
+        hdots = min(gap(p, (cx + PC.DOTR * np.cos(np.radians(90 - 45 * j)), PC.DOTR * np.sin(np.radians(90 - 45 * j)), PC.DOTS))
+                    for p in head for j in range(8))
+        assert min(knob, dots, ptr, ghost, hdots) > 0, (R.step, knob, dots, ptr, ghost, hdots)
+        turns.append((R.step, round(a.len, 3), round(dots, 3), round(knob, 3), round(ptr, 3)))
+    # L7: B3.1a's arc 0.170 cm long; its body clear of the dots by 0.032, of the knob's drawn edge by
+    # 0.097, of the pointer by 0.028 (its head's corner comes 0.010 from a dot)
+    assert turns[0] == ("last dial other way", 0.17, 0.032, 0.097, 0.028), turns[0]
+    assert [t[1] for t in turns] == [0.17, 0.424, 0.679]
 
     # the tin row: the ends are the (R) reading of lit, dark, lit -- each end turned as its dial
     # and a half more where lit; P3.4 sends the first half on (Result 17.11)
@@ -270,23 +463,114 @@ def pictures(rule, none):
     # probability 1/4 x 1 (the blackboard's, without the rules)
     assert np.isclose(abs(value(g33)), 4 * np.sqrt(none[(1, 0)][0] * none[(1, 0)][1]))
 
+    # B3.4, the half sent on step by step (card 3e.6, item 7): off the first end and through its ring
+    # onto the tie (green, by the ring), past the tube (red), out of the second ring on every other
+    # cord (onto its loose cord and the tie onward), on to the ends.  Every frame, its halves on
+    # their way read in, has exactly P3.3's value, scalar included; read without its halves (as the
+    # dump's rings and ends alone) it has not
+    assert [R.step for R in b34] == ["first half off its end", "through tube", "out on every other cord", "on to ends"]
+    assert b34[0].before == p33.state
+    assert [R.drawn.ends for R in b34] == [[1, 0, 3]] * 3 + [[1, 0, 7]]
+    assert [[(h["on"], h["k"], h.get("at"), h["c"]) for h in PC.tinrow_halves(R.drawn)] for R in b34] == [
+        [("tie", 1, "near", "green")], [("tie", 1, "far", "red")], [("loose", 2, None, "red"), ("tie", 2, "near", "red")], []]
+    for R in b34:
+        g = row_graph(R)
+        assert same_picture(g, g33), R.step
+        if PC.tinrow_halves(R.drawn):
+            assert not np.isclose(value(PC.graph_of(R.dump)), value(g33)), R.step          # graph_of leaves the halves out
+            # the plausible mix-up: a half the other colour (a red half before the tube, a green past it)
+            other = row_graph_with(R, [dict(h, c=("green" if h["c"] == "red" else "red")) for h in PC.tinrow_halves(R.drawn)])
+            assert not same_picture(other, g33), R.step
+    assert same_picture(row_graph(b34[-1]), g34) and not b34[-1].halves
+    # the halves drawn: at 0.57 of a ring, each on the cord the state names, clear of its ring
+    gg = PC.G(PC.tinrow_scene(b34[0].drawn), PC.ROWOPTS, PC.RWHO)
+    assert PC.TK == 0.57
+    for R in b34:
+        hv = PC.tinrow_halves(R.drawn)
+        assert len(R.halves) == len(hv)
+        for (x, y, r, col), h in zip(R.halves, hv):
+            assert col == h["c"] and np.isclose(r, PC.TK * gg.RO)
+            ring = gg.XY((PC.ROWX[h["k"] - 1], 0))
+            if h["on"] == "loose":
+                assert np.isclose(x, ring[0]) and gg.Y(1) < y < ring[1] - gg.RO    # on its loose cord, below its ring
+            else:
+                near, far = ring, gg.XY((PC.ROWX[h["k"]], 0))
+                assert np.isclose(y, ring[1]) and near[0] < x < far[0]          # on its tie
+                by = near if h["at"] == "near" else far
+                assert np.isclose(abs(x - by[0]) - gg.RO - r, PC.HALFGAP) and PC.HALFGAP > 0
+    # its marks: each half's ghost where it lay the frame before (the first end's bead where it
+    # stood, the last end's likewise); an arc from each part that moved to where it went -- every
+    # one drawn (L6: both of "out on every other cord"), bowed at least the floor, clear of the net
+    assert [len(R.arcs) for R in b34] == [1, 1, 2, 2]
+    for P, R in zip(b34, b34[1:]):
+        hg = [q for q in R.ghosts if q.half]
+        assert sorted((round(q[0], 3), round(q[1], 3)) for q in hg) == sorted((round(x, 3), round(y, 3)) for x, y, r, c in P.halves)
+    ends_cm = [gg.XY((x, 1)) for x in PC.ROWX]
+    for R in b34:
+        for a in R.arcs:
+            assert a.kind == "slide" and a.sag >= PC.MINSAG - 1e-9 and a.fit[0] >= PC.MINCLEAR - 1e-9, a.what
+            if R.halves:                                                  # it ends at a half it brought
+                assert min(gap(a.to, h) for h in R.halves) < 0.05, a.what
+            else:                                                         # or at the end it went into
+                assert min(range(3), key=lambda i: np.hypot(a.to[0] - ends_cm[i][0], a.to[1] - ends_cm[i][1])) in (1, 2)
+            hg = [q for q in R.ghosts if q.half]
+            if hg:                                                        # it starts at the half's ghost
+                assert min(gap(a.frm, q) for q in hg) < 0.05, a.what
+            else:                                                         # or at the first end
+                assert min(range(3), key=lambda i: np.hypot(a.frm[0] - ends_cm[i][0], a.frm[1] - ends_cm[i][1])) == 0
+    assert [q.what for q in b34[0].ghosts] == ["the first end"] and b34[0].ghosts[0].bead
+    for P, R in zip([p33] + b34, b34):                                     # each bead's ghost on the bead as it was
+        for q in (q for q in R.ghosts if q.bead):
+            assert bead_ghost_ok(q, P.dump, gg), (R.step, q.what)
+    assert [q.what for q in b34[3].ghosts if q.bead] == ["the last end"]
+    assert any("no ghost of the second end's bead" in n for n in b34[3].notes)   # rest the other way is rest
+    # L6: "out on every other cord", both arcs drawn: 0.268 cm (bowed 0.068) and 0.152 (bowed 0.047)
+    assert sorted((round(a.len, 3), round(a.sag, 3)) for a in b34[2].arcs) == [(0.152, 0.047), (0.268, 0.068)]
+    assert sorted(round(a.fit[0], 3) for a in b34[2].arcs) == [0.023, 0.026]
+
     # the captions' truth: every lid lifted (lit or dark); the rules' steps; ends, not rings; the
-    # ends at the preset, as a tin read dark, dark and dark would leave them
+    # ends at the preset, as a tin read dark, dark and dark would leave them; the first lid off lit,
+    # the centre up dark, then lit; the pointer past rest; a turn sent off the left end (the first),
+    # red past the tube
     assert all(L["up"] and L["r"] in ("lit", "dark") for L in p31.state.lids)
+    assert b31[1].drawn.lids[0]["r"] == "lit" and b31[2].drawn.lids[1]["r"] == "dark" and b32[1].drawn.lids[1]["r"] == "lit"
     assert p33.dump.startswith("ends=") and not p33.state.slid
     assert p34.state.ends == PC.tinrow_state("", "dark, dark, dark").ends
-    # fixed parts: the tin row's three rings at 0, 2, 4 in both pictures
+    assert b34[0].drawn.ends[0] == p33.state.ends[0] - 4 and b34[1].halves[0][3] == "red"
+    # fixed parts, frame to frame: the tin row's three rings at 0, 2, 4 in every frame, and the
+    # ends the half has not reached where they were; the tins' lids not touched by a step as they lay
     rings = lambda p: sorted(x for k, c, t, x, y in PC.parse_dump(p.dump)[0].values() if k == "ring")
-    assert rings(p33) == rings(p34) == [0, 2, 4]
+    for p in [p33] + b34:
+        assert rings(p) == [0, 2, 4]
+        assert [v for v in PC.parse_dump(p.dump)[0].values() if v[0] == "end"][1] == ("end", "green", 0, 2, 1)
+    for P, R in zip(b31 + b32, b31[1:] + b32[1:]):
+        if R.before == P.drawn:
+            k = [i for i in range(3) if P.drawn.lids[i] != R.drawn.lids[i]]
+            assert len(k) == 1, R.step                                     # one lid or dial at a time
+    assert [L for L in b31a.before.lids[:2]] == [L for L in b31a.after.lids[:2]]
 
-    # the keyed words: the lids' names (P3.1) over the tin, and on the row the kit's ring (placed
-    # by the kit, not re-measured here; card section 4: at least 0.028 cm) and the Lua's own end,
-    # in the margin at the linen's left, measured
-    assert p31.labels == ("first", "second", "last") and p32.labels == ()
-    assert p33.labels == ("ring", "end") and p34.labels == ()
-    for p in (p31, p33):
-        PC.check_compiled_boxes(p)
-        assert min(PC.check_keyed_words(p).values()) >= 0.02
+    # the keyed words: the lids' names (P3.1's strip, on its before-frame) over the tin, and on the
+    # row the kit's ring (placed by the kit, not re-measured here; card section 4: at least 0.028 cm)
+    # and the Lua's own end, in the margin at the linen's left, measured
+    assert b31[0].labels == ("first", "second", "last") and all(R.labels == () for R in b31[1:] + [b31a] + b32)
+    assert p33.labels == ("ring", "end") and all(R.labels == () for R in b34)
+    for p in (b31[0], p33):
+        PC.check_compiled_boxes(p.picture)
+        assert min(PC.check_keyed_words(p.picture).values()) >= 0.02
+    # a marked step frame is never keyed; a frame with a half on its way is never keyed
+    assert PC.faults(PC.run_frame, "tin", "step=first lit", "", True) == ["marks-keyed"]
+    assert PC.faults(PC.run_frame, "row", "step=first half off its end", "lit, dark, lit", True) == ["row-halves-keyed"]
+    PC.TEX_ERRORS.clear()
+
+
+def row_graph_with(R, halves):
+    """row_graph with other halves in place of the state's (a mix-up)."""
+    saved = PC.tinrow_halves
+    PC.tinrow_halves = lambda _R: halves
+    try:
+        return row_graph(R)
+    finally:
+        PC.tinrow_halves = saved
 
 
 # ------------------------------------------------------------------ pictures

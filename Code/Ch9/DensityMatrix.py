@@ -58,10 +58,13 @@ def blackboard():
 # --------------------------------------------------------------------------
 # The prop pictures.  The dialogue draws the viewer and the slate under their
 # cloths, and the black slab with a thing and its reflection,
-#   \crabviewer[view]{state}{caption}   \notchslate[view]{notches}{caption}
-#   \blackslab[operations]{scene}{caption}                 (pdf/props/ch09.tex)
+#   \crabviewer[step=look]{state}{caption}   \notchslate[covered; step=cut unread]{notches}{caption}
+#   \blackslab[<operations>; expects=tighter]{scene}{caption}   (pdf/props/ch09.tex)
 # tools/props_ch09.py transcribes the Lua; the calls are read out of this
-# challenge's section of dialog.md, never copied.
+# challenge's section of dialog.md, never copied.  Round 4 ("Show the process"):
+# the unseen look and its unread notch are drawn as steps (the state written is
+# the state before; under the cloth no mark shows the swing), and the looked-at
+# stone is drawn beside, paler, as Achilles's "tighter still" foresaw it.
 #
 # The state model (identity card, section 3): a reflection is TIGHT when the
 # piece's own state -- the reduced state of that piece alone, as it stands -- is
@@ -129,21 +132,43 @@ def tie_holds(scenes, states):
     return True
 
 
+def check_faults():
+    """The round-4 refusals the Second's steps meet: under the cloth the look is unseen
+    and the notch unread; a prediction carries no marks; the tighter rule is said of the
+    looked-at stone alone."""
+    assert P.faults(P.crabviewer, "step=look high", "restless stone, dial covered") == ["vstep-covered"]
+    assert P.faults(P.notchslate, "covered; step=cut high", "clean") == ["cut-covered"]
+    assert P.faults(P.notchslate, "step=cut unread", "clean") == ["slate-unread"]
+    assert P.faults(P.notchslate, "step=cut sideways", "clean") == ["cut-word"]
+    assert P.faults(P.blackslab, "expects=tighter", "restless stone") == ["wrong-tighter"]
+    assert P.faults(P.blackslab, "expects=tighter; marks=on; step=pull",
+                    "looked-at stone") == ["expects-marks", "pull-none"]
+    assert P.faults(P.blackslab, "expects=tight", "looked-at stone") == ["slab-rule"]
+
+
 def pictures():
     assert f'"{QUOTE}"' in __doc__                               # quoted byte for byte
-    calls = DIALOGUE.check_layout("Second", sizes=[2, 1, 1])
-    p21, p22, p23, p24 = calls
-    for c in calls:
-        assert words_only(c.caption, forbidden=P.CAPTION_FORBIDDEN), c.caption
-        assert P.place_ok("Second", c), c.text
-    for b in DIALOGUE.blocks("Second"):
-        assert len({P.height(c) for c in b}) == 1                 # no block mixes frames
-    assert [c.macro for c in calls] == ["crabviewer", "notchslate", "blackslab", "blackslab"]
-    assert [c.keyed for c in calls] == [False, False, True, False]
-    v21, s22, b23, b24 = (P.picture(c) for c in calls)
+    P.check_lua()
+    P.check_sites()
+    check_faults()
+    found = P.check_section(DIALOGUE, "Second", sizes=[2, 1, 2], frames=[2, 1, 2])
+    calls = [c for b in found for c, _ in b]
+    p21, p22, p23, e24, p24 = calls
+    assert [c.macro for c in calls] == ["crabviewer", "notchslate", "blackslab", "blackslab", "blackslab"]
+    assert [c.keyed for c in calls] == [False, False, True, False, False]
+    assert [P.is_prediction(c) for c in calls] == [False, False, False, True, False]
+    assert [P.options(c) for c in calls] == [
+        {"step": "look", "bare": ""}, {"step": "cut unread", "bare": "covered"}, {"bare": ""},
+        {"expects": "tighter", "bare": ""}, {"bare": ""}]
+    v21, s22, b23, w24, b24 = (P.picture(c) for c in calls)
     paras = DIALOGUE.paragraphs("Second")
+    sec = DIALOGUE.section("Second")
     a1, a2, a3 = DIALOGUE.anchors("Second")
     f1, f2, f3 = DIALOGUE.following("Second")
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        here = [(n, o) for n, _, o in P.quote_places(DIALOGUE, path) if o == "Second"]
+        assert sorted(here) == [("THE SLAB'S WRONG RULES", "Second")] * 2 + [
+            ("THE SLATE'S STEP", "Second")] + [("THE VIEWER'S STEPS", "Second")] * 2
 
     # the whole slab: tight <=> pure, every scene, every piece with a state (L1 in force)
     rng = np.random.default_rng(921)
@@ -163,15 +188,23 @@ def pictures():
     assert not tie_holds(pre_l1, states)
     assert np.isclose(purity(states["pair of one piece"]["near stone"]), 0.5)
 
-    # P2.1, P2.2: looked through with the dial and the slate under their cloths
+    # B2.1: looked through with the dial and the slate under their cloths -- each a step
+    # from the state the First left: the restless stone, the six notches
     covering = [q for q in paras if "draping one cloth over the needle's dial" in q]
     assert len(covering) == 1 and "another over the slate and its stylus arm" in covering[0]
     assert "never read" in a1 and "the stylus cuts a notch" in a1   # a mechanism cut it (R5)
-    assert (v21.dish, v21.needle) == ("spent", "covered")
+    assert v21.before == ("restless", "covered") and (v21.dish, v21.needle) == ("spent", "covered")
+    assert v21.moved.get("unseen") and v21.marks == ()             # the cloth hides the swing
     first_row = P.picture(DIALOGUE.blocks("First")[-1][-1])       # P1.4, as the First left it
-    assert s22.view == "covered" and s22.shown == ()               # no notch shows
+    assert s22.view == "covered" and s22.shown == () and s22.marks == ()   # no notch shows
+    assert s22.before == first_row.notches                         # the slate the First left
     assert s22.notches == first_row.notches + ("unread",)          # the row, and one unread after
     assert P.faults(P.notchslate, "", ", ".join(s22.notches)) == ["slate-unread"]   # never read
+    # = round 3's P2.1 and P2.2, the state words written out
+    r1 = P.crabviewer("", "spent stone, dial covered")
+    r2 = P.notchslate("covered", ", ".join(s22.notches))
+    assert (r1.view, r1.dish, r1.needle, r1.labels) == (v21.view, v21.dish, v21.needle, v21.labels)
+    assert (r2.view, r2.notches, r2.shown, r2.labels) == (s22.view, s22.notches, s22.shown, s22.labels)
     assert f1.startswith("**Achilles:** So it has an answer, and I can't get at it.")
 
     # P2.3: a stone cut alone, restless; its reflection tight (keyed: a thing and its twin)
@@ -182,7 +215,7 @@ def pictures():
     assert np.isclose(purity(states["restless stone"]["stone"]), 1)
     assert f2.startswith("**Tortoise:** " + QUOTE + " While the thing is restless, the two are tight")
 
-    # P2.4: the looked-at, unread stone set where it stood; its reflection slack
+    # B2.4: the looked-at, unread stone set where it stood; its reflection slack
     assert "gone loose" in a3 and "its reflection answers slack" in a3
     (t24,) = b24.shown.things
     assert (t24.kind, t24.gloss, t24.refl, t24.x) == ("stone", "spent", "slack", t23.x)
@@ -190,6 +223,18 @@ def pictures():
     # NEGATIVE (the prediction N2, "tighter still"): the look LOWERS the purity
     assert purity(states["looked-at stone"]["stone"]) < purity(states["restless stone"]["stone"])
     assert "like a rower a beat behind the stroke" in f3
+    # the prediction, paler, beside the truth: Achilles's rule draws the spent stone
+    # TIGHT -- the same stone, still, at the same place; only its reflection differs.
+    # The tie refutes it: a tight reflection on a mixed stone.
+    assert "Then a spent stone will be tighter still — it has stopped trembling altogether." in sec
+    assert sec.index("tighter still") < sec.index(a3)             # said before the rock
+    (w,) = w24.shown.things
+    assert w24.expects == "tighter" and w24.pale and w24.marks == () and w24.labels == ()
+    assert (w.kind, w.gloss, w.x, w.mode) == (t24.kind, t24.gloss, t24.x, t24.mode)
+    assert (w.refl, t24.refl) == ("tight", "slack")
+    assert not tie_holds({"looked-at stone": w24.state}, states)  # tight, yet tr rho^2 < 1
+    assert tie_holds({"looked-at stone": b24.state}, states)
+    assert calls.index(e24) == calls.index(p24) - 1               # the prediction before the truth
 
 
 def doubled_state(alpha):

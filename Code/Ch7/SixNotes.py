@@ -101,11 +101,15 @@ def blackboard():
 
 # --------------------------------------------------------------------------
 # The pictures.  The dialogue draws the back of Achilles's card with the four
-# trio-masks set out below it (\notecard[masks]{state}{caption}).  The Lua
+# trio-masks set out below it (\notecard[masks; step]{state}{caption}).  The Lua
 # COMPUTES the buttons: one on every mask whose word (EVEN or ODD: the number
-# of black counters in its windows) the counters break.  tools/props_ch07.py
-# transcribes it; the calls are read out of this challenge's section of
-# dialog.md, never copied.
+# of black counters in its windows) the counters break; and, round 4, the state
+# after a counter is turned, its marks (the flip; a ghost button where one
+# left, an arc where the one button crossed), and what the named wrong rule
+# `mended` predicts.  tools/props_ch07.py transcribes it (proved against
+# texlua; P.check_lua holds the Lua and the .tex to the text it was proved on);
+# the calls are read out of this challenge's section of dialog.md and
+# dialog.raw.md, never copied.
 #
 # The state model (identity card, section 3): the back's columns are the boxes
 # as they stand on the cloth (left, middle, right = legs A, B, C), the door row
@@ -144,6 +148,7 @@ def check_transcription():
     for the ODD ones -- the four eigen-relations.  A mask is kept exactly when
     the product of its windows' faces is that eigenvalue, which is the
     blackboard's `demands`; so the buttons are part (ii), as buttons."""
+    P.check_lua()
     back = P.MASKS["back"]
     for m in back:
         op = kron(*(QUESTION[w] for w in deal_of(m)))
@@ -168,24 +173,36 @@ def check_transcription():
     assert nbuttons.count(1) == 32 and nbuttons.count(3) == 32
     assert P.faults(P.notecard, "masks", "back; all white, left door empty") != []
     assert P.faults(P.notecard, "masks", "back; all black") == []
+    # round 4's refusals on this section's turns
+    assert P.faults(P.notecard, "masks; turn=left lid", "back; all white") != []     # a front square
+    assert P.faults(P.notecard, "masks; turn=", "back; all white") != []             # turns nothing
+    assert P.crashes(P.notecard, "card; turn=left door; expects=mended", "back; all white")   # no buttons
 
 
 def pictures():
     check_transcription()
-    p41, p42, p43 = DIALOGUE.check_layout("Fourth", sizes=[1, 1, 1])
-    for c in (p41, p42, p43):
-        assert c.macro == "notecard" and c.opt == "masks"
-        assert words_only(c.caption, forbidden=P.NOT_IN_CAPTIONS), c.caption
-    c41, c42, c43 = (P.picture(c) for c in (p41, p42, p43))
+    found = P.check_section(DIALOGUE, "Fourth", sizes=[1, 1, 2], frames=[1, 1, 2])
+    (p41, [(c41, cap41)]), = found[0]
+    (p42, [(c42, cap42)]), = found[1]
+    (p43e, [(c24, cap24)]), (p43, [(c43, cap43)]) = found[2]
+    for c in (p41, p42, p43e, p43):
+        assert c.macro == "notecard" and P.options(c)["bare"] == "masks"
+    assert (cap41, cap42, cap24, cap43) == \
+        ("three buttons", "three become one", "as Achilles expects", "the button crosses")
     sec = DIALOGUE.section("Fourth")
 
-    a1, a2, a3 = P.anchors(DIALOGUE, "Fourth")
-    assert a1 == "**Tortoise:** *[standing a button on each of the three]* Three broken, one kept."
-    assert a2.startswith("**Achilles:** Then a dark is wanted.") and a2.endswith("Two gone at a stroke!")
-    assert "He turns the middle box's drawer counter, white to black" in a2
-    assert a3.startswith("**Achilles:** Now mend the last.")
-    assert "the left box's, one of the two under the single surviving button" in a3
-    assert a3.endswith("The very same walk as the front of the card, six squares wide instead of four.")
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        a1, a2, a3 = DIALOGUE.anchors("Fourth", path)
+        assert a1 == "**Tortoise:** *[standing a button on each of the three]* Three broken, one kept."
+        assert a2.startswith("**Achilles:** Then a dark is wanted.") and a2.endswith("Two gone at a stroke!")
+        assert "He turns the middle box's drawer counter, white to black" in a2
+        assert a3.startswith("**Achilles:** Now mend the last.")
+        assert "the left box's, one of the two under the single surviving button" in a3
+        assert a3.endswith("The very same walk as the front of the card, six squares wide instead of four.")
+    # the direction edited this round (D5: the read-out the picture above draws, dropped)
+    P.check_edits(DIALOGUE, "Fourth", [
+        ("*[The card as it stands: three buttons, on the three ODD masks. He turns the middle box's drawer counter,",
+         "*[He turns the middle box's drawer counter,")])
 
     # the masks laid as l.322 names them: even, then odd left, odd middle, odd right
     assert [m.name for m in P.MASKS["back"]] == ["even", "odd left", "odd middle", "odd right"]
@@ -198,39 +215,98 @@ def pictures():
              "The third, over the right box's door and the other two drawers"]
     assert [sec.index(t) for t in order] == sorted(sec.index(t) for t in order)
 
-    # P4.1: six white, the masks set out below, keyed; buttons on the three ODD masks
-    assert p41.keyed and c41.side == "back" and c41.view == "masks"
+    # P4.1: six white, the masks set out below, keyed; buttons on the three ODD masks.  The
+    # laying is a repeat of the First's (one picture of the result, unmarked)
+    assert p41.keyed and c41.side == "back" and c41.view == "masks" and c41.nmasks == 4
     assert c41.labels == ("door", "drawer", "even", "odd", "odd", "odd")
     assert c41.counters == {s: "white" for s in P.squares("back")}
     assert "six white counters" in sec
     assert c41.buttons == ("odd left", "odd middle", "odd right")       # three broken, one kept
+    assert not c41.marked and c41.step is None
+    assert [c41.spots[m.name] for m in P.MASKS["back"]] == [(0, 0), (0, 1), (1, 0), (1, 1)]
 
-    # P4.2: the middle box's drawer turned black; two buttons lift at once, one stays
-    assert not p42.keyed and turned(c41.counters, c42.counters) == ["middle drawer"]
+    # Block 4.2: the middle box's drawer turned black; two buttons lift at once, one stays.
+    # Its before-frame is P4.1 (written {back; all white}: the same counters and buttons)
+    side, cs = P.parse_card(p42.args[0])
+    assert side == "back" and cs == c41.counters and P.buttons(side, cs) == c41.buttons
+    assert not p42.keyed and c42.step == ("turn", "middle drawer")
+    assert turned(c41.counters, c42.counters) == ["middle drawer"]
     assert c42.counters["middle drawer"] == "black"
     assert set(P.masks_over("back", "middle drawer")) == {"odd left", "odd right"}
     assert c42.buttons == ("odd middle",)                               # three become one
     survivor = dict((m.name, m) for m in P.MASKS["back"])["odd middle"]
     assert "middle door" in survivor.sq and "middle drawer" not in survivor.sq
     assert "One is left standing, on the ODD mask over the middle door, which cannot see this square." in sec
+    # its marks: the flip, and a ghost on each mask the buttons lifted off -- no arc, for
+    # the text names no place they go ("two buttons lift off together")
+    assert "two buttons lift off together" in sec
+    assert [(g.what, g.name) for g in c42.ghosts] == [("button", "odd left"), ("button", "odd right")]
+    for g in c42.ghosts:
+        assert np.allclose(g.at, P.button_at("back", g.name))
+    assert [a.tag for a in c42.arcs] == ["flip middle drawer"] and c42.pins == []
 
-    # P4.3: the left box's drawer, one of the two drawers under the surviving
-    # button; the button crosses to the mask next door
+    # Block 4.3: the left box's drawer, one of the two drawers under the surviving button;
+    # Achilles's forecast beside the truth.  Both start from F23's state
+    for c in (p43e, p43):
+        side, cs = P.parse_card(c.args[0])
+        assert side == "back" and cs == c42.counters and P.buttons(side, cs) == c42.buttons
+        assert P.options(c)["turn"] == "left drawer"
+    # F24, the prediction: `mended` -- the buttons before less those on the masks that
+    # show the turned square: none.  Its words are the Lua's own comment's
+    quotes = P.rule_quotes()
+    assert quotes[1] in sec and quotes[3] in sec and sec.index(quotes[1]) < sec.index(quotes[3])
+    assert P.is_prediction(p43e) and c24.expects == "mended" and c24.pale and not c24.keyed
+    assert not c24.marked and c24.labels == () and c24.step == ("turn", "left drawer")
+    assert c24.counters == c43.counters
+    assert c24.buttons == tuple(P.rule_mended("back", c42.counters, ["left drawer"])) == ()
+    # F25, the truth: one button still, crossed to the mask next door
     assert not p43.keyed and turned(c42.counters, c43.counters) == ["left drawer"]
     assert [s for s in survivor.sq if s.endswith("drawer")] == ["left drawer", "right drawer"]
     assert set(P.masks_over("back", "left drawer")) == {"odd middle", "odd right"}
     assert "odd right" not in c42.buttons                               # already kept
-    assert c43.buttons == ("odd right",)
+    assert c43.buttons == ("odd right",) != c24.buttons
     v2, v3 = verdicts(c42.counters), verdicts(c43.counters)
     assert {k for k in v2 if v2[k] != v3[k]} == {"odd middle", "odd right"}   # two verdicts changed
     (r0, k0), (r1, k1) = c43.spots["odd middle"], c43.spots["odd right"]
     assert r0 == r1 and abs(k0 - k1) == 1                               # side by side: next door
     assert "it crosses to the mask next door" in sec
     assert [len(c.buttons) for c in (c41, c42, c43)] == [3, 1, 1]
+    # its marks: the flip; the button's ghost where it stood; one arc to the mask next door
+    assert [(g.what, g.name) for g in c43.ghosts] == [("button", "odd middle")]
+    flip, cross = c43.arcs
+    assert flip.tag == "flip left drawer" and cross.tag == "button odd middle -> odd right"
+    x0, y0 = P.button_at("back", "odd middle")
+    x1, y1 = P.button_at("back", "odd right")
+    assert np.isclose(np.hypot(cross.start[0] - x0, cross.start[1] - y0), 0.11)
+    assert np.isclose(np.hypot(cross.end[0] - x1, cross.end[1] - y1), 0.12)
+    assert x0 < x1                                                      # left to right, along row 2
 
     # the flip after the Anteater's count (not pictured): the right box's door
     assert "Achilles turns one more counter — the right box's door" in sec
     assert P.buttons("back", {**c43.counters, "right door": "black"}) == ("even",)
+
+    # the log the pictures write, line for line as the build writes it
+    six = "back; left door white, left drawer white, middle door white, middle drawer white, right door white, right drawer white"
+    md = "back; left door white, left drawer white, middle door white, middle drawer black, right door white, right drawer white"
+    ld = "back; left door white, left drawer black, middle door white, middle drawer black, right door white, right drawer white"
+    assert P.section_dumps(found) == [
+        "notecard: [masks] {back; all white} | " + six + " | buttons odd left, odd middle, odd right",
+        "notecard: [masks; turn=middle drawer] {back; all white} | " + md + " | buttons odd middle",
+        "notecard: + step turn=middle drawer -> [masks] {" + md + "}",
+        "notecard: + turned middle drawer white to black",
+        "notecard: + ghost button odd left",
+        "notecard: + ghost button odd right",
+        "notecard: + lifted off odd left",
+        "notecard: + lifted off odd right",
+        "notecard: [masks; turn=left drawer; expects=mended] {back; all white, middle drawer black} | " + ld
+        + " | buttons none",
+        "notecard: + step turn=left drawer -> [masks] {" + ld + "}",
+        "notecard: + expects mended: buttons none (true: odd right)",
+        "notecard: [masks; turn=left drawer] {back; all white, middle drawer black} | " + ld + " | buttons odd right",
+        "notecard: + step turn=left drawer -> [masks] {" + ld + "}",
+        "notecard: + turned left drawer white to black",
+        "notecard: + ghost button odd middle",
+        "notecard: + arc button odd middle -> odd right"]
 
 
 # --------------------------------------------------------------------------

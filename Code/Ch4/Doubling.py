@@ -78,9 +78,8 @@ def blackboard():
 # The pictures (pdf/props/ch04.tex; the Lua's rules transcribed in
 # tools/props_ch04.py), read out of this challenge's section of dialog.md.
 # --------------------------------------------------------------------------
-DIALOGUE = Dialogue(__file__, macros=("stringframe", "foldsheet"))
-NOT_IN_CAPTIONS = ("strings", "wires", "wire", "diagram", "diagrams", "drawing", "drawings",
-                   "picture", "pictures", "box", "boxes")
+DIALOGUE = Dialogue(__file__, macros=("stringframe", "foldsheet", "framewalk", "framesteps",
+                                      "foldsteps"))
 X = np.array([[0, 1], [1, 0]], dtype=complex)
 S0 = np.array([[1, 1], [0, 0]], dtype=complex)
 CNOT = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]], dtype=complex)
@@ -88,38 +87,84 @@ SWAP = np.array([[1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]], dtype=
 GATES = {"over": X, "heads": S0, "yoke": CNOT, "cross": SWAP}
 
 
+def edge_rule(folds):
+    """Achilles's sheet ("So a third string makes six."): each string a row of two
+    panels added at the edge -- two more panels for every fold."""
+    return (folds, 2)
+
+
 def pictures():
-    p21, p22, p23 = DIALOGUE.check_layout("Second", sizes=[1, 1, 1])
-    for c in (p21, p22, p23):
-        assert words_only(c.caption, forbidden=NOT_IN_CAPTIONS), c.caption
+    P.check_lua()                     # ch04.lua and ch04.tex as the transcription was proved
+    # Three moments.  Block 2.1: the third fold as Achilles expects it beside the
+    # sheet as it is, with the fold's marks; P2.2 the whole frame; P2.3 sixteen.
+    found = P.check_section(DIALOGUE, "Second", sizes=[2, 1, 1], frames=[2, 1, 1])
+    (p21e, [(edge, _)]), (p21, [(sh, _)]) = found[0]
+    (p22, [(fr, _)]), = found[1]
+    (p23, [(sh4, _)]), = found[2]
 
     # the macro's folds: each fold goes through every panel there is
     for n, word in enumerate(("none", "once", "twice", "three", "four")):
         assert P.foldsheet(word, "blank").panels == 2 ** n
     assert P.faults(P.foldsheet, "five", "blank") != []    # no fifth crease
 
-    # P2.1: the third fold, across again -- eight panels, not six
-    sh = P.picture(p21)
-    assert p21.macro == "foldsheet" and not p21.keyed
+    # Block 2.1, the true sheet: the third fold, across again -- eight panels, not six
+    assert p21.macro == "foldsheet" and not p21.keyed and P.options(p21) == {"marks": "on"}
     assert sh.shape == (4, 2)                               # four rows of two
     assert sh.panels == 2 ** 3 == 8 and sh.panels != 6      # "Two, four, six... eight."
     assert sh.shares is None and sh.arrows == [] and sh.tallies is None
+    # its marks (D3: across again, bottom edge up to top): in each of the four
+    # panels there were, an arc from its lower half up over the new crease
+    assert sh.swing_kind == "across" and len(sh.swings) == P.foldsheet("twice", "blank").panels
+    assert all(P.up(a) for a in sh.swings)
+    assert sorted((sh.panel_at(*a[0]), sh.panel_at(*a[3])) for a in sh.swings) == [
+        ((2, 1), (1, 1)), ((2, 2), (1, 2)), ((4, 1), (3, 1)), ((4, 2), (3, 2))]
+    # the prediction beside it: the rule's sheet, six panels, and not the paper's
+    assert p21e.macro == "foldsheet" and not p21e.keyed and p21e.args == p21.args
+    assert P.options(p21e) == {"expects": "edge"} and edge.expects == "edge"
+    assert edge.shape == edge_rule(3) and edge.panels == 6 == 2 + 2 + 2
+    assert edge.shape != sh.shape and edge.panels != sh.panels
+    assert edge.swings == [] and not edge.marks and edge.labels == {}
+    # the rule agrees with the paper up to the second fold, so it is drawn only
+    # from the third on
+    for n, word in ((1, "once"), (2, "twice")):
+        assert np.prod(edge_rule(n)) == P.foldsheet(word, "blank").panels
+        assert P.faults(P.foldsheet, word, "blank", False, "expects=edge") != []
+    assert np.prod(edge_rule(4)) != P.foldsheet("four", "blank").panels
+    D3 = ("the last crease going across again and turning",
+          "the last crease going across again, bottom edge up to top, and turning")
+    P.check_edits(DIALOGUE, "Second", [D3])
+    for path in (DIALOGUE.dialog, DIALOGUE.raw):
+        at, blocks = P.where(DIALOGUE, "Second", D3[1], path)
+        assert at < blocks[0]                                 # the fold, then its picture
+        a21, a22, a23 = DIALOGUE.anchors("Second", path)
+        assert a21.endswith("It went through every panel that was already there.")
 
     # P2.2: the whole frame, the names at their hooks, bare, no coin
-    fr = P.picture(p22)
     assert p22.macro == "stringframe" and p22.keyed and fr.place == ("start", None)
     assert fr.hooked == ("silk", "hemp", "gut", "horsehair") and fr.ncol == 0
     assert fr.rows == {"silk": [1], "hemp": [2], "gut": [3], "horsehair": [4]}
     assert fr.labels == {"silk": 1, "hemp": 2, "gut": 3, "horsehair": 4}
     assert fr.clips() == [] and fr.yokes() == [] and fr.crossings() == [] and fr.coins() == {}
+    assert fr.moved is None and not fr.walkmarks
     bare = P.check_walks(fr, GATES)
     assert bare.shape == (2 ** 4, 2 ** 4) and np.allclose(bare, np.eye(16))
 
     # P2.3: the fourth fold -- sixteen, where the separate coins need eight lines
-    sh = P.picture(p23)
-    assert p23.macro == "foldsheet" and not p23.keyed
-    assert sh.shape == (4, 4) and sh.panels == 2 ** len(fr.hooked) == 16
-    assert 2 * len(fr.hooked) == 8 != sh.panels             # "Eight lines in all."
+    assert p23.macro == "foldsheet" and not p23.keyed and p23.opt == ""
+    assert sh4.shape == (4, 4) and sh4.panels == 2 ** len(fr.hooked) == 16
+    assert 2 * len(fr.hooked) == 8 != sh4.panels             # "Eight lines in all."
+    assert sh4.swings == []
+
+    assert P.section_dumps(found) == [
+        "foldsheet: three rows 3 cols 2 expects edge",
+        "foldsheet: three rows 4 cols 2",
+        "foldsheet: + swing 4 across",
+        "stringframe: start",
+        "stringframe: + cells silk bare",
+        "stringframe: + cells hemp bare",
+        "stringframe: + cells gut bare",
+        "stringframe: + cells horsehair bare",
+        "foldsheet: four rows 4 cols 4"]
 
 
 # --------------------------------------------------------------------------
